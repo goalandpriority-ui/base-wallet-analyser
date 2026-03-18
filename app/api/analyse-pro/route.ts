@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
 
-const GRAPH_URL = "https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3"
+// 🔥 UPDATED WORKING GRAPH ENDPOINT
+const GRAPH_URL = "https://gateway.thegraph.com/api/public/subgraphs/id/9zvRrR7vRkNvztNFVQVw1Gc7YDxjx3sZHFVAb9YSEvum"
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,7 +17,7 @@ export async function POST(req: NextRequest) {
     const query = `
     {
       swaps(
-        first: 1000,
+        first: 100,
         orderBy: timestamp,
         orderDirection: desc,
         where: {
@@ -30,7 +31,13 @@ export async function POST(req: NextRequest) {
     }
     `
 
+    // 🔥 GRAPH CALL
     const res = await axios.post(GRAPH_URL, { query })
+
+    // 🔥 SAFETY CHECK (NEW - avoid crash)
+    if (!res.data || !res.data.data) {
+      return NextResponse.json({ error: "No data from Graph" })
+    }
 
     const swaps = res.data.data.swaps || []
 
@@ -58,7 +65,10 @@ export async function POST(req: NextRequest) {
     })
 
   } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: "Graph fetch failed" })
+    console.error("GRAPH ERROR:", err)
+
+    return NextResponse.json({
+      error: "Graph fetch failed",
+    })
   }
 }
