@@ -26,6 +26,12 @@ export async function POST(req: NextRequest) {
     }
 
     // -------------------------
+    // 🔥 TIME FILTER (LAST 2 YEARS)
+    // -------------------------
+    const twoYearsAgo = new Date()
+    twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2)
+
+    // -------------------------
     // FETCH TRANSACTIONS
     // -------------------------
     const res = await axios.post(process.env.BASE_RPC!, {
@@ -45,36 +51,46 @@ export async function POST(req: NextRequest) {
 
     const transfers = res.data.result.transfers || []
 
-    const totalTxns = transfers.length
-
-    // -------------------------
-    // VOLUME CALC
-    // -------------------------
+    let totalTxns = 0
     let totalVolumeETH = 0
+    let totalGasETH = 0
 
-    for (const tx of transfers) {
-      if (tx.value) {
-        totalVolumeETH += Number(tx.value)
-      }
-    }
-
-    // -------------------------
-    // GAS (approx)
-    // -------------------------
-    const totalGasETH = totalTxns * 0.000002
-
-    // -------------------------
-    // ACTIVE DAYS
-    // -------------------------
     const daysSet = new Set<string>()
 
     for (const tx of transfers) {
+      // -------------------------
+      // 🔥 DATE FILTER
+      // -------------------------
       if (tx.metadata?.blockTimestamp) {
-        const day = new Date(tx.metadata.blockTimestamp)
-          .toISOString()
-          .split("T")[0]
+        const txDate = new Date(tx.metadata.blockTimestamp)
+
+        if (txDate < twoYearsAgo) continue
+
+        const day = txDate.toISOString().split("T")[0]
         daysSet.add(day)
       }
+
+      totalTxns++
+
+      // -------------------------
+      // 🔥 VOLUME FILTER (IMPORTANT)
+      // -------------------------
+      if (tx.value) {
+        const value = Number(tx.value)
+
+        // ❌ ignore dust / spam
+        if (value < 0.0001) continue
+
+        // ❌ ignore unrealistic huge transfers (fix overflow)
+        if (value > 100000) continue
+
+        totalVolumeETH += value
+      }
+
+      // -------------------------
+      // 🔥 GAS (slightly improved estimate)
+      // -------------------------
+      totalGasETH += 0.0000025
     }
 
     const activeDays = daysSet.size
@@ -85,6 +101,7 @@ export async function POST(req: NextRequest) {
       totalVolumeETH: Number(totalVolumeETH.toFixed(4)),
       totalGasETH: Number(totalGasETH.toFixed(6)),
       activeDays,
+      period: "Last 2 Years",
     }
 
     // 🔥 SAVE CACHE
@@ -99,4 +116,4 @@ export async function POST(req: NextRequest) {
     console.error(err)
     return NextResponse.json({ error: "Server error" }, { status: 500 })
   }
-      }
+}
