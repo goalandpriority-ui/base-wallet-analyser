@@ -12,13 +12,27 @@ export default function Home() {
     setData(null)
 
     try {
-      const res = await fetch("/api/analyse", {
-        method: "POST",
-        body: JSON.stringify({ wallet }),
+      // 🔥 CALL BOTH APIs
+      const [basicRes, proRes] = await Promise.all([
+        fetch("/api/analyse", {
+          method: "POST",
+          body: JSON.stringify({ wallet }),
+        }),
+        fetch("/api/analyse-pro", {
+          method: "POST",
+          body: JSON.stringify({ wallet }),
+        }),
+      ])
+
+      const basicData = await basicRes.json()
+      const proData = await proRes.json()
+
+      // 🔥 MERGE DATA
+      setData({
+        ...basicData,
+        ...proData,
       })
 
-      const json = await res.json()
-      setData(json)
     } catch (err) {
       alert("Error analysing wallet")
     }
@@ -28,7 +42,7 @@ export default function Home() {
 
   return (
     <main style={{ padding: 40, fontFamily: "sans-serif" }}>
-      <h1>🔥 Base Wallet Analyser</h1>
+      <h1>🔥 Base Wallet Analyser (PRO)</h1>
 
       <input
         placeholder="Enter wallet address"
@@ -47,10 +61,19 @@ export default function Home() {
 
       {data && !data.error && (
         <div style={{ background: "#111", color: "#0f0", padding: 20 }}>
+
+          {/* 🔥 OLD DATA */}
           <p>📊 Transactions: {data.totalTxns}</p>
-          <p>💰 Volume: {data.totalVolumeETH} ETH</p>
+          <p>💰 Transfer Volume: {data.totalVolumeETH} ETH</p>
           <p>⛽ Gas: {data.totalGasETH} ETH</p>
           <p>📅 Active Days: {data.activeDays}</p>
+
+          <hr style={{ margin: "15px 0", borderColor: "#333" }} />
+
+          {/* 🔥 PRO DATA */}
+          <p>🔁 Swaps: {data.swapCount || 0}</p>
+          <p>💎 Trading Volume: ${data.totalVolumeUSD || 0}</p>
+
         </div>
       )}
 
