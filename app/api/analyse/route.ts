@@ -32,24 +32,43 @@ export async function POST(req: NextRequest) {
     twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2)
 
     // -------------------------
-    // FETCH TRANSACTIONS
+    // 🔥 PAGINATION FETCH (FULL HISTORY)
     // -------------------------
-    const res = await axios.post(process.env.BASE_RPC!, {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "alchemy_getAssetTransfers",
-      params: [
-        {
-          fromBlock: "0x0",
-          toBlock: "latest",
-          fromAddress: wallet,
-          category: ["external", "erc20", "erc721"],
-          withMetadata: true,
-        },
-      ],
-    })
+    let allTransfers: any[] = []
+    let pageKey: string | undefined = undefined
 
-    const transfers = res.data.result.transfers || []
+    do {
+      const res = await axios.post(process.env.BASE_RPC!, {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "alchemy_getAssetTransfers",
+        params: [
+          {
+            fromBlock: "0x0",
+            toBlock: "latest",
+            fromAddress: wallet,
+            category: ["external", "erc20", "erc721"],
+            withMetadata: true,
+            maxCount: "0x3e8",
+            pageKey: pageKey,
+          },
+        ],
+      })
+
+      const result = res.data.result
+
+      if (result.transfers) {
+        allTransfers = allTransfers.concat(result.transfers)
+      }
+
+      pageKey = result.pageKey
+
+      // 🔥 safety limit (avoid overload)
+      if (allTransfers.length > 5000) break
+
+    } while (pageKey)
+
+    const transfers = allTransfers
 
     let totalTxns = 0
     let totalVolumeETH = 0
@@ -73,7 +92,7 @@ export async function POST(req: NextRequest) {
       totalTxns++
 
       // -------------------------
-      // 🔥 VOLUME FILTER (FINAL BALANCED 🔥)
+      // 🔥 VOLUME FILTER (UNCHANGED LOGIC + IMPROVED)
       // -------------------------
       if (tx.value) {
         const value = Number(tx.value)
