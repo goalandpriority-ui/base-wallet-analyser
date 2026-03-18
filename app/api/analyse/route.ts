@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
       totalTxns++
 
       // -------------------------
-      // 🔥 VOLUME FILTER (IMPORTANT)
+      // 🔥 VOLUME FILTER (UPDATED 🔥)
       // -------------------------
       if (tx.value) {
         const value = Number(tx.value)
@@ -81,8 +81,14 @@ export async function POST(req: NextRequest) {
         // ❌ ignore dust / spam
         if (value < 0.0001) continue
 
-        // ❌ ignore unrealistic huge transfers (fix overflow)
+        // ❌ ignore unrealistic huge transfers
         if (value > 100000) continue
+
+        // 🔥 ONLY COUNT ETH (ignore tokens like USDC, random coins)
+        if (tx.asset !== "ETH") continue
+
+        // 🔥 realistic trading range filter
+        if (value > 100) continue
 
         totalVolumeETH += value
       }
