@@ -73,28 +73,41 @@ export async function POST(req: NextRequest) {
       totalTxns++
 
       // -------------------------
-      // 🔥 VOLUME FILTER (UPDATED 🔥)
+      // 🔥 VOLUME FILTER (FINAL BALANCED 🔥)
       // -------------------------
       if (tx.value) {
         const value = Number(tx.value)
 
-        // ❌ ignore dust / spam
-        if (value < 0.0001) continue
+        // ❌ ignore dust
+        if (value < 0.001) continue
 
-        // ❌ ignore unrealistic huge transfers
-        if (value > 100000) continue
+        // ❌ ignore extreme unrealistic values
+        if (value > 1000000) continue
 
-        // 🔥 ONLY COUNT ETH (ignore tokens like USDC, random coins)
-        if (tx.asset !== "ETH") continue
+        const asset = (tx.asset || "").toUpperCase()
 
-        // 🔥 realistic trading range filter
-        if (value > 100) continue
+        // 🔥 allow major assets only
+        const allowedAssets = ["ETH", "WETH", "USDC", "USDT", "DAI"]
 
-        totalVolumeETH += value
+        if (!allowedAssets.includes(asset)) continue
+
+        let normalizedValue = value
+
+        // 🔥 convert stablecoins → ETH (approx)
+        if (asset === "USDC" || asset === "USDT" || asset === "DAI") {
+          normalizedValue = value / 3000
+        }
+
+        // 🔥 WETH treat as ETH
+        if (asset === "WETH") {
+          normalizedValue = value
+        }
+
+        totalVolumeETH += normalizedValue
       }
 
       // -------------------------
-      // 🔥 GAS (slightly improved estimate)
+      // 🔥 GAS (same logic keep panniruken)
       // -------------------------
       totalGasETH += 0.0000025
     }
