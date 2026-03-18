@@ -3,6 +3,12 @@ import axios from "axios"
 
 const cache: Record<string, any> = {}
 
+// 🔥 DEX ROUTERS (BASE + ETH)
+const DEX_ROUTERS = [
+  "0xE592427A0AEce92De3Edee1F18E0157C05861564".toLowerCase(), // Uniswap V3
+  "0x1111111254EEB25477B68fb85Ed929f73A960582".toLowerCase(), // 1inch
+]
+
 export async function POST(req: NextRequest) {
   try {
     const { wallet } = await req.json()
@@ -63,7 +69,6 @@ export async function POST(req: NextRequest) {
 
       pageKey = result.pageKey
 
-      // 🔥 safety limit (avoid overload)
       if (allTransfers.length > 5000) break
 
     } while (pageKey)
@@ -73,6 +78,10 @@ export async function POST(req: NextRequest) {
     let totalTxns = 0
     let totalVolumeETH = 0
     let totalGasETH = 0
+
+    // 🔥 NEW PRO METRICS
+    let swapCount = 0
+    let swapVolumeETH = 0
 
     const daysSet = new Set<string>()
 
@@ -92,32 +101,25 @@ export async function POST(req: NextRequest) {
       totalTxns++
 
       // -------------------------
-      // 🔥 VOLUME FILTER (UNCHANGED LOGIC + IMPROVED)
+      // 🔥 EXISTING VOLUME LOGIC (UNCHANGED)
       // -------------------------
       if (tx.value) {
         const value = Number(tx.value)
 
-        // ❌ ignore dust
         if (value < 0.001) continue
-
-        // ❌ ignore extreme unrealistic values
         if (value > 1000000) continue
 
         const asset = (tx.asset || "").toUpperCase()
-
-        // 🔥 allow major assets only
         const allowedAssets = ["ETH", "WETH", "USDC", "USDT", "DAI"]
 
         if (!allowedAssets.includes(asset)) continue
 
         let normalizedValue = value
 
-        // 🔥 convert stablecoins → ETH (approx)
         if (asset === "USDC" || asset === "USDT" || asset === "DAI") {
           normalizedValue = value / 3000
         }
 
-        // 🔥 WETH treat as ETH
         if (asset === "WETH") {
           normalizedValue = value
         }
@@ -126,7 +128,22 @@ export async function POST(req: NextRequest) {
       }
 
       // -------------------------
-      // 🔥 GAS (same logic keep panniruken)
+      // 🔥 NEW SWAP DETECTION (PRO 🔥)
+      // -------------------------
+      if (tx.to && DEX_ROUTERS.includes(tx.to.toLowerCase())) {
+        swapCount++
+
+        if (tx.value) {
+          const value = Number(tx.value)
+
+          if (value > 0.0001 && value < 1000) {
+            swapVolumeETH += value
+          }
+        }
+      }
+
+      // -------------------------
+      // 🔥 GAS (UNCHANGED)
       // -------------------------
       totalGasETH += 0.0000025
     }
@@ -136,13 +153,19 @@ export async function POST(req: NextRequest) {
     const result = {
       wallet,
       totalTxns,
+
+      // 🔥 OLD METRICS
       totalVolumeETH: Number(totalVolumeETH.toFixed(4)),
+
+      // 🔥 NEW PRO METRICS
+      swapCount,
+      swapVolumeETH: Number(swapVolumeETH.toFixed(4)),
+
       totalGasETH: Number(totalGasETH.toFixed(6)),
       activeDays,
       period: "Last 2 Years",
     }
 
-    // 🔥 SAVE CACHE
     cache[wallet] = {
       data: result,
       timestamp: now,
@@ -154,4 +177,4 @@ export async function POST(req: NextRequest) {
     console.error(err)
     return NextResponse.json({ error: "Server error" }, { status: 500 })
   }
-}
+            }
