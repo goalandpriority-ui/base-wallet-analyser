@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
                 toBlock: "latest",
                 category: ["external","internal","erc20","erc721","erc1155"],
                 withMetadata: true,
-                excludeZeroValue: true,
+                excludeZeroValue: false, // 🔥 FIXED
                 maxCount: "0x3e8",
                 pageKey,
                 [type]: address,
