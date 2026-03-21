@@ -1,11 +1,13 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 
 export default function Home() {
   const [wallet, setWallet] = useState("")
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(false)
+  const [menu, setMenu] = useState(false)
 
   const analyse = async () => {
     setLoading(true)
@@ -40,7 +42,68 @@ export default function Home() {
 
   return (
     <main style={{ padding: 40, fontFamily: "sans-serif" }}>
-      <h1>🔥 Base Wallet Analyser (PRO)</h1>
+
+      {/* 🔥 TOP BAR */}
+      <div style={{
+        display:"flex",
+        justifyContent:"space-between",
+        alignItems:"center",
+        marginBottom:20
+      }}>
+
+        <h1>🔥 Base Wallet Analyser (PRO)</h1>
+
+        {/* ☰ MENU BUTTON */}
+        <div style={{ position:"relative" }}>
+          <button
+            onClick={() => setMenu(!menu)}
+            style={{
+              background:"#111",
+              color:"#0f0",
+              border:"1px solid #333",
+              padding:"8px 12px",
+              borderRadius:6,
+              cursor:"pointer"
+            }}
+          >
+            ☰
+          </button>
+
+          {/* DROPDOWN */}
+          {menu && (
+            <div style={{
+              position:"absolute",
+              right:0,
+              top:40,
+              background:"#111",
+              border:"1px solid #333",
+              borderRadius:8,
+              padding:10,
+              width:180,
+              zIndex:100
+            }}>
+
+              <Link href="/leaderboard">
+                <div style={menuItem}>🏆 Leaderboard</div>
+              </Link>
+
+              <Link href="/leaderboard/top-wallets">
+                <div style={menuItem}>👑 Top Wallets</div>
+              </Link>
+
+              <Link href="/leaderboard/top-traders">
+                <div style={menuItem}>📈 Top Traders</div>
+              </Link>
+
+              <Link href="/leaderboard/top-volume">
+                <div style={menuItem}>💰 Highest Volume</div>
+              </Link>
+
+            </div>
+          )}
+        </div>
+
+      </div>
 
       <input
         placeholder="Enter wallet address"
@@ -85,6 +148,12 @@ export default function Home() {
 
           <p>⛽ Trading Gas: {data.tradingGasETH || 0} ETH</p>
 
+          {/* leaderboard */}
+          <hr style={{ margin: "15px 0", borderColor: "#333" }} />
+
+          <p>🏆 Rank: #{data.rank || "-"}</p>
+          <p>⭐ Score: {data.score || 0}</p>
+
         </div>
       )}
 
@@ -95,4 +164,10 @@ export default function Home() {
       )}
     </main>
   )
+}
+
+const menuItem = {
+  padding:"10px",
+  borderBottom:"1px solid #222",
+  cursor:"pointer"
 }
