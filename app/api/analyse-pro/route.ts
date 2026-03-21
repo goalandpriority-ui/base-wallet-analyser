@@ -67,9 +67,11 @@ export async function POST(req: NextRequest) {
     const tradingDays: Record<string, boolean> = {}
     const processedTx: Record<string, boolean> = {}
 
-    const gasPromises: Promise<void>[] = []
-
     const STABLES = ["USDC", "USDT"]
+
+    // 🔥 LIMIT PARALLEL
+    const MAX_PARALLEL = 5
+    let gasPromises: Promise<void>[] = []
 
     for (const entry of Array.from(txMap.entries())) {
       const txHash = entry[0]
@@ -108,17 +110,12 @@ export async function POST(req: NextRequest) {
           if (!value || !asset) continue
 
           if (t.from?.toLowerCase() === address) {
-            if (STABLES.includes(asset)) {
-              volumeUSD += value
-            }
-
-            if (asset === "ETH" || asset === "WETH") {
-              volumeUSD += value * 3000
-            }
+            if (STABLES.includes(asset)) volumeUSD += value
+            if (asset === "ETH" || asset === "WETH") volumeUSD += value * 3000
           }
         }
 
-        // 🔥 FAST GAS FETCH (parallel)
+        // 🔥 GAS
         if (!processedTx[txHash]) {
           processedTx[txHash] = true
 
@@ -133,13 +130,16 @@ export async function POST(req: NextRequest) {
             if (receipt) {
               const gasUsed = parseInt(receipt.gasUsed, 16)
               const gasPrice = parseInt(receipt.effectiveGasPrice || "0x0", 16)
-
-              const gas = (gasUsed * gasPrice) / 1e18
-              gasETH += gas
+              gasETH += (gasUsed * gasPrice) / 1e18
             }
           }).catch(() => {})
 
           gasPromises.push(promise)
+
+          if (gasPromises.length >= MAX_PARALLEL) {
+            await Promise.all(gasPromises)
+            gasPromises = []
+          }
         }
 
         const sample = transfers[0]
