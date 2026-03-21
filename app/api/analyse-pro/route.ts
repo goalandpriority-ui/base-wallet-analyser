@@ -11,154 +11,151 @@ const rpc = axios.create({
 
 const ETH_PRICE = 3500
 
+const SWAP_TOPICS = [
+"0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e6a6b7e0a5eec8f3", // V2
+"0x414bf3890f28e7f0e0e1b6a4b7e3a1a996a96f2ef749acd972d4b8ca0d24dd47", // V3
+"0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67"  // aero
+]
+
 export async function POST(req: NextRequest) {
 
-  try {
+try {
 
-    const supabase = getSupabase()
-    const { wallet } = await req.json()
-    const address = wallet.toLowerCase()
+const supabase = getSupabase()
+const { wallet } = await req.json()
+const address = wallet.toLowerCase()
 
-    let transfers:any[] = []
-    let pageKey:any = undefined
+let transfers:any[] = []
+let pageKey:any = undefined
 
-    do {
+do {
 
-      const res = await rpc.post("/", {
-        jsonrpc: "2.0",
-        id: 1,
-        method: "alchemy_getAssetTransfers",
-        params: [{
-          fromBlock: "0x0",
-          toBlock: "latest",
-          fromAddress: address,
-          category: ["external","internal","erc20"],
-          withMetadata: true,
-          maxCount: "0x3e8",
-          pageKey
-        }]
-      })
+const res = await rpc.post("/", {
+jsonrpc:"2.0",
+id:1,
+method:"alchemy_getAssetTransfers",
+params:[{
+fromBlock:"0x0",
+toBlock:"latest",
+fromAddress:address,
+category:["external","internal","erc20"],
+withMetadata:true,
+maxCount:"0x3e8",
+pageKey
+}]
+})
 
-      const result = res.data.result
-      transfers = transfers.concat(result.transfers || [])
-      pageKey = result.pageKey
+const result = res.data.result
+transfers = transfers.concat(result.transfers || [])
+pageKey = result.pageKey
 
-    } while (pageKey)
+} while (pageKey)
 
+const hashes = [...new Set(transfers.map((t:any)=>t.hash))]
 
-    const hashes = [
-      ...new Set(transfers.map((t:any)=>t.hash))
-    ]
+let swapCount = 0
+let volumeUSD = 0
+let gasETH = 0
 
-    let swapCount = 0
-    let volumeUSD = 0
-    let gasETH = 0
+const tradingDays = new Set<string>()
 
-    const tradingDays = new Set<string>()
+for (const hash of hashes) {
 
-    for (const hash of hashes) {
+const receipt = await rpc.post("/", {
+jsonrpc:"2.0",
+id:1,
+method:"eth_getTransactionReceipt",
+params:[hash]
+})
 
-      const receipt = await rpc.post("/", {
-        jsonrpc:"2.0",
-        id:1,
-        method:"eth_getTransactionReceipt",
-        params:[hash]
-      })
+const r = receipt.data.result
+if (!r) continue
 
-      const r = receipt.data.result
-      if (!r) continue
+const logs = r.logs || []
 
-      const logs = r.logs || []
+let isSwap = false
 
-      let isSwap = false
+for (const log of logs) {
 
-      for (const log of logs) {
+const topic = log.topics?.[0]?.toLowerCase()
 
-        const topic =
-          log.topics?.[0]?.toLowerCase()
+if (SWAP_TOPICS.includes(topic)) {
+isSwap = true
+break
+}
 
-        if (
-          topic ===
-          "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e6a6b7e0a5eec8f3"
-        ) {
-          isSwap = true
-          break
-        }
-      }
+}
 
-      if (!isSwap) continue
+if (!isSwap) continue
 
-      swapCount++
+swapCount++
 
-      const tx = transfers.find(
-        (t:any)=>t.hash===hash
-      )
+const tx = transfers.find(
+(t:any)=>t.hash===hash
+)
 
-      if (tx?.value) {
-        volumeUSD +=
-          Number(tx.value) * ETH_PRICE
-      }
+if (tx?.value) {
+volumeUSD += Number(tx.value) * ETH_PRICE
+}
 
-      if (tx?.metadata?.blockTimestamp) {
+if (tx?.metadata?.blockTimestamp) {
 
-        const day =
-          new Date(tx.metadata.blockTimestamp)
-            .toISOString()
-            .split("T")[0]
+const day =
+new Date(tx.metadata.blockTimestamp)
+.toISOString()
+.split("T")[0]
 
-        tradingDays.add(day)
-      }
+tradingDays.add(day)
+}
 
-      const gas =
-        (parseInt(r.gasUsed,16) *
-         parseInt(r.effectiveGasPrice,16))
-        /1e18
+const gas =
+(parseInt(r.gasUsed,16) *
+parseInt(r.effectiveGasPrice,16))
+/1e18
 
-      gasETH += gas
-    }
+gasETH += gas
+}
 
-    const tradingDaysCount =
-      tradingDays.size
+const tradingDaysCount = tradingDays.size
 
-    const score =
-      swapCount*2 +
-      tradingDaysCount +
-      volumeUSD/100 +
-      gasETH*5000
+const score =
+swapCount*2 +
+tradingDaysCount +
+volumeUSD/100 +
+gasETH*5000
 
-    await supabase
-      .from("leaderboard")
-      .upsert({
-        wallet:address,
-        score,
-        swaps:swapCount,
-        volume:volumeUSD,
-        days:tradingDaysCount,
-        gas:gasETH
-      },{onConflict:"wallet"})
+await supabase
+.from("leaderboard")
+.upsert({
+wallet:address,
+score,
+swaps:swapCount,
+volume:volumeUSD,
+days:tradingDaysCount,
+gas:gasETH
+},{onConflict:"wallet"})
 
-    return NextResponse.json({
-      wallet,
-      swapCount,
-      tradingVolumeUSD:
-        Number(volumeUSD.toFixed(2)),
-      tradingDays:tradingDaysCount,
-      tradingGasETH:
-        Number(gasETH.toFixed(6)),
-      score:Math.round(score),
-      rank:1
-    })
+return NextResponse.json({
+wallet,
+swapCount,
+tradingVolumeUSD:Number(volumeUSD.toFixed(2)),
+tradingDays:tradingDaysCount,
+tradingGasETH:Number(gasETH.toFixed(6)),
+score:Math.round(score),
+rank:1
+})
 
-  } catch {
+} catch {
 
-    return NextResponse.json({
-      wallet:"",
-      swapCount:0,
-      tradingVolumeUSD:0,
-      tradingDays:0,
-      tradingGasETH:0,
-      score:0,
-      rank:0
-    })
-  }
+return NextResponse.json({
+wallet:"",
+swapCount:0,
+tradingVolumeUSD:0,
+tradingDays:0,
+tradingGasETH:0,
+score:0,
+rank:0
+})
+
+}
 }
