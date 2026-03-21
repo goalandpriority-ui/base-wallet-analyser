@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
 import { getSupabase } from "../../../lib/supabase"
 
-// 🔥 RPC SAFE (VERCEL FIX)
+// 🔥 RPC SAFE
 const RPC =
   process.env.BASE_RPC ||
   `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
@@ -11,6 +11,15 @@ const rpc = axios.create({
   baseURL: RPC,
   timeout: 10000
 })
+
+// 🔥 BASE DEX ROUTERS
+const ROUTERS = [
+  "0x1111111254eeb25477b68fb85ed929f73a960582", // 1inch
+  "0xe592427a0aece92de3edee1f18e0157c05861564", // uniswap v3
+  "0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad", // universal router
+  "0xdef1c0ded9bec7f1a1670819833240f027b25eff", // 0x
+  "0x2626664c2603336e57b271c5c0b26f421741e481", // base router
+]
 
 export async function POST(req: NextRequest) {
 
@@ -24,7 +33,7 @@ export async function POST(req: NextRequest) {
     let allTransfers:any[] = []
     let pageKey:any = undefined
 
-    // fetch FROM
+    // FROM
     do {
       const res = await rpc.post("", {
         jsonrpc: "2.0",
@@ -47,7 +56,7 @@ export async function POST(req: NextRequest) {
 
     } while (pageKey)
 
-    // fetch TO
+    // TO
     pageKey = undefined
 
     do {
@@ -92,7 +101,7 @@ export async function POST(req: NextRequest) {
 
     for (const [txHash, txs] of txMap.entries()) {
 
-      // 🔥 REAL SWAP DETECTION (UNISWAP / 1INCH / BASE)
+      // 🔥 GET TX
       const txData = await rpc.post("", {
         jsonrpc:"2.0",
         id:1,
@@ -100,27 +109,35 @@ export async function POST(req: NextRequest) {
         params:[txHash]
       })
 
-      const input = txData.data.result?.input || ""
+      const tx = txData.data.result
+      const to = tx?.to?.toLowerCase()
+      const input = tx?.input || ""
 
-      const isSwap =
-        input.startsWith("0x38ed1739") || // swapExactTokensForTokens
-        input.startsWith("0x18cbafe5") || // swapExactETHForTokens
-        input.startsWith("0x7ff36ab5") || // swapExactETHForTokens
-        input.startsWith("0x5c11d795") || // uniswap v3
-        input.startsWith("0x414bf389") || // multicall
-        input.startsWith("0x3593564c") || // uniswap universal router
-        input.startsWith("0x04e45aaf")    // uniswap v3 exactInput
+      // 🔥 ROUTER DETECT
+      const routerSwap = ROUTERS.includes(to)
+
+      // 🔥 METHOD DETECT
+      const methodSwap =
+        input.startsWith("0x38ed1739") ||
+        input.startsWith("0x18cbafe5") ||
+        input.startsWith("0x7ff36ab5") ||
+        input.startsWith("0x5c11d795") ||
+        input.startsWith("0x414bf389") ||
+        input.startsWith("0x3593564c") ||
+        input.startsWith("0x04e45aaf")
+
+      const isSwap = routerSwap || methodSwap
 
       if (isSwap) {
 
         swapCount++
 
-        for (const tx of txs) {
+        for (const t of txs) {
 
-          const asset = (tx.asset || "").toUpperCase()
-          const value = Number(tx.value || 0)
+          const asset = (t.asset || "").toUpperCase()
+          const value = Number(t.value || 0)
 
-          if (value && tx.from?.toLowerCase() === address) {
+          if (value && t.from?.toLowerCase() === address) {
 
             if (STABLES.includes(asset)) {
               volumeUSD += value
@@ -131,8 +148,8 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          if (tx.metadata?.blockTimestamp) {
-            const day = new Date(tx.metadata.blockTimestamp)
+          if (t.metadata?.blockTimestamp) {
+            const day = new Date(t.metadata.blockTimestamp)
               .toISOString()
               .split("T")[0]
 
