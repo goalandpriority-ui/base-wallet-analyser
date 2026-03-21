@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
 
     const address = wallet.toLowerCase()
 
-    // get tx list
+    // get transfers
     const res = await rpc.post("", {
       jsonrpc: "2.0",
       id: 1,
@@ -32,53 +32,85 @@ export async function POST(req: NextRequest) {
 
     const transfers = res.data.result.transfers || []
 
+    // group by tx hash
+    const txMap = new Map<string, any[]>()
+
+    for (const tx of transfers) {
+      if (!txMap.has(tx.hash)) {
+        txMap.set(tx.hash, [])
+      }
+      txMap.get(tx.hash)!.push(tx)
+    }
+
     let swapCount = 0
     let volumeUSD = 0
     let gasETH = 0
+
     const tradingDays: Record<string, boolean> = {}
+    const processedTx: Record<string, boolean> = {}
 
-    for (const tx of transfers) {
+    for (const [txHash, txs] of txMap.entries()) {
 
-      // detect swap via interaction
-      if (tx.category === "erc20") {
+      let sent = false
+      let received = false
+
+      for (const tx of txs) {
+
+        if (tx.from?.toLowerCase() === address) {
+          sent = true
+        }
+
+        if (tx.to?.toLowerCase() === address) {
+          received = true
+        }
+
+        const asset = (tx.asset || "").toUpperCase()
+        const value = Number(tx.value || 0)
+
+        if (value && tx.from?.toLowerCase() === address) {
+
+          if (asset === "USDC" || asset === "USDT") {
+            volumeUSD += value
+          }
+
+          if (asset === "ETH" || asset === "WETH") {
+            volumeUSD += value * 3000
+          }
+        }
+
+        if (tx.metadata?.blockTimestamp) {
+          const day = new Date(tx.metadata.blockTimestamp)
+            .toISOString()
+            .split("T")[0]
+
+          tradingDays[day] = true
+        }
+      }
+
+      // swap detect
+      if (sent && received) {
         swapCount++
 
-        const value = Number(tx.value || 0)
-        const asset = (tx.asset || "").toUpperCase()
+        if (!processedTx[txHash]) {
 
-        if (asset === "USDC" || asset === "USDT") {
-          volumeUSD += value
+          processedTx[txHash] = true
+
+          const receipt = await rpc.post("", {
+            jsonrpc:"2.0",
+            id:1,
+            method:"eth_getTransactionReceipt",
+            params:[txHash]
+          })
+
+          const r = receipt.data.result
+
+          if (r) {
+            const gasUsed = parseInt(r.gasUsed,16)
+            const gasPrice = parseInt(r.effectiveGasPrice,16)
+            gasETH += (gasUsed * gasPrice) / 1e18
+          }
         }
-
-        if (asset === "ETH" || asset === "WETH") {
-          volumeUSD += value * 3000
-        }
       }
-
-      if (tx.metadata?.blockTimestamp) {
-        const day = new Date(tx.metadata.blockTimestamp)
-          .toISOString()
-          .split("T")[0]
-
-        tradingDays[day] = true
-      }
-
-      // gas
-      const receipt = await rpc.post("", {
-        jsonrpc:"2.0",
-        id:1,
-        method:"eth_getTransactionReceipt",
-        params:[tx.hash]
-      })
-
-      const r = receipt.data.result
-
-      if (r) {
-        const gasUsed = parseInt(r.gasUsed,16)
-        const gasPrice = parseInt(r.effectiveGasPrice,16)
-        gasETH += (gasUsed * gasPrice) / 1e18
-      }
-
     }
 
     const tradingDaysCount = Object.keys(tradingDays).length
@@ -101,9 +133,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       wallet,
       swapCount,
-      tradingVolumeUSD: volumeUSD,
+      tradingVolumeUSD: Number(volumeUSD.toFixed(2)),
       tradingDays: tradingDaysCount,
-      tradingGasETH: gasETH,
+      tradingGasETH: Number(gasETH.toFixed(6)),
       score: Math.round(score),
       rank: 1
     })
@@ -122,4 +154,4 @@ export async function POST(req: NextRequest) {
 
   }
 
-}
+      }
