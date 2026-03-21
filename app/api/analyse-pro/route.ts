@@ -37,7 +37,6 @@ export async function POST(req: NextRequest) {
       })
 
       const result = res.data.result
-
       if (result?.transfers) {
         allTransfers = allTransfers.concat(result.transfers)
       }
@@ -72,7 +71,6 @@ export async function POST(req: NextRequest) {
       })
 
       const result = res.data.result
-
       if (result?.transfers) {
         allTransfers = allTransfers.concat(result.transfers)
       }
@@ -85,36 +83,31 @@ export async function POST(req: NextRequest) {
     // =========================================
     // 🔥 GROUP BY TX
     // =========================================
-    const txMap = new Map<string, any[]>()
+    const txMap: { [key: string]: any[] } = {}
 
     for (const tx of allTransfers) {
       const hash = tx.hash
-
-      if (!txMap.has(hash)) {
-        txMap.set(hash, [])
-      }
-
-      txMap.get(hash)!.push(tx)
+      if (!txMap[hash]) txMap[hash] = []
+      txMap[hash].push(tx)
     }
 
     // =========================================
-    // 🔥 SWAP DETECT + VOLUME
+    // 🔥 SWAP DETECT + REAL VOLUME
     // =========================================
     let swapCount = 0
-    let swapVolumeETH = 0
-    const tradingDays = new Set<string>()
+    let swapVolumeUSD = 0
+    const tradingDays: { [key: string]: boolean } = {}
 
     const STABLES = ["USDC", "USDT"]
     const ETH_PRICE = 3000 // rough
 
-    for (const entry of Array.from(txMap.entries())) {
-      const transfers = entry[1]
-
-      let sentTotal = 0
-      let receivedTotal = 0
+    for (const hash in txMap) {
+      const transfers = txMap[hash]
 
       let sentAssets: string[] = []
       let receivedAssets: string[] = []
+
+      let sentValueUSD = 0
 
       for (const t of transfers) {
         const value = Number(t.value || 0)
@@ -122,60 +115,46 @@ export async function POST(req: NextRequest) {
 
         if (!value || !asset) continue
 
+        // 🔴 SENT
         if (t.from?.toLowerCase() === address) {
-          sentTotal += value
           sentAssets.push(asset)
+
+          if (STABLES.includes(asset)) {
+            sentValueUSD += value
+          } else if (asset === "ETH" || asset === "WETH") {
+            sentValueUSD += value * ETH_PRICE
+          } else {
+            // 🔥 token estimate
+            sentValueUSD += value * 0.5
+          }
         }
 
+        // 🟢 RECEIVED
         if (t.to?.toLowerCase() === address) {
-          receivedTotal += value
           receivedAssets.push(asset)
         }
       }
 
-      const uniqueSent = [...new Set(sentAssets)]
-      const uniqueReceived = [...new Set(receivedAssets)]
+      // unique (NO SET)
+      const uniqueSent = sentAssets.filter((v, i, a) => a.indexOf(v) === i)
+      const uniqueReceived = receivedAssets.filter((v, i, a) => a.indexOf(v) === i)
 
       // 🔥 SWAP CONDITION
       if (
-        sentTotal > 0 &&
-        receivedTotal > 0 &&
+        uniqueSent.length > 0 &&
+        uniqueReceived.length > 0 &&
         JSON.stringify(uniqueSent) !== JSON.stringify(uniqueReceived)
       ) {
         swapCount++
+        swapVolumeUSD += sentValueUSD
 
-        // =====================================
-        // 🔥 VOLUME LOGIC (REAL FIX)
-        // =====================================
-        for (const t of transfers) {
-          const value = Number(t.value || 0)
-          const asset = (t.asset || "").toUpperCase()
-
-          if (!value || !asset) continue
-
-          if (t.from?.toLowerCase() === address) {
-            // ETH / WETH
-            if (asset === "ETH" || asset === "WETH") {
-              swapVolumeETH += value
-            }
-
-            // STABLE → convert
-            if (STABLES.includes(asset)) {
-              swapVolumeETH += value / ETH_PRICE
-            }
-          }
-        }
-
-        // =====================================
-        // 🔥 ACTIVE DAY
-        // =====================================
         const sample = transfers[0]
         if (sample.metadata?.blockTimestamp) {
           const day = new Date(sample.metadata.blockTimestamp)
             .toISOString()
             .split("T")[0]
 
-          tradingDays.add(day)
+          tradingDays[day] = true
         }
       }
     }
@@ -183,9 +162,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       wallet,
       swapCount,
-      swapVolumeETH: Number(swapVolumeETH.toFixed(4)),
-      tradingDays: tradingDays.size,
-      source: "Transfer-based PRO 🔥",
+      tradingDays: Object.keys(tradingDays).length,
+      tradingVolumeUSD: Number(swapVolumeUSD.toFixed(2)),
+      source: "Transfer-based FINAL PRO 🔥",
     })
 
   } catch (err) {
