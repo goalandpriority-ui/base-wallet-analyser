@@ -31,7 +31,8 @@ export async function POST(req: NextRequest) {
           withMetadata: true,
           maxCount: "0x3e8",
           pageKey,
-          fromAddress: address
+          fromAddress: address,
+          chain: "base"   // ✅ FIX
         }]
       })
 
@@ -62,7 +63,8 @@ export async function POST(req: NextRequest) {
           withMetadata: true,
           maxCount: "0x3e8",
           pageKey,
-          toAddress: address
+          toAddress: address,
+          chain: "base"   // ✅ FIX
         }]
       })
 
