@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
     // =========================
     // FETCH FROM
     // =========================
+
     do {
       const res = await rpc.post("", {
         jsonrpc:"2.0",
@@ -43,10 +44,10 @@ export async function POST(req: NextRequest) {
 
     } while(pageKey)
 
-
     // =========================
     // FETCH TO
     // =========================
+
     pageKey = undefined
 
     do {
@@ -71,7 +72,6 @@ export async function POST(req: NextRequest) {
 
     } while(pageKey)
 
-
     // =========================
     // GROUP TX
     // =========================
@@ -95,12 +95,13 @@ export async function POST(req: NextRequest) {
     const STABLES = ["USDC","USDT"]
 
     // =========================
-    // ANALYSE
+    // ANALYSE (NEW SWAP ENGINE)
     // =========================
 
-    for (const [txHash, txs] of txMap.entries()) {
+    const txHashes = Array.from(txMap.keys())
 
-      // fetch tx input
+    for (const txHash of txHashes) {
+
       const txData = await rpc.post("", {
         jsonrpc:"2.0",
         id:1,
@@ -108,18 +109,9 @@ export async function POST(req: NextRequest) {
         params:[txHash]
       })
 
-      const input = txData.data.result?.input || ""
+      const tx = txData.data.result
+      if (!tx) continue
 
-      // router swap signatures
-      const isSwapByInput =
-        input.startsWith("0x38ed1739") ||
-        input.startsWith("0x18cbafe5") ||
-        input.startsWith("0x7ff36ab5") ||
-        input.startsWith("0x5c11d795") ||
-        input.startsWith("0x414bf389") ||
-        input.startsWith("0x3593564c")
-
-      // receipt logs check
       const receipt = await rpc.post("", {
         jsonrpc:"2.0",
         id:1,
@@ -127,9 +119,12 @@ export async function POST(req: NextRequest) {
         params:[txHash]
       })
 
-      const logs = receipt.data.result?.logs || []
+      const r = receipt.data.result
+      if (!r) continue
 
-      let isSwapByLog = false
+      const logs = r.logs || []
+
+      let isSwap = false
 
       for (const log of logs) {
 
@@ -139,61 +134,58 @@ export async function POST(req: NextRequest) {
         if (topic ===
           "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e6a6b7e0a5eec8f3"
         ) {
-          isSwapByLog = true
+          isSwap = true
+          break
         }
 
         // Uniswap V3
         if (topic ===
           "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67"
         ) {
-          isSwapByLog = true
+          isSwap = true
+          break
         }
       }
 
-      const isSwap = isSwapByInput || isSwapByLog
+      if (!isSwap) continue
 
-      if (isSwap) {
+      swapCount++
 
-        swapCount++
+      const txs = txMap.get(txHash) || []
 
-        for (const tx of txs) {
+      for (const t of txs) {
 
-          const asset = (tx.asset || "").toUpperCase()
-          const value = Number(tx.value || 0)
+        const asset = (t.asset || "").toUpperCase()
+        const value = Number(t.value || 0)
 
-          if (value && tx.from?.toLowerCase() === address) {
+        if (value && t.from?.toLowerCase() === address) {
 
-            if (STABLES.includes(asset)) {
-              volumeUSD += value
-            }
-
-            if (asset === "ETH" || asset === "WETH") {
-              volumeUSD += value * 3000
-            }
+          if (STABLES.includes(asset)) {
+            volumeUSD += value
           }
 
-          if (tx.metadata?.blockTimestamp) {
-
-            const day = new Date(tx.metadata.blockTimestamp)
-              .toISOString()
-              .split("T")[0]
-
-            tradingDays[day] = true
+          if (asset === "ETH" || asset === "WETH") {
+            volumeUSD += value * 3000
           }
         }
 
-        if (!processedTx[txHash]) {
+        if (t.metadata?.blockTimestamp) {
 
-          processedTx[txHash] = true
+          const day = new Date(t.metadata.blockTimestamp)
+            .toISOString()
+            .split("T")[0]
 
-          const r = receipt.data.result
-
-          if (r) {
-            const gasUsed = parseInt(r.gasUsed,16)
-            const gasPrice = parseInt(r.effectiveGasPrice || "0x0",16)
-            gasETH += (gasUsed * gasPrice) / 1e18
-          }
+          tradingDays[day] = true
         }
+      }
+
+      if (!processedTx[txHash]) {
+
+        processedTx[txHash] = true
+
+        const gasUsed = parseInt(r.gasUsed,16)
+        const gasPrice = parseInt(r.effectiveGasPrice || "0x0",16)
+        gasETH += (gasUsed * gasPrice) / 1e18
       }
     }
 
