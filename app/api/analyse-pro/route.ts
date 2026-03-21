@@ -13,18 +13,14 @@ export async function POST(req: NextRequest) {
     const supabase = getSupabase()
     const { wallet } = await req.json()
 
-    if (!wallet) {
-      return NextResponse.json({ error: "Wallet required" })
-    }
-
     const address = wallet.toLowerCase()
 
     let allTransfers:any[] = []
     let pageKey:any = undefined
 
-    // =========================================
-    // FETCH OUTGOING
-    // =========================================
+    // ===============================
+    // FETCH FROM
+    // ===============================
     do {
 
       const res = await rpc.post("", {
@@ -34,9 +30,8 @@ export async function POST(req: NextRequest) {
         params: [{
           fromBlock: "0x0",
           toBlock: "latest",
-          category: ["external","internal","erc20"],
+          category: ["external","internal","erc20","erc721","erc1155"],
           withMetadata: true,
-          excludeZeroValue: true,
           maxCount: "0x3e8",
           pageKey,
           fromAddress: address
@@ -45,20 +40,16 @@ export async function POST(req: NextRequest) {
 
       const result = res.data.result
 
-      if (result?.transfers) {
-        allTransfers = allTransfers.concat(result.transfers)
-      }
+      allTransfers = allTransfers.concat(result.transfers || [])
 
       pageKey = result.pageKey
-
-      if (allTransfers.length > 15000) break
 
     } while (pageKey)
 
 
-    // =========================================
-    // FETCH INCOMING
-    // =========================================
+    // ===============================
+    // FETCH TO
+    // ===============================
     pageKey = undefined
 
     do {
@@ -70,9 +61,8 @@ export async function POST(req: NextRequest) {
         params: [{
           fromBlock: "0x0",
           toBlock: "latest",
-          category: ["external","internal","erc20"],
+          category: ["external","internal","erc20","erc721","erc1155"],
           withMetadata: true,
-          excludeZeroValue: true,
           maxCount: "0x3e8",
           pageKey,
           toAddress: address
@@ -81,20 +71,16 @@ export async function POST(req: NextRequest) {
 
       const result = res.data.result
 
-      if (result?.transfers) {
-        allTransfers = allTransfers.concat(result.transfers)
-      }
+      allTransfers = allTransfers.concat(result.transfers || [])
 
       pageKey = result.pageKey
-
-      if (allTransfers.length > 30000) break
 
     } while (pageKey)
 
 
-    // =========================================
-    // GROUP BY TX HASH
-    // =========================================
+    // ===============================
+    // GROUP TX
+    // ===============================
     const txMap = new Map<string, any[]>()
 
     for (const tx of allTransfers) {
@@ -103,7 +89,6 @@ export async function POST(req: NextRequest) {
       }
       txMap.get(tx.hash)!.push(tx)
     }
-
 
     let swapCount = 0
     let volumeUSD = 0
@@ -114,24 +99,44 @@ export async function POST(req: NextRequest) {
 
     const STABLES = ["USDC","USDT"]
 
-    // =========================================
-    // ANALYSE TX
-    // =========================================
+    // ===============================
+    // ANALYSE
+    // ===============================
     for (const [txHash, txs] of txMap.entries()) {
 
-      let sentAssets: string[] = []
-      let receivedAssets: string[] = []
+      let sentAssets:string[] = []
+      let receivedAssets:string[] = []
 
       for (const tx of txs) {
 
         const asset = (tx.asset || "").toUpperCase()
-        const value = Number(tx.value || 0)
 
         if (tx.from?.toLowerCase() === address) {
           sentAssets.push(asset)
+        }
 
-          // volume calc
-          if (value) {
+        if (tx.to?.toLowerCase() === address) {
+          receivedAssets.push(asset)
+        }
+      }
+
+      const uniqueSent = Array.from(new Set(sentAssets))
+      const uniqueReceived = Array.from(new Set(receivedAssets))
+
+      const isSwap =
+        uniqueSent.length > 0 &&
+        uniqueReceived.length > 0
+
+      if (isSwap) {
+
+        swapCount++
+
+        for (const tx of txs) {
+
+          const asset = (tx.asset || "").toUpperCase()
+          const value = Number(tx.value || 0)
+
+          if (value && tx.from?.toLowerCase() === address) {
 
             if (STABLES.includes(asset)) {
               volumeUSD += value
@@ -141,66 +146,37 @@ export async function POST(req: NextRequest) {
               volumeUSD += value * 3000
             }
           }
+
+          if (tx.metadata?.blockTimestamp) {
+            const day = new Date(tx.metadata.blockTimestamp)
+              .toISOString()
+              .split("T")[0]
+
+            tradingDays[day] = true
+          }
         }
 
-        if (tx.to?.toLowerCase() === address) {
-          receivedAssets.push(asset)
-        }
-
-        // trading day
-        if (tx.metadata?.blockTimestamp) {
-          const day = new Date(tx.metadata.blockTimestamp)
-            .toISOString()
-            .split("T")[0]
-
-          tradingDays[day] = true
-        }
-      }
-
-      const uniqueSent = Array.from(new Set(sentAssets))
-      const uniqueReceived = Array.from(new Set(receivedAssets))
-
-      // =========================================
-      // SWAP DETECT
-      // =========================================
-      if (
-        uniqueSent.length > 0 &&
-        uniqueReceived.length > 0 &&
-        JSON.stringify(uniqueSent) !== JSON.stringify(uniqueReceived)
-      ) {
-
-        swapCount++
-
-        // =====================================
-        // GAS CALC
-        // =====================================
         if (!processedTx[txHash]) {
 
           processedTx[txHash] = true
 
-          try {
+          const receipt = await rpc.post("", {
+            jsonrpc:"2.0",
+            id:1,
+            method:"eth_getTransactionReceipt",
+            params:[txHash]
+          })
 
-            const receipt = await rpc.post("", {
-              jsonrpc:"2.0",
-              id:1,
-              method:"eth_getTransactionReceipt",
-              params:[txHash]
-            })
+          const r = receipt.data.result
 
-            const r = receipt.data.result
-
-            if (r) {
-              const gasUsed = parseInt(r.gasUsed,16)
-              const gasPrice = parseInt(r.effectiveGasPrice || "0x0",16)
-
-              gasETH += (gasUsed * gasPrice) / 1e18
-            }
-
-          } catch {}
+          if (r) {
+            const gasUsed = parseInt(r.gasUsed,16)
+            const gasPrice = parseInt(r.effectiveGasPrice || "0x0",16)
+            gasETH += (gasUsed * gasPrice) / 1e18
+          }
         }
       }
     }
-
 
     const tradingDaysCount = Object.keys(tradingDays).length
 
@@ -210,10 +186,6 @@ export async function POST(req: NextRequest) {
       (volumeUSD / 100) +
       (gasETH * 5000)
 
-
-    // =========================================
-    // INSERT LEADERBOARD
-    // =========================================
     await supabase.from("leaderboard").insert({
       wallet: address,
       score,
@@ -222,7 +194,6 @@ export async function POST(req: NextRequest) {
       days: tradingDaysCount,
       gas: gasETH
     })
-
 
     return NextResponse.json({
       wallet,
@@ -234,9 +205,7 @@ export async function POST(req: NextRequest) {
       rank: 1
     })
 
-  } catch (err) {
-
-    console.log(err)
+  } catch {
 
     return NextResponse.json({
       wallet:"",
