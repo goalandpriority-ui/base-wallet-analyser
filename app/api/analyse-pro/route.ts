@@ -7,31 +7,40 @@ const api = axios.create({
   timeout: 10000
 })
 
+// real token price map (Base major tokens)
+const PRICE_MAP: Record<string, number> = {
+  USDC: 1,
+  USDT: 1,
+  DAI: 1,
+  WETH: 3500,
+  ETH: 3500,
+  CBETH: 3500,
+  AERO: 1,
+  DEGEN: 0.02
+}
+
 export async function POST(req: NextRequest) {
 
   try {
 
     const supabase = getSupabase()
-
     const { wallet } = await req.json()
     const address = wallet.toLowerCase()
 
     let page = 1
     let allTx: any[] = []
 
-    // pagination (fetch more swaps)
-    while (page <= 10) {
+    // fetch more pages for accurate swaps
+    while (page <= 15) {
 
       const res = await api.get(
         `?module=account&action=tokentx&address=${address}&page=${page}&offset=100`
       )
 
       const txs = res.data.result || []
-
       if (txs.length === 0) break
 
       allTx = allTx.concat(txs)
-
       page++
     }
 
@@ -52,26 +61,11 @@ export async function POST(req: NextRequest) {
 
       const symbol = (tx.tokenSymbol || "").toUpperCase()
 
-      // stable coins
-      if (
-        symbol === "USDC" ||
-        symbol === "USDT" ||
-        symbol === "DAI"
-      ) {
-        volumeUSD += value
-      }
+      const price = PRICE_MAP[symbol]
 
-      // ETH
-      else if (
-        symbol === "WETH" ||
-        symbol === "ETH"
-      ) {
-        volumeUSD += value * 3500
-      }
-
-      // fallback tokens
-      else {
-        volumeUSD += value * 0.5
+      // only count known tokens
+      if (price && value > 0) {
+        volumeUSD += value * price
       }
 
       // gas
@@ -80,7 +74,7 @@ export async function POST(req: NextRequest) {
 
       gasETH += gas
 
-      // trading days
+      // trading day
       const day =
         new Date(parseInt(tx.timeStamp) * 1000)
           .toISOString()
