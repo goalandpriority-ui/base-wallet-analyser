@@ -18,7 +18,6 @@ export async function POST(req: NextRequest) {
     let allTransfers: any[] = []
     let pageKey: any = undefined
 
-    // FETCH FROM
     do {
       const res = await rpc.post("", {
         jsonrpc: "2.0",
@@ -35,16 +34,13 @@ export async function POST(req: NextRequest) {
         }]
       })
 
-      if (res.data.error) {
-        console.error("Alchemy FROM error:", res.data.error)
-      }
+      if (res.data.error) console.error("Alchemy FROM error:", res.data.error.message)
       const result = res.data.result
       allTransfers = allTransfers.concat(result.transfers || [])
       pageKey = result.pageKey
 
     } while (pageKey)
 
-    // FETCH TO
     pageKey = undefined
 
     do {
@@ -63,16 +59,14 @@ export async function POST(req: NextRequest) {
         }]
       })
 
-      if (res.data.error) {
-        console.error("Alchemy TO error:", res.data.error)
-      }
+      if (res.data.error) console.error("Alchemy TO error:", res.data.error.message)
       const result = res.data.result
       allTransfers = allTransfers.concat(result.transfers || [])
       pageKey = result.pageKey
 
     } while (pageKey)
 
-    console.log("Total transfers fetched:", allTransfers.length) // DEBUG: local-la paaru
+    console.log("Total transfers fetched:", allTransfers.length) // DEBUG
 
     const txMap = new Map<string, any[]>()
 
@@ -122,8 +116,8 @@ export async function POST(req: NextRequest) {
 
       let isSwap = false
 
-      // Existing event-based detection
       for (const log of logs) {
+
         const topic = log.topics?.[0]?.toLowerCase() || ""
 
         if (topic === "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e6a6b7e0a5eec8f3") {
@@ -137,7 +131,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Aggregator / Router detection via tx.input signatures (for Uniswap Universal, Rainbow, Bitget, Relay etc)
+      // Aggregator/Router detection - expanded signatures for Universal, Rainbow, Relay, Bitget
       if (!isSwap && tx.input && tx.input !== "0x") {
         const inputLower = tx.input.toLowerCase()
         if (
@@ -145,12 +139,13 @@ export async function POST(req: NextRequest) {
           inputLower.startsWith("0x38ed1739") || // V2 swapExactTokensForTokens
           inputLower.startsWith("0x3593564c") || // V3 exactInput
           inputLower.startsWith("0x414bf389") || // V3 exactInputSingle
-          inputLower.startsWith("0xe8e33700") || // Aerodrome-like swap
           inputLower.startsWith("0x791ac947") || // Rainbow/Relay common
-          inputLower.includes("swap") || inputLower.includes("execute") // rough catch for aggregators
+          inputLower.startsWith("0xe8e33700") || // Aerodrome swap
+          inputLower.startsWith("0x0b66f3f5") || // Bitget swap like
+          inputLower.includes("execute") || inputLower.includes("swap") || inputLower.includes("exactinput")
         ) {
           isSwap = true
-          console.log(`Aggregator swap detected in tx: ${txHash}, input starts with: ${tx.input.slice(0,10)}`)
+          console.log(`Aggregator/Router swap detected in tx: ${txHash}, input: ${tx.input.slice(0, 10)}...`)
         }
       }
 
