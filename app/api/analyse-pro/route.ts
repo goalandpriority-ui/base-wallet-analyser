@@ -4,10 +4,11 @@ import { getSupabase } from "../../../lib/supabase"
 
 const api = axios.create({
   baseURL: "https://base.blockscout.com/api",
-  timeout: 10000
+  timeout: 8000
 })
 
 const ETH_PRICE = 3500
+const STABLES = ["USDC","USDT","DAI"]
 
 export async function POST(req: NextRequest) {
 
@@ -20,8 +21,8 @@ export async function POST(req: NextRequest) {
     let page = 1
     let allTx: any[] = []
 
-    // less pages = faster
-    while (page <= 15) {
+    // ⚡ reduce pages = faster
+    while (page <= 8) {
 
       const res = await api.get(
         `?module=account&action=tokentx&address=${address}&page=${page}&offset=100`
@@ -52,25 +53,33 @@ export async function POST(req: NextRequest) {
       const txs = txMap[hash]
       if (txs.length < 2) continue
 
-      let ethValue = 0
+      let txVolume = 0
+      let isSwap = false
 
       for (const tx of txs) {
 
         const symbol =
           (tx.tokenSymbol || "").toUpperCase()
 
-        // only ETH side
+        const decimals =
+          Number(tx.tokenDecimal || 18)
+
+        const value =
+          Number(tx.value) / (10 ** decimals)
+
+        // ETH side
         if (symbol === "ETH" || symbol === "WETH") {
-
-          const decimals =
-            Number(tx.tokenDecimal || 18)
-
-          const value =
-            Number(tx.value) / (10 ** decimals)
-
-          ethValue += value
+          txVolume += value * ETH_PRICE
+          isSwap = true
         }
 
+        // stable side
+        if (STABLES.includes(symbol)) {
+          txVolume += value
+          isSwap = true
+        }
+
+        // gas
         const gas =
           (Number(tx.gasUsed) * Number(tx.gasPrice)) / 1e18
 
@@ -84,9 +93,9 @@ export async function POST(req: NextRequest) {
         tradingDays.add(day)
       }
 
-      if (ethValue > 0) {
+      if (isSwap) {
         swapCount++
-        volumeUSD += ethValue * ETH_PRICE
+        volumeUSD += txVolume
       }
     }
 
