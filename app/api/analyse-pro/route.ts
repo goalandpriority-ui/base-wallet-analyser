@@ -12,14 +12,15 @@ export async function POST(req: NextRequest) {
   try {
 
     const supabase = getSupabase()
+
     const { wallet } = await req.json()
     const address = wallet.toLowerCase()
 
     let page = 1
     let allTx: any[] = []
 
-    // paginated fetch (accurate + safe)
-    while (page <= 5) {
+    // pagination (fetch more swaps)
+    while (page <= 10) {
 
       const res = await api.get(
         `?module=account&action=tokentx&address=${address}&page=${page}&offset=100`
@@ -46,15 +47,31 @@ export async function POST(req: NextRequest) {
       const hash = tx.hash
       swapHashes.add(hash)
 
-      // volume
-      const value = Number(tx.value) / 1e18
+      const decimals = Number(tx.tokenDecimal || 18)
+      const value = Number(tx.value) / (10 ** decimals)
 
-      if (tx.tokenSymbol === "USDC" || tx.tokenSymbol === "USDT") {
+      const symbol = (tx.tokenSymbol || "").toUpperCase()
+
+      // stable coins
+      if (
+        symbol === "USDC" ||
+        symbol === "USDT" ||
+        symbol === "DAI"
+      ) {
         volumeUSD += value
       }
 
-      if (tx.tokenSymbol === "WETH" || tx.tokenSymbol === "ETH") {
+      // ETH
+      else if (
+        symbol === "WETH" ||
+        symbol === "ETH"
+      ) {
         volumeUSD += value * 3500
+      }
+
+      // fallback tokens
+      else {
+        volumeUSD += value * 0.5
       }
 
       // gas
@@ -110,7 +127,14 @@ export async function POST(req: NextRequest) {
     console.error(e)
 
     return NextResponse.json({
-      error: e.message
+      wallet: "",
+      swapCount: 0,
+      tradingVolumeUSD: 0,
+      tradingDays: 0,
+      tradingGasETH: 0,
+      score: 0,
+      rank: 0,
+      error: e.message || "Unknown error"
     }, { status: 500 })
 
   }
