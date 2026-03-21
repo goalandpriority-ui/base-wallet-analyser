@@ -18,10 +18,7 @@ export async function POST(req: NextRequest) {
     let allTransfers: any[] = []
     let pageKey: any = undefined
 
-    // =========================
     // FETCH FROM
-    // =========================
-
     do {
       const res = await rpc.post("", {
         jsonrpc: "2.0",
@@ -38,16 +35,14 @@ export async function POST(req: NextRequest) {
         }]
       })
 
+      if (res.data.error) throw new Error(res.data.error.message)
       const result = res.data.result
       allTransfers = allTransfers.concat(result.transfers || [])
       pageKey = result.pageKey
 
     } while (pageKey)
 
-    // =========================
     // FETCH TO
-    // =========================
-
     pageKey = undefined
 
     do {
@@ -66,15 +61,14 @@ export async function POST(req: NextRequest) {
         }]
       })
 
+      if (res.data.error) throw new Error(res.data.error.message)
       const result = res.data.result
       allTransfers = allTransfers.concat(result.transfers || [])
       pageKey = result.pageKey
 
     } while (pageKey)
 
-    // =========================
-    // GROUP TX
-    // =========================
+    console.log("Total transfers fetched:", allTransfers.length) // DEBUG: local-la paaru entha transfers varudhu
 
     const txMap = new Map<string, any[]>()
 
@@ -92,13 +86,9 @@ export async function POST(req: NextRequest) {
     const tradingDays: Record<string, boolean> = {}
     const processedTx: Record<string, boolean> = {}
 
-    const STABLES = ["USDC", "USDT", "DAI"]  // DAI kooda add pannalaam Base-la common
+    const STABLES = ["USDC", "USDT", "DAI"]
 
-    const APPROX_ETH_PRICE = 3500  // Recent avg, update pannu if needed
-
-    // =========================
-    // ANALYSE (NEW SWAP ENGINE)
-    // =========================
+    const APPROX_ETH_PRICE = 3500
 
     const txHashes = Array.from(txMap.keys())
 
@@ -129,27 +119,21 @@ export async function POST(req: NextRequest) {
       let isSwap = false
 
       for (const log of logs) {
+        const topic = log.topics?.[0]?.toLowerCase() || ""
 
-        const topic = log.topics?.[0]?.toLowerCase()
-
-        // Uniswap V2 / Aerodrome (Solidly fork - same Swap event)
-        if (topic ===
-          "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e6a6b7e0a5eec8f3"
-        ) {
+        // Uniswap V2 / Aerodrome / Solidly forks
+        if (topic === "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e6a6b7e0a5eec8f3") {
           isSwap = true
           break
         }
 
-        // Uniswap V3 Swap event
-        if (topic ===
-          "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67"
-        ) {
+        // Uniswap V3 / Pancake V3 / concentrated liquidity swaps
+        if (topic === "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67") {
           isSwap = true
           break
         }
 
-        // Optional: PancakeSwap V3 (Base-la irukku) - same as Uniswap V3 mostly
-        // if more DEX venumna extra topic add pannalam
+        // Extra: Some DEXs use Transfer event for in/out, but Swap event primary
       }
 
       if (!isSwap) continue
@@ -159,68 +143,47 @@ export async function POST(req: NextRequest) {
       const txs = txMap.get(txHash) || []
 
       for (const t of txs) {
-
         const asset = (t.asset || "").toUpperCase()
         const value = Number(t.value || 0)
         const fromAddr = t.from?.toLowerCase()
         const toAddr = t.to?.toLowerCase()
 
         if (value > 0) {
-
-          // Outgoing (what user sold/gave)
-          if (fromAddr === address) {
-            if (STABLES.includes(asset)) {
-              volumeUSD += value
-            }
-            if (asset === "ETH" || asset === "WETH") {
-              volumeUSD += value * APPROX_ETH_PRICE
-            }
+          if (fromAddr === address) { // sold/out
+            if (STABLES.includes(asset)) volumeUSD += value
+            if (asset === "ETH" || asset === "WETH") volumeUSD += value * APPROX_ETH_PRICE
           }
-
-          // Incoming (what user received/bought)
-          if (toAddr === address) {
-            if (STABLES.includes(asset)) {
-              volumeUSD += value
-            }
-            if (asset === "ETH" || asset === "WETH") {
-              volumeUSD += value * APPROX_ETH_PRICE
-            }
+          if (toAddr === address) { // bought/in
+            if (STABLES.includes(asset)) volumeUSD += value
+            if (asset === "ETH" || asset === "WETH") volumeUSD += value * APPROX_ETH_PRICE
           }
         }
 
-        // Timestamp collect for trading days
         if (t.metadata?.blockTimestamp) {
-          const day = new Date(t.metadata.blockTimestamp)
-            .toISOString()
-            .split("T")[0]
+          const day = new Date(t.metadata.blockTimestamp).toISOString().split("T")[0]
           tradingDays[day] = true
         }
       }
 
       if (!processedTx[txHash]) {
-
         processedTx[txHash] = true
 
-        // Gas safe with BigInt (tsconfig es2020 irundha 0n work aagum)
+        // Gas safe without literals
         const gasUsed = BigInt(r.gasUsed || "0x0")
         let gasPrice = BigInt(r.effectiveGasPrice || "0x0")
-        if (gasPrice === 0n) {
-          gasPrice = BigInt(tx.gasPrice || "0x0")  // fallback
+        if (gasPrice === BigInt("0")) {
+          gasPrice = BigInt(tx.gasPrice || "0x0")
         }
-        const txGasETH = Number((gasUsed * gasPrice) / 1000000000000000000n)
+        const divisor = BigInt("1000000000000000000")
+        const txGasETH = Number((gasUsed * gasPrice) / divisor)
         gasETH += txGasETH
       }
     }
 
     const tradingDaysCount = Object.keys(tradingDays).length
 
-    const score =
-      (swapCount * 2) +
-      tradingDaysCount +
-      (volumeUSD / 100) +
-      (gasETH * 5000)
+    const score = (swapCount * 2) + tradingDaysCount + (volumeUSD / 100) + (gasETH * 5000)
 
-    // FIXED: .insert() + .onConflict illa → .upsert() use pannu
     await supabase
       .from("leaderboard")
       .upsert(
@@ -232,10 +195,7 @@ export async function POST(req: NextRequest) {
           days: tradingDaysCount,
           gas: gasETH
         },
-        {
-          ignoreDuplicates: true,    // already irundha skip pannu
-          onConflict: "wallet"       // wallet column unique irukkanum table-la
-        }
+        { ignoreDuplicates: true, onConflict: "wallet" }
       )
 
     return NextResponse.json({
@@ -245,13 +205,11 @@ export async function POST(req: NextRequest) {
       tradingDays: tradingDaysCount,
       tradingGasETH: Number(gasETH.toFixed(6)),
       score: Math.round(score),
-      rank: 1  // nee later real rank calculate pannu leaderboard query panni
+      rank: 1
     })
 
   } catch (e: any) {
-
     console.error("analyse-pro error:", e.message || e)
-
     return NextResponse.json({
       wallet: "",
       swapCount: 0,
@@ -260,8 +218,7 @@ export async function POST(req: NextRequest) {
       tradingGasETH: 0,
       score: 0,
       rank: 0,
-      error: e.message || "Unknown error"  // debug easy-a irukkum
+      error: e.message || "Unknown error"
     }, { status: 500 })
-
   }
 }
