@@ -67,15 +67,19 @@ export async function POST(req: NextRequest) {
     }
 
     // =========================================
-    // 🔥 SWAP + VOLUME
+    // 🔥 SWAP + VOLUME + GAS
     // =========================================
     let swapCount = 0
     let volumeUSD = 0
+    let gasETH = 0
+
     const tradingDays: Record<string, boolean> = {}
+    const processedTx: Record<string, boolean> = {}
 
     const STABLES = ["USDC", "USDT"]
 
     for (const entry of Array.from(txMap.entries())) {
+      const txHash = entry[0]
       const transfers = entry[1]
 
       let sentAssets: string[] = []
@@ -104,25 +108,52 @@ export async function POST(req: NextRequest) {
         swapCount++
 
         // =====================================
-        // 🔥 FIXED VOLUME LOGIC
+        // 🔥 VOLUME LOGIC (UNCHANGED)
         // =====================================
         for (const t of transfers) {
-          const value = Number(t.value || 0) // ✅ USE DIRECT VALUE (NO DIVIDE)
+          const value = Number(t.value || 0)
           const asset = (t.asset || "").toUpperCase()
 
           if (!value || !asset) continue
 
           if (t.from?.toLowerCase() === address) {
 
-            // ✅ Stable → USD
             if (STABLES.includes(asset)) {
               volumeUSD += value
             }
 
-            // ✅ ETH / WETH → USD
             if (asset === "ETH" || asset === "WETH") {
               volumeUSD += value * 3000
             }
+          }
+        }
+
+        // =====================================
+        // 🔥 GAS CALCULATION (NEW 🔥)
+        // =====================================
+        if (!processedTx[txHash]) {
+          processedTx[txHash] = true
+
+          try {
+            const receiptRes = await axios.post(process.env.BASE_RPC!, {
+              jsonrpc: "2.0",
+              id: 1,
+              method: "eth_getTransactionReceipt",
+              params: [txHash],
+            })
+
+            const receipt = receiptRes.data.result
+
+            if (receipt) {
+              const gasUsed = parseInt(receipt.gasUsed, 16)
+              const gasPrice = parseInt(receipt.effectiveGasPrice || "0x0", 16)
+
+              const gas = (gasUsed * gasPrice) / 1e18
+              gasETH += gas
+            }
+
+          } catch (e) {
+            // silent fail
           }
         }
 
@@ -145,6 +176,7 @@ export async function POST(req: NextRequest) {
       swapCount,
       tradingVolumeUSD: Number(volumeUSD.toFixed(2)),
       tradingDays: Object.keys(tradingDays).length,
+      tradingGasETH: Number(gasETH.toFixed(6)), // 🔥 NEW
     })
 
   } catch (err) {
