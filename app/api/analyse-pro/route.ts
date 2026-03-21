@@ -177,7 +177,7 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          // Incoming (what user received/bought) - ithu miss aagirunthuchu!
+          // Incoming (what user received/bought)
           if (toAddr === address) {
             if (STABLES.includes(asset)) {
               volumeUSD += value
@@ -201,7 +201,7 @@ export async function POST(req: NextRequest) {
 
         processedTx[txHash] = true
 
-        // Gas safe with BigInt
+        // Gas safe with BigInt (tsconfig es2020 irundha 0n work aagum)
         const gasUsed = BigInt(r.gasUsed || "0x0")
         let gasPrice = BigInt(r.effectiveGasPrice || "0x0")
         if (gasPrice === 0n) {
@@ -220,15 +220,23 @@ export async function POST(req: NextRequest) {
       (volumeUSD / 100) +
       (gasETH * 5000)
 
-    // Supabase insert - if duplicate wallet error varuthuna upsert use pannu later
-    await supabase.from("leaderboard").insert({
-      wallet: address,
-      score,
-      swaps: swapCount,
-      volume: volumeUSD,
-      days: tradingDaysCount,
-      gas: gasETH
-    }).onConflict('wallet').ignore()  // optional: already iruntha skip (or merge later)
+    // FIXED: .insert() + .onConflict illa → .upsert() use pannu
+    await supabase
+      .from("leaderboard")
+      .upsert(
+        {
+          wallet: address,
+          score,
+          swaps: swapCount,
+          volume: volumeUSD,
+          days: tradingDaysCount,
+          gas: gasETH
+        },
+        {
+          ignoreDuplicates: true,    // already irundha skip pannu
+          onConflict: "wallet"       // wallet column unique irukkanum table-la
+        }
+      )
 
     return NextResponse.json({
       wallet,
@@ -237,7 +245,7 @@ export async function POST(req: NextRequest) {
       tradingDays: tradingDaysCount,
       tradingGasETH: Number(gasETH.toFixed(6)),
       score: Math.round(score),
-      rank: 1  // nee later real rank calculate pannu
+      rank: 1  // nee later real rank calculate pannu leaderboard query panni
     })
 
   } catch (e: any) {
