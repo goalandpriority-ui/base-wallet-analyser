@@ -7,7 +7,6 @@ const api = axios.create({
   timeout: 10000
 })
 
-const STABLES = ["USDC","USDT","DAI"]
 const ETH_PRICE = 3500
 
 export async function POST(req: NextRequest) {
@@ -21,7 +20,8 @@ export async function POST(req: NextRequest) {
     let page = 1
     let allTx: any[] = []
 
-    while (page <= 25) {
+    // less pages = faster
+    while (page <= 15) {
 
       const res = await api.get(
         `?module=account&action=tokentx&address=${address}&page=${page}&offset=100`
@@ -52,26 +52,23 @@ export async function POST(req: NextRequest) {
       const txs = txMap[hash]
       if (txs.length < 2) continue
 
-      let ethSide = 0
-      let stableSide = 0
+      let ethValue = 0
 
       for (const tx of txs) {
-
-        const decimals = Number(tx.tokenDecimal || 18)
-        const value =
-          Number(tx.value) / (10 ** decimals)
 
         const symbol =
           (tx.tokenSymbol || "").toUpperCase()
 
-        // ETH side
+        // only ETH side
         if (symbol === "ETH" || symbol === "WETH") {
-          ethSide += value * ETH_PRICE
-        }
 
-        // stable side
-        if (STABLES.includes(symbol)) {
-          stableSide += value
+          const decimals =
+            Number(tx.tokenDecimal || 18)
+
+          const value =
+            Number(tx.value) / (10 ** decimals)
+
+          ethValue += value
         }
 
         const gas =
@@ -87,11 +84,9 @@ export async function POST(req: NextRequest) {
         tradingDays.add(day)
       }
 
-      const txVolume = Math.max(ethSide, stableSide)
-
-      if (txVolume > 0) {
+      if (ethValue > 0) {
         swapCount++
-        volumeUSD += txVolume
+        volumeUSD += ethValue * ETH_PRICE
       }
     }
 
