@@ -67,7 +67,6 @@ export async function POST(req: NextRequest) {
 
     } while (pageKey)
 
-    // group tx
     const txMap = new Map<string, any[]>()
 
     for (const tx of allTransfers) {
@@ -88,30 +87,22 @@ export async function POST(req: NextRequest) {
 
     for (const [txHash, txs] of txMap.entries()) {
 
-      let sentAssets:string[] = []
-      let receivedAssets:string[] = []
+      // 🔥 REAL SWAP DETECTION
+      const txData = await rpc.post("", {
+        jsonrpc:"2.0",
+        id:1,
+        method:"eth_getTransactionByHash",
+        params:[txHash]
+      })
 
-      for (const tx of txs) {
+      const input = txData.data.result?.input || ""
 
-        const asset = (tx.asset || "").toUpperCase()
-
-        if (tx.from?.toLowerCase() === address) {
-          sentAssets.push(asset)
-        }
-
-        if (tx.to?.toLowerCase() === address) {
-          receivedAssets.push(asset)
-        }
-      }
-
-      const uniqueSent = Array.from(new Set(sentAssets))
-      const uniqueReceived = Array.from(new Set(receivedAssets))
-
-      // 🔥 SWAP DETECTION
       const isSwap =
-        uniqueSent.length > 0 &&
-        uniqueReceived.length > 0 &&
-        JSON.stringify(uniqueSent) !== JSON.stringify(uniqueReceived)
+        input.startsWith("0x38ed1739") ||
+        input.startsWith("0x18cbafe5") ||
+        input.startsWith("0x7ff36ab5") ||
+        input.startsWith("0x5c11d795") ||
+        input.startsWith("0x414bf389")
 
       if (isSwap) {
 
