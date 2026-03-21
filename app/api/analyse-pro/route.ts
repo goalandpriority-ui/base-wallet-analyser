@@ -91,18 +91,17 @@ export async function POST(req: NextRequest) {
       const txHash = entry[0]
       const transfers = entry[1]
 
-      let sentAssets: string[] = []
-      let receivedAssets: string[] = []
+      let sent = false
+      let received = false
 
       for (const t of transfers) {
 
         const asset = (t.asset || "").toUpperCase()
         const value = Number(t.value || 0)
 
-        if (!asset) continue
-
+        // ✅ sent detect
         if (t.from?.toLowerCase() === address) {
-          sentAssets.push(asset)
+          sent = true
 
           if (value) {
             if (STABLES.includes(asset)) volumeUSD += value
@@ -112,10 +111,12 @@ export async function POST(req: NextRequest) {
           }
         }
 
+        // ✅ received detect
         if (t.to?.toLowerCase() === address) {
-          receivedAssets.push(asset)
+          received = true
         }
 
+        // trading days
         if (t.metadata?.blockTimestamp) {
           const day = new Date(t.metadata.blockTimestamp)
             .toISOString()
@@ -125,19 +126,8 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 🔥 NEW CORRECT SWAP LOGIC
-      const sentSet = new Set(sentAssets)
-      const receivedSet = new Set(receivedAssets)
-
-      const isSwap =
-        sentSet.size > 0 &&
-        receivedSet.size > 0 &&
-        (
-          [...sentSet].some(a => !receivedSet.has(a)) ||
-          [...receivedSet].some(a => !sentSet.has(a))
-        )
-
-      if (isSwap) {
+      // ✅ FINAL SWAP DETECT
+      if (sent && received) {
         swapCount++
 
         if (!processedTx[txHash]) {
@@ -223,4 +213,4 @@ export async function POST(req: NextRequest) {
       rank: 0
     })
   }
-}
+      }
