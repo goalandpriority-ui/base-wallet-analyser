@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
 
     } while (pageKey)
 
+
     // FETCH TO
     pageKey = undefined
 
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
 
     } while (pageKey)
 
-    console.log("Total transfers fetched:", allTransfers.length) // DEBUG: local-la check pannu
+    console.log("Total transfers fetched:", allTransfers.length)
 
     const txMap = new Map<string, any[]>()
 
@@ -95,10 +96,15 @@ export async function POST(req: NextRequest) {
     const processedTx: Record<string, boolean> = {}
 
     const STABLES = ["USDC", "USDT", "DAI"]
-
     const APPROX_ETH_PRICE = 3500
 
-    const txHashes = Array.from(txMap.keys())
+    // 🔥 FIX — include ALL tx hashes
+    const extraTxs = new Set<string>()
+    for (const t of allTransfers) {
+      if (t.hash) extraTxs.add(t.hash)
+    }
+
+    const txHashes = Array.from(extraTxs)
 
     for (const txHash of txHashes) {
 
@@ -126,38 +132,36 @@ export async function POST(req: NextRequest) {
 
       let isSwap = false
 
+      // 🔥 log based detection
       for (const log of logs) {
 
         const topic = log.topics?.[0]?.toLowerCase() || ""
 
-        if (topic === "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e6a6b7e0a5eec8f3") {
-          isSwap = true
-          break
-        }
-
-        if (topic === "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67") {
+        if (
+          topic === "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e6a6b7e0a5eec8f3" ||
+          topic === "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67"
+        ) {
           isSwap = true
           break
         }
       }
 
-      // Aggregator / Router detection for routed swaps
+      // 🔥 router detection
       if (!isSwap && tx.input && tx.input !== "0x") {
+
         const inputLower = tx.input.toLowerCase()
+
         if (
-          inputLower.startsWith("0x5ae401dc") || // Universal Router execute
-          inputLower.startsWith("0x38ed1739") || // V2 swapExactTokensForTokens
-          inputLower.startsWith("0x3593564c") || // V3 exactInput
-          inputLower.startsWith("0x414bf389") || // V3 exactInputSingle
-          inputLower.startsWith("0x791ac947") || // Rainbow/Relay common
-          inputLower.startsWith("0xe8e33700") || // Aerodrome-like
-          inputLower.startsWith("0x0b66f3f5") || // Bitget-like
-          inputLower.includes("execute") || 
-          inputLower.includes("swap") || 
-          inputLower.includes("exactinput")
+          inputLower.startsWith("0x5ae401dc") ||
+          inputLower.startsWith("0x38ed1739") ||
+          inputLower.startsWith("0x3593564c") ||
+          inputLower.startsWith("0x414bf389") ||
+          inputLower.startsWith("0x18cbafe5") ||
+          inputLower.startsWith("0x7ff36ab5") ||
+          inputLower.startsWith("0x8803dbee") ||
+          inputLower.startsWith("0x5c11d795")
         ) {
           isSwap = true
-          console.log(`Aggregator/Router swap detected in tx: ${txHash}, input starts with: ${tx.input.slice(0,10)}`)
         }
       }
 
@@ -171,6 +175,7 @@ export async function POST(req: NextRequest) {
 
         const asset = (t.asset || "").toUpperCase()
         const value = Number(t.value || 0)
+
         const fromAddr = t.from?.toLowerCase()
         const toAddr = t.to?.toLowerCase()
 
@@ -178,17 +183,24 @@ export async function POST(req: NextRequest) {
 
           if (fromAddr === address) {
             if (STABLES.includes(asset)) volumeUSD += value
-            if (asset === "ETH" || asset === "WETH") volumeUSD += value * APPROX_ETH_PRICE
+            if (asset === "ETH" || asset === "WETH") {
+              volumeUSD += value * APPROX_ETH_PRICE
+            }
           }
 
           if (toAddr === address) {
             if (STABLES.includes(asset)) volumeUSD += value
-            if (asset === "ETH" || asset === "WETH") volumeUSD += value * APPROX_ETH_PRICE
+            if (asset === "ETH" || asset === "WETH") {
+              volumeUSD += value * APPROX_ETH_PRICE
+            }
           }
         }
 
         if (t.metadata?.blockTimestamp) {
-          const day = new Date(t.metadata.blockTimestamp).toISOString().split("T")[0]
+          const day = new Date(t.metadata.blockTimestamp)
+            .toISOString()
+            .split("T")[0]
+
           tradingDays[day] = true
         }
       }
@@ -198,12 +210,16 @@ export async function POST(req: NextRequest) {
         processedTx[txHash] = true
 
         const gasUsed = BigInt(r.gasUsed || "0x0")
+
         let gasPrice = BigInt(r.effectiveGasPrice || "0x0")
-        if (gasPrice === BigInt("0")) {
+
+        if (gasPrice === BigInt(0)) {
           gasPrice = BigInt(tx.gasPrice || "0x0")
         }
-        const divisor = BigInt("1000000000000000000")
-        const txGasETH = Number((gasUsed * gasPrice) / divisor)
+
+        const txGasETH =
+          Number(gasUsed * gasPrice) / 1e18
+
         gasETH += txGasETH
       }
     }
@@ -216,7 +232,6 @@ export async function POST(req: NextRequest) {
       (volumeUSD / 100) +
       (gasETH * 5000)
 
-    // Leaderboard store - env correct-a irundha mattum work aagum
     try {
       await supabase
         .from("leaderboard")
@@ -229,12 +244,10 @@ export async function POST(req: NextRequest) {
             days: tradingDaysCount,
             gas: gasETH
           },
-          { ignoreDuplicates: true, onConflict: "wallet" }
+          { onConflict: "wallet" }
         )
-      console.log("Leaderboard updated for wallet:", address)
-    } catch (supabaseErr) {
+    } catch (supabaseErr: any) {
       console.error("Supabase insert error:", supabaseErr.message)
-      // Continue anyway, don't break response
     }
 
     return NextResponse.json({
@@ -249,7 +262,7 @@ export async function POST(req: NextRequest) {
 
   } catch (e: any) {
 
-    console.error("analyse-pro error:", e.message || e)
+    console.error("analyse-pro error:", e)
 
     return NextResponse.json({
       wallet: "",
@@ -263,4 +276,4 @@ export async function POST(req: NextRequest) {
     }, { status: 500 })
 
   }
-}
+  }
