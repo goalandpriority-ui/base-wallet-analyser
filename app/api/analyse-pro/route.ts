@@ -2,8 +2,13 @@ import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
 import { getSupabase } from "../../../lib/supabase"
 
+// 🔥 RPC SAFE (VERCEL FIX)
+const RPC =
+  process.env.BASE_RPC ||
+  `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
+
 const rpc = axios.create({
-  baseURL: process.env.BASE_RPC,
+  baseURL: RPC,
   timeout: 10000
 })
 
@@ -87,7 +92,7 @@ export async function POST(req: NextRequest) {
 
     for (const [txHash, txs] of txMap.entries()) {
 
-      // 🔥 REAL SWAP DETECTION
+      // 🔥 REAL SWAP DETECTION (UNISWAP / 1INCH / BASE)
       const txData = await rpc.post("", {
         jsonrpc:"2.0",
         id:1,
@@ -98,11 +103,13 @@ export async function POST(req: NextRequest) {
       const input = txData.data.result?.input || ""
 
       const isSwap =
-        input.startsWith("0x38ed1739") ||
-        input.startsWith("0x18cbafe5") ||
-        input.startsWith("0x7ff36ab5") ||
-        input.startsWith("0x5c11d795") ||
-        input.startsWith("0x414bf389")
+        input.startsWith("0x38ed1739") || // swapExactTokensForTokens
+        input.startsWith("0x18cbafe5") || // swapExactETHForTokens
+        input.startsWith("0x7ff36ab5") || // swapExactETHForTokens
+        input.startsWith("0x5c11d795") || // uniswap v3
+        input.startsWith("0x414bf389") || // multicall
+        input.startsWith("0x3593564c") || // uniswap universal router
+        input.startsWith("0x04e45aaf")    // uniswap v3 exactInput
 
       if (isSwap) {
 
@@ -182,9 +189,9 @@ export async function POST(req: NextRequest) {
       rank: 1
     })
 
-  } catch (e) {
+  } catch (e:any) {
 
-    console.log("analyse-pro error:", e)
+    console.log("analyse-pro error:", e?.response?.data || e)
 
     return NextResponse.json({
       wallet:"",
