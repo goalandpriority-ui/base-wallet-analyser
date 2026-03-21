@@ -94,16 +94,21 @@ export async function POST(req: NextRequest) {
       let sentAssets: string[] = []
       let receivedAssets: string[] = []
 
+      let sent = false
+      let received = false
+
       for (const t of transfers) {
 
         const asset = (t.asset || "").toUpperCase()
 
         if (t.from?.toLowerCase() === address) {
           sentAssets.push(asset)
+          sent = true
         }
 
         if (t.to?.toLowerCase() === address) {
           receivedAssets.push(asset)
+          received = true
         }
 
         const value = Number(t.value || 0)
@@ -127,12 +132,23 @@ export async function POST(req: NextRequest) {
       const uniqueSent = Array.from(new Set(sentAssets))
       const uniqueReceived = Array.from(new Set(receivedAssets))
 
-      // ✅ ORIGINAL WORKING SWAP LOGIC
+      let isSwap = false
+
+      // ORIGINAL LOGIC
       if (
         uniqueSent.length > 0 &&
         uniqueReceived.length > 0 &&
         JSON.stringify(uniqueSent) !== JSON.stringify(uniqueReceived)
       ) {
+        isSwap = true
+      }
+
+      // FALLBACK SWAP LOGIC (DEX swaps)
+      if (!isSwap && sent && received) {
+        isSwap = true
+      }
+
+      if (isSwap) {
         swapCount++
 
         if (!processedTx[txHash]) {
@@ -218,4 +234,4 @@ export async function POST(req: NextRequest) {
       rank: 0
     })
   }
-}
+            }
