@@ -8,7 +8,6 @@ const api = axios.create({
 })
 
 const ETH_PRICE = 3500
-const STABLES = ["USDC","USDT","DAI"]
 
 export async function POST(req: NextRequest) {
 
@@ -18,48 +17,62 @@ export async function POST(req: NextRequest) {
     const { wallet } = await req.json()
     const address = wallet.toLowerCase()
 
-    let page = 1
-    let allTx: any[] = []
+    // fetch normal tx
+    const normal = await api.get(
+      `?module=account&action=txlist&address=${address}&page=1&offset=1000`
+    )
 
-    // ⚡ reduce pages = faster
-    while (page <= 8) {
+    // fetch token tx
+    const token = await api.get(
+      `?module=account&action=tokentx&address=${address}&page=1&offset=1000`
+    )
 
-      const res = await api.get(
-        `?module=account&action=tokentx&address=${address}&page=${page}&offset=100`
-      )
+    const normalTx = normal.data.result || []
+    const tokenTx = token.data.result || []
 
-      const txs = res.data.result || []
-      if (!txs.length) break
+    const swapHashes = new Set<string>()
 
-      allTx = allTx.concat(txs)
-      page++
-    }
-
-    const txMap: Record<string, any[]> = {}
-
-    for (const tx of allTx) {
-      if (!txMap[tx.hash]) txMap[tx.hash] = []
-      txMap[tx.hash].push(tx)
-    }
-
-    let swapCount = 0
     let volumeUSD = 0
     let gasETH = 0
 
     const tradingDays = new Set<string>()
 
-    for (const hash in txMap) {
+    // detect swaps from normal tx
+    for (const tx of normalTx) {
 
-      const txs = txMap[hash]
-      if (txs.length < 2) continue
+      if (!tx.input || tx.input === "0x") continue
 
-      let txVolume = 0
-      let isSwap = false
+      // router swap detection
+      if (
+        tx.input.startsWith("0x38ed1739") ||
+        tx.input.startsWith("0x18cbafe5") ||
+        tx.input.startsWith("0x7ff36ab5") ||
+        tx.input.startsWith("0x414bf389") ||
+        tx.input.startsWith("0x5ae401dc")
+      ) {
+        swapHashes.add(tx.hash)
+      }
 
-      for (const tx of txs) {
+      const gas =
+        (Number(tx.gasUsed) * Number(tx.gasPrice)) / 1e18
 
-        const symbol =
-          (tx.tokenSymbol || "").toUpperCase()
+      gasETH += gas
+
+      const day =
+        new Date(parseInt(tx.timeStamp)*1000)
+          .toISOString()
+          .split("T")[0]
+
+      tradingDays.add(day)
+    }
+
+    // detect ETH volume
+    for (const tx of tokenTx) {
+
+      const symbol =
+        (tx.tokenSymbol || "").toUpperCase()
+
+      if (symbol === "WETH" || symbol === "ETH") {
 
         const decimals =
           Number(tx.tokenDecimal || 18)
@@ -67,38 +80,11 @@ export async function POST(req: NextRequest) {
         const value =
           Number(tx.value) / (10 ** decimals)
 
-        // ETH side
-        if (symbol === "ETH" || symbol === "WETH") {
-          txVolume += value * ETH_PRICE
-          isSwap = true
-        }
-
-        // stable side
-        if (STABLES.includes(symbol)) {
-          txVolume += value
-          isSwap = true
-        }
-
-        // gas
-        const gas =
-          (Number(tx.gasUsed) * Number(tx.gasPrice)) / 1e18
-
-        gasETH += gas
-
-        const day =
-          new Date(parseInt(tx.timeStamp)*1000)
-            .toISOString()
-            .split("T")[0]
-
-        tradingDays.add(day)
-      }
-
-      if (isSwap) {
-        swapCount++
-        volumeUSD += txVolume
+        volumeUSD += value * ETH_PRICE
       }
     }
 
+    const swapCount = swapHashes.size
     const tradingDaysCount = tradingDays.size
 
     const score =
