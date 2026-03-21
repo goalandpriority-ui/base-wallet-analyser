@@ -20,11 +20,6 @@ const supabase = getSupabase()
 const { wallet } = await req.json()
 const address = wallet.toLowerCase()
 
-let transfers:any[] = []
-let pageKey:any = undefined
-
-do {
-
 const res = await rpc.post("/", {
 jsonrpc:"2.0",
 id:1,
@@ -32,55 +27,14 @@ method:"alchemy_getAssetTransfers",
 params:[{
 fromBlock:"0x0",
 toBlock:"latest",
-category:["external","internal","erc20"],
+fromAddress:address,
+category:["external"],
 withMetadata:true,
-maxCount:"0x3e8",
-pageKey,
-fromAddress:address
+maxCount:"0x3e8"
 }]
 })
 
-const result = res.data.result
-transfers = transfers.concat(result.transfers || [])
-pageKey = result.pageKey
-
-} while (pageKey)
-
-
-pageKey = undefined
-
-do {
-
-const res = await rpc.post("/", {
-jsonrpc:"2.0",
-id:1,
-method:"alchemy_getAssetTransfers",
-params:[{
-fromBlock:"0x0",
-toBlock:"latest",
-category:["external","internal","erc20"],
-withMetadata:true,
-maxCount:"0x3e8",
-pageKey,
-toAddress:address
-}]
-})
-
-const result = res.data.result
-transfers = transfers.concat(result.transfers || [])
-pageKey = result.pageKey
-
-} while (pageKey)
-
-
-
-const txMap:Record<string,any[]> = {}
-
-for (const t of transfers) {
-if (!txMap[t.hash]) txMap[t.hash] = []
-txMap[t.hash].push(t)
-}
-
+const txs = res.data.result.transfers || []
 
 let swapCount = 0
 let volumeUSD = 0
@@ -88,52 +42,67 @@ let gasETH = 0
 
 const tradingDays = new Set<string>()
 
+for (const tx of txs) {
 
-for (const hash in txMap) {
+const hash = tx.hash
 
-const txs = txMap[hash]
-if (txs.length < 2) continue
+const receipt = await rpc.post("/", {
+jsonrpc:"2.0",
+id:1,
+method:"eth_getTransactionReceipt",
+params:[hash]
+})
 
-let hasIn = false
-let hasOut = false
+const r = receipt.data.result
+if (!r) continue
+
+const logs = r.logs || []
+
+let tokenTransfers = 0
 let txVolume = 0
 
-for (const t of txs) {
+for (const log of logs) {
 
-const symbol = (t.asset || "").toUpperCase()
-const value = Number(t.value || 0)
+if (!log.data) continue
 
-if (t.from?.toLowerCase() === address) {
-hasOut = true
-}
+// ERC20 transfer topic
+if (
+log.topics?.[0] ===
+"0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55aeb"
+) {
 
-if (t.to?.toLowerCase() === address) {
-hasIn = true
-}
+tokenTransfers++
 
-if (symbol === "ETH" || symbol === "WETH") {
+const value =
+parseInt(log.data,16) / 1e18
+
 txVolume += value * ETH_PRICE
 }
 
-if (STABLES.includes(symbol)) {
-txVolume += value
 }
 
-if (t.metadata?.blockTimestamp) {
+if (tokenTransfers >= 2) {
+
+swapCount++
+volumeUSD += txVolume
+
+if (tx.metadata?.blockTimestamp) {
 
 const day =
-new Date(t.metadata.blockTimestamp)
+new Date(tx.metadata.blockTimestamp)
 .toISOString()
 .split("T")[0]
 
 tradingDays.add(day)
 }
 
-}
+const gas =
+(parseInt(r.gasUsed,16) *
+parseInt(r.effectiveGasPrice,16))
+/1e18
 
-if (hasIn && hasOut) {
-swapCount++
-volumeUSD += txVolume
+gasETH += gas
+
 }
 
 }
