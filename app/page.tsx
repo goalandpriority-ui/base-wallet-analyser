@@ -81,7 +81,6 @@ export default function Home() {
           {/* 🔥 PRO DATA */}
           <p>🔁 Swaps: {data.swapCount || 0}</p>
 
-          {/* ✅ FINAL FIX HERE */}
           <p>
             💎 Trading Volume: $
             {data.tradingVolumeUSD !== undefined
@@ -90,6 +89,13 @@ export default function Home() {
           </p>
 
           <p>📅 Trading Days: {data.tradingDays || 0}</p>
+
+          {/* 🔥 NEW TRADING GAS */}
+          <p>
+            ⛽ Trading Gas: {data.tradingGasETH !== undefined
+              ? data.tradingGasETH
+              : 0} ETH
+          </p>
 
         </div>
       )}
