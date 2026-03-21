@@ -9,13 +9,6 @@ process.env.ALCHEMY_API_KEY,
 timeout:20000
 })
 
-const ROUTERS = [
-"0xcF77a3Ba9A5CA399B7c97c74d54e5B1cE3F9C2bB", // aerodrome
-"0x1111111254EEB25477B68fb85Ed929f73A960582", // 1inch
-"0xE592427A0AEce92De3Edee1F18E0157C05861564", // uniswap v3
-"0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45"  // universal
-]
-
 const ETH_PRICE = 3500
 
 export async function POST(req:NextRequest){
@@ -50,15 +43,27 @@ const tradingDays=new Set<string>()
 
 for(const tx of txs){
 
-const to =
-tx.to?.toLowerCase()
+const receipt = await rpc.post("/",{
+jsonrpc:"2.0",
+id:1,
+method:"eth_getTransactionReceipt",
+params:[tx.hash]
+})
 
-if(!ROUTERS.includes(to))
-continue
+const r = receipt.data.result
+if(!r) continue
+
+const logs = r.logs || []
+
+// any token interaction = swap
+if(logs.length < 2) continue
 
 swapCount++
 
-volumeUSD += Number(tx.value || 0) * ETH_PRICE
+const value =
+parseInt(tx.value || "0")
+
+volumeUSD += Number(value) * ETH_PRICE
 
 if(tx.metadata?.blockTimestamp){
 
@@ -69,15 +74,6 @@ new Date(tx.metadata.blockTimestamp)
 
 tradingDays.add(day)
 }
-
-const receipt = await rpc.post("/",{
-jsonrpc:"2.0",
-id:1,
-method:"eth_getTransactionReceipt",
-params:[tx.hash]
-})
-
-const r = receipt.data.result
 
 const gas =
 (parseInt(r.gasUsed,16) *
