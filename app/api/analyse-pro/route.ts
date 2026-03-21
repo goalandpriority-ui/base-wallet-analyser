@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
+import { ethers } from "ethers"
 
 const GRAPH_URL = "https://gateway.thegraph.com/api/public/subgraphs/id/9zvRrR7vRkNvztNFVQVw1Gc7YDxjx3sZHFVAb9YSEvum"
 
-// 🔥 Base DEX Routers (Aerodrome etc.)
-const BASE_DEX_ROUTERS = [
-  "0xcf77a3ba9a5ca399b7c97c74d54e5bf4a6a2b3bf"
-]
+// 🔥 Base RPC
+const provider = new ethers.JsonRpcProvider(process.env.BASE_RPC!)
+
+// 🔥 Swap event topic (Uniswap V2 style)
+const SWAP_TOPIC = "0xd78ad95fa46c994b6551d0da85fc275fe613d1f7c7b5d2e0e5e8f7c6f6f6f6"
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,7 +24,7 @@ export async function POST(req: NextRequest) {
       Math.floor(Date.now() / 1000) - (2 * 365 * 24 * 60 * 60)
 
     // =========================================
-    // 🔥 GRAPH PAGINATION (UNCHANGED LOGIC)
+    // 🔥 GRAPH PAGINATION (UNCHANGED)
     // =========================================
     let allSwaps: any[] = []
     let skip = 0
@@ -90,7 +92,7 @@ export async function POST(req: NextRequest) {
     const swaps = Array.from(map.values())
 
     // =========================================
-    // 🔥 IF GRAPH HAS DATA → RETURN
+    // 🔥 GRAPH RESULT
     // =========================================
     if (swaps.length > 0) {
       let totalVolumeUSD = 0
@@ -117,63 +119,67 @@ export async function POST(req: NextRequest) {
     }
 
     // =========================================
-    // 🔥 BASE FALLBACK (NEW 🔥)
+    // 🔥 BASE EVENT DECODE (REAL FIX 🔥)
     // =========================================
-    let allTransfers: any[] = []
-    let pageKey: string | undefined = undefined
 
-    do {
-      const res = await axios.post(process.env.BASE_RPC!, {
-        jsonrpc: "2.0",
-        id: 1,
-        method: "alchemy_getAssetTransfers",
-        params: [
-          {
-            fromBlock: "0x0",
-            toBlock: "latest",
-            fromAddress: wallet,
-            category: ["external"],
-            withMetadata: true,
-            maxCount: "0x3e8",
-            pageKey: pageKey,
-          },
-        ],
-      })
+    const currentBlock = await provider.getBlockNumber()
 
-      const result = res.data.result
+    // 🔥 scan last ~2M blocks (~Base history window)
+    const fromBlock = currentBlock - 2_000_000
 
-      if (result.transfers) {
-        allTransfers = allTransfers.concat(result.transfers)
-      }
-
-      pageKey = result.pageKey
-
-      if (allTransfers.length > 5000) break
-
-    } while (pageKey)
+    const logs = await provider.getLogs({
+      fromBlock,
+      toBlock: currentBlock,
+      topics: [SWAP_TOPIC],
+    })
 
     let swapCount = 0
     let swapVolumeETH = 0
     const daysSet = new Set<string>()
 
-    for (const tx of allTransfers) {
-      if (tx.metadata?.blockTimestamp) {
-        const day = new Date(tx.metadata.blockTimestamp)
-          .toISOString()
-          .split("T")[0]
-        daysSet.add(day)
-      }
+    for (const log of logs) {
+      try {
+        const tx = await provider.getTransaction(log.transactionHash)
 
-      if (tx.to && BASE_DEX_ROUTERS.includes(tx.to.toLowerCase())) {
+        if (!tx) continue
+
+        // 🔥 only wallet related swaps
+        if (
+          tx.from.toLowerCase() !== address &&
+          tx.to?.toLowerCase() !== address
+        ) continue
+
         swapCount++
 
-        if (tx.value) {
-          const value = Number(tx.value)
+        // 🔥 decode swap values
+        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
+          ["uint256", "uint256", "uint256", "uint256"],
+          log.data
+        )
 
-          if (value > 0.0001 && value < 1000) {
-            swapVolumeETH += value
-          }
+        const [a0in, a1in, a0out, a1out] = decoded
+
+        const volume =
+          Number(a0in) +
+          Number(a1in) +
+          Number(a0out) +
+          Number(a1out)
+
+        swapVolumeETH += volume / 1e18
+
+        // 🔥 active trading day
+        const block = await provider.getBlock(log.blockNumber)
+
+        if (block?.timestamp) {
+          const day = new Date(block.timestamp * 1000)
+            .toISOString()
+            .split("T")[0]
+
+          daysSet.add(day)
         }
+
+      } catch {
+        continue
       }
     }
 
@@ -181,9 +187,9 @@ export async function POST(req: NextRequest) {
       wallet,
       swapCount,
       swapVolumeETH: Number(swapVolumeETH.toFixed(4)),
-      activeDays: daysSet.size,
-      source: "Base DEX (Fallback)",
-      period: "Last 2 Years",
+      tradingDays: daysSet.size,
+      source: "Base Event Decode 🔥",
+      period: "Last ~2M blocks",
     })
 
   } catch (err) {
