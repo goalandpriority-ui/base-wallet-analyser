@@ -2,15 +2,13 @@ import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
 import { getSupabase } from "../../../lib/supabase"
 
-const rpc = axios.create({
-  baseURL:
-    "https://base-mainnet.g.alchemy.com/v2/" +
-    process.env.ALCHEMY_API_KEY,
+const api = axios.create({
+  baseURL: "https://base.blockscout.com/api",
   timeout: 10000
 })
 
-const ETH_PRICE = 3500
 const STABLES = ["USDC","USDT","DAI"]
+const ETH_PRICE = 3500
 
 export async function POST(req: NextRequest) {
 
@@ -20,78 +18,27 @@ export async function POST(req: NextRequest) {
     const { wallet } = await req.json()
     const address = wallet.toLowerCase()
 
-    let transfers: any[] = []
-    let pageKey: any = undefined
+    let page = 1
+    let allTx: any[] = []
 
-    // FROM
-    do {
+    while (page <= 25) {
 
-      const res = await rpc.post("/", {
-        jsonrpc: "2.0",
-        id: 1,
-        method: "alchemy_getAssetTransfers",
-        params: [{
-          fromBlock: "0x0",
-          toBlock: "latest",
-          fromAddress: address,
-          category: [
-            "external",
-            "internal",
-            "erc20",
-            "erc721",
-            "erc1155"
-          ],
-          withMetadata: true,
-          maxCount: "0x3e8",
-          pageKey
-        }]
-      })
+      const res = await api.get(
+        `?module=account&action=tokentx&address=${address}&page=${page}&offset=100`
+      )
 
-      const result = res.data.result
-      transfers = transfers.concat(result.transfers || [])
-      pageKey = result.pageKey
+      const txs = res.data.result || []
+      if (!txs.length) break
 
-    } while (pageKey)
-
-
-    // TO
-    pageKey = undefined
-
-    do {
-
-      const res = await rpc.post("/", {
-        jsonrpc: "2.0",
-        id: 1,
-        method: "alchemy_getAssetTransfers",
-        params: [{
-          fromBlock: "0x0",
-          toBlock: "latest",
-          toAddress: address,
-          category: [
-            "external",
-            "internal",
-            "erc20",
-            "erc721",
-            "erc1155"
-          ],
-          withMetadata: true,
-          maxCount: "0x3e8",
-          pageKey
-        }]
-      })
-
-      const result = res.data.result
-      transfers = transfers.concat(result.transfers || [])
-      pageKey = result.pageKey
-
-    } while (pageKey)
-
+      allTx = allTx.concat(txs)
+      page++
+    }
 
     const txMap: Record<string, any[]> = {}
 
-    for (const t of transfers) {
-      if (!txMap[t.hash]) txMap[t.hash] = []
-      txMap[t.hash].push(t)
+    for (const tx of allTx) {
+      if (!txMap[tx.hash]) txMap[tx.hash] = []
+      txMap[tx.hash].push(tx)
     }
 
     let swapCount = 0
@@ -105,39 +52,44 @@ export async function POST(req: NextRequest) {
       const txs = txMap[hash]
       if (txs.length < 2) continue
 
-      let txVolume = 0
-      let isSwap = false
+      let ethSide = 0
+      let stableSide = 0
 
-      for (const t of txs) {
+      for (const tx of txs) {
+
+        const decimals = Number(tx.tokenDecimal || 18)
+        const value =
+          Number(tx.value) / (10 ** decimals)
 
         const symbol =
-          (t.asset || "").toUpperCase()
+          (tx.tokenSymbol || "").toUpperCase()
 
-        const value =
-          Number(t.value || 0)
-
+        // ETH side
         if (symbol === "ETH" || symbol === "WETH") {
-          txVolume += value * ETH_PRICE
-          isSwap = true
+          ethSide += value * ETH_PRICE
         }
 
+        // stable side
         if (STABLES.includes(symbol)) {
-          txVolume += value
-          isSwap = true
+          stableSide += value
         }
 
-        if (t.metadata?.blockTimestamp) {
+        const gas =
+          (Number(tx.gasUsed) * Number(tx.gasPrice)) / 1e18
 
-          const day =
-            new Date(t.metadata.blockTimestamp)
-              .toISOString()
-              .split("T")[0]
+        gasETH += gas
 
-          tradingDays.add(day)
-        }
+        const day =
+          new Date(parseInt(tx.timeStamp)*1000)
+            .toISOString()
+            .split("T")[0]
+
+        tradingDays.add(day)
       }
 
-      if (isSwap) {
+      const txVolume = Math.max(ethSide, stableSide)
+
+      if (txVolume > 0) {
         swapCount++
         volumeUSD += txVolume
       }
@@ -148,7 +100,8 @@ export async function POST(req: NextRequest) {
     const score =
       (swapCount * 2) +
       tradingDaysCount +
-      (volumeUSD / 100)
+      (volumeUSD / 100) +
+      (gasETH * 5000)
 
     await supabase
       .from("leaderboard")
@@ -183,7 +136,8 @@ export async function POST(req: NextRequest) {
       tradingDays: 0,
       tradingGasETH: 0,
       score: 0,
-      rank: 0
+      rank: 0,
+      error: e.message || "error"
     }, { status: 500 })
 
   }
