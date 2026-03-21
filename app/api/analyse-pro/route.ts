@@ -7,17 +7,8 @@ const api = axios.create({
   timeout: 10000
 })
 
-// real token price map (Base major tokens)
-const PRICE_MAP: Record<string, number> = {
-  USDC: 1,
-  USDT: 1,
-  DAI: 1,
-  WETH: 3500,
-  ETH: 3500,
-  CBETH: 3500,
-  AERO: 1,
-  DEGEN: 0.02
-}
+const STABLES = ["USDC","USDT","DAI"]
+const ETH_PRICE = 3500
 
 export async function POST(req: NextRequest) {
 
@@ -30,60 +21,82 @@ export async function POST(req: NextRequest) {
     let page = 1
     let allTx: any[] = []
 
-    // fetch more pages for accurate swaps
-    while (page <= 15) {
+    while (page <= 20) {
 
       const res = await api.get(
         `?module=account&action=tokentx&address=${address}&page=${page}&offset=100`
       )
 
       const txs = res.data.result || []
-      if (txs.length === 0) break
+      if (!txs.length) break
 
       allTx = allTx.concat(txs)
       page++
     }
 
-    const swapHashes = new Set<string>()
+    const txMap: Record<string, any[]> = {}
 
+    for (const tx of allTx) {
+      if (!txMap[tx.hash]) txMap[tx.hash] = []
+      txMap[tx.hash].push(tx)
+    }
+
+    let swapCount = 0
     let volumeUSD = 0
     let gasETH = 0
 
     const tradingDays = new Set<string>()
 
-    for (const tx of allTx) {
+    for (const hash in txMap) {
 
-      const hash = tx.hash
-      swapHashes.add(hash)
+      const txs = txMap[hash]
+      if (txs.length < 2) continue
 
-      const decimals = Number(tx.tokenDecimal || 18)
-      const value = Number(tx.value) / (10 ** decimals)
+      swapCount++
 
-      const symbol = (tx.tokenSymbol || "").toUpperCase()
+      let txVolume = 0
 
-      const price = PRICE_MAP[symbol]
+      for (const tx of txs) {
 
-      // only count known tokens
-      if (price && value > 0) {
-        volumeUSD += value * price
+        const decimals = Number(tx.tokenDecimal || 18)
+        const value =
+          Number(tx.value) / (10 ** decimals)
+
+        const symbol =
+          (tx.tokenSymbol || "").toUpperCase()
+
+        // stable
+        if (STABLES.includes(symbol)) {
+          txVolume += value
+        }
+
+        // eth
+        if (symbol === "ETH" || symbol === "WETH") {
+          txVolume += value * ETH_PRICE
+        }
+
+        // fallback estimate
+        if (!STABLES.includes(symbol)) {
+          txVolume += value * 0.1
+        }
+
+        // gas
+        const gas =
+          (Number(tx.gasUsed) * Number(tx.gasPrice)) / 1e18
+
+        gasETH += gas
+
+        const day =
+          new Date(parseInt(tx.timeStamp)*1000)
+            .toISOString()
+            .split("T")[0]
+
+        tradingDays.add(day)
       }
 
-      // gas
-      const gas =
-        (Number(tx.gasUsed) * Number(tx.gasPrice)) / 1e18
-
-      gasETH += gas
-
-      // trading day
-      const day =
-        new Date(parseInt(tx.timeStamp) * 1000)
-          .toISOString()
-          .split("T")[0]
-
-      tradingDays.add(day)
+      volumeUSD += txVolume
     }
 
-    const swapCount = swapHashes.size
     const tradingDaysCount = tradingDays.size
 
     const score =
@@ -118,8 +131,6 @@ export async function POST(req: NextRequest) {
 
   } catch (e: any) {
 
-    console.error(e)
-
     return NextResponse.json({
       wallet: "",
       swapCount: 0,
@@ -128,7 +139,7 @@ export async function POST(req: NextRequest) {
       tradingGasETH: 0,
       score: 0,
       rank: 0,
-      error: e.message || "Unknown error"
+      error: e.message || "error"
     }, { status: 500 })
 
   }
