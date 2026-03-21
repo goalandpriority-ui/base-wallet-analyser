@@ -10,7 +10,6 @@ const rpc = axios.create({
 export async function POST(req: NextRequest) {
   try {
     const supabase = getSupabase()
-
     const { wallet } = await req.json()
 
     if (!wallet) {
@@ -35,7 +34,7 @@ export async function POST(req: NextRequest) {
               {
                 fromBlock: "0x0",
                 toBlock: "latest",
-                category: ["external", "erc20"],
+                category: ["external", "internal", "erc20"], // 🔥 IMPORTANT
                 withMetadata: true,
                 excludeZeroValue: true,
                 maxCount: "0x3e8",
@@ -86,30 +85,38 @@ export async function POST(req: NextRequest) {
     const MAX_PARALLEL = 5
     let gasPromises: Promise<void>[] = []
 
-    for (const [txHash, transfers] of txMap.entries()) {
+    for (const entry of Array.from(txMap.entries())) {
+      const txHash = entry[0]
+      const transfers = entry[1]
 
-      let sentAssets: string[] = []
-      let receivedAssets: string[] = []
+      let sent = false
+      let received = false
 
       for (const t of transfers) {
         const asset = (t.asset || "").toUpperCase()
+        const value = Number(t.value || 0)
 
         if (t.from?.toLowerCase() === address) {
-          sentAssets.push(asset)
-
-          const value = Number(t.value || 0)
+          sent = true
 
           if (value) {
             if (STABLES.includes(asset)) volumeUSD += value
-            if (asset === "ETH" || asset === "WETH") volumeUSD += value * 3000
+
+            // 🔥 handle ETH + internal transfers
+            if (
+              asset === "ETH" ||
+              asset === "WETH" ||
+              asset === ""
+            ) {
+              volumeUSD += value * 3000
+            }
           }
         }
 
         if (t.to?.toLowerCase() === address) {
-          receivedAssets.push(asset)
+          received = true
         }
 
-        // trading days (old logic)
         if (t.metadata?.blockTimestamp) {
           const day = new Date(t.metadata.blockTimestamp)
             .toISOString()
@@ -119,14 +126,8 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      const uniqueSent = Array.from(new Set(sentAssets))
-      const uniqueReceived = Array.from(new Set(receivedAssets))
-
-      if (
-        uniqueSent.length > 0 &&
-        uniqueReceived.length > 0 &&
-        JSON.stringify(uniqueSent) !== JSON.stringify(uniqueReceived)
-      ) {
+      // 🔥 SWAP DETECTION (old logic restored)
+      if (sent && received) {
         swapCount++
 
         if (!processedTx[txHash]) {
