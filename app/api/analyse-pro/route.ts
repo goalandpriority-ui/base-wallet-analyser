@@ -2,111 +2,119 @@ import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
 import { getSupabase } from "../../../lib/supabase"
 
-const RPC = "https://mainnet.base.org"
-
 const rpc = axios.create({
-  baseURL: RPC,
+  baseURL: "https://mainnet.base.org",
   timeout: 10000
 })
 
+const TRANSFER_TOPIC =
+"0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55aeb"
+
+const pad = (addr: string) =>
+"0x000000000000000000000000" + addr.replace("0x","").toLowerCase()
+
 export async function POST(req: NextRequest) {
-  try {
 
-    const supabase = getSupabase()
+try {
 
-    const { wallet } = await req.json()
-    const address = wallet.toLowerCase()
+const supabase = getSupabase()
+const { wallet } = await req.json()
+const address = wallet.toLowerCase()
 
-    // ERC20 Transfer topic
-    const TRANSFER_TOPIC =
-      "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55aeb"
+let allLogs:any[] = []
 
-    const pad = (addr: string) =>
-      "0x000000000000000000000000" + addr.replace("0x", "").toLowerCase()
+// last ~500k blocks மட்டும் scan
+const latest = await rpc.post("",{
+jsonrpc:"2.0",
+id:1,
+method:"eth_blockNumber",
+params:[]
+})
 
-    const logsFrom = await rpc.post("", {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "eth_getLogs",
-      params: [{
-        fromBlock: "0x0",
-        toBlock: "latest",
-        topics: [
-          TRANSFER_TOPIC,
-          pad(address)
-        ]
-      }]
-    })
+const latestBlock = parseInt(latest.data.result,16)
+const startBlock = latestBlock - 500000
 
-    const logsTo = await rpc.post("", {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "eth_getLogs",
-      params: [{
-        fromBlock: "0x0",
-        toBlock: "latest",
-        topics: [
-          TRANSFER_TOPIC,
-          null,
-          pad(address)
-        ]
-      }]
-    })
+// chunk scan
+for(let from=startBlock; from<latestBlock; from+=5000){
 
-    const allLogs = [
-      ...(logsFrom.data.result || []),
-      ...(logsTo.data.result || [])
-    ]
+const to = Math.min(from+4999,latestBlock)
 
-    const txHashes = [...new Set(allLogs.map((l:any)=>l.transactionHash))]
+const logsFrom = await rpc.post("",{
+jsonrpc:"2.0",
+id:1,
+method:"eth_getLogs",
+params:[{
+fromBlock:"0x"+from.toString(16),
+toBlock:"0x"+to.toString(16),
+topics:[TRANSFER_TOPIC,pad(address)]
+}]
+})
 
-    let swapCount = txHashes.length
-    let volumeUSD = swapCount * 50
-    let gasETH = swapCount * 0.0003
+const logsTo = await rpc.post("",{
+jsonrpc:"2.0",
+id:1,
+method:"eth_getLogs",
+params:[{
+fromBlock:"0x"+from.toString(16),
+toBlock:"0x"+to.toString(16),
+topics:[TRANSFER_TOPIC,null,pad(address)]
+}]
+})
 
-    const tradingDays = new Set<string>()
+allLogs.push(...(logsFrom.data.result||[]))
+allLogs.push(...(logsTo.data.result||[]))
 
-    for (const log of allLogs) {
-      if (log.blockNumber) {
-        const day = parseInt(log.blockNumber,16)
-        tradingDays.add(String(Math.floor(day/6500)))
-      }
-    }
+}
 
-    const tradingDaysCount = tradingDays.size
+const txHashes = [...new Set(allLogs.map((l:any)=>l.transactionHash))]
 
-    const score =
-      (swapCount * 2) +
-      tradingDaysCount +
-      (volumeUSD / 100) +
-      (gasETH * 5000)
+const swapCount = txHashes.length
+const volumeUSD = swapCount * 45
+const gasETH = swapCount * 0.00025
 
-    await supabase
-      .from("leaderboard")
-      .upsert({
-        wallet: address,
-        score,
-        swaps: swapCount,
-        volume: volumeUSD,
-        days: tradingDaysCount,
-        gas: gasETH
-      }, { onConflict: "wallet" })
+const tradingDays = new Set<string>()
 
-    return NextResponse.json({
-      wallet,
-      swapCount,
-      tradingVolumeUSD: volumeUSD,
-      tradingDays: tradingDaysCount,
-      tradingGasETH: gasETH,
-      score: Math.round(score),
-      rank: 1
-    })
+for(const log of allLogs){
+if(log.blockNumber){
+const d = parseInt(log.blockNumber,16)
+tradingDays.add(String(Math.floor(d/6500)))
+}
+}
 
-  } catch (e:any) {
+const tradingDaysCount = tradingDays.size
 
-    return NextResponse.json({
-      error: e.message
-    }, { status: 500 })
+const score =
+(swapCount * 2) +
+tradingDaysCount +
+(volumeUSD / 100) +
+(gasETH * 5000)
 
-  }
+await supabase
+.from("leaderboard")
+.upsert({
+wallet: address,
+score,
+swaps: swapCount,
+volume: volumeUSD,
+days: tradingDaysCount,
+gas: gasETH
+},{onConflict:"wallet"})
+
+return NextResponse.json({
+wallet,
+swapCount,
+tradingVolumeUSD: volumeUSD,
+tradingDays: tradingDaysCount,
+tradingGasETH: gasETH,
+score: Math.round(score),
+rank:1
+})
+
+}catch(e:any){
+
+return NextResponse.json({
+error:e.message
+},{status:500})
+
+}
 }
