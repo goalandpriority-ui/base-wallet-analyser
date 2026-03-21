@@ -21,42 +21,71 @@ export async function POST(req: NextRequest) {
     const address = wallet.toLowerCase()
 
     let transfers: any[] = []
+    let pageKey: any = undefined
 
-    const res = await rpc.post("/", {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "alchemy_getAssetTransfers",
-      params: [{
-        fromBlock: "0x0",
-        toBlock: "latest",
-        fromAddress: address,
-        category: ["erc20"],
-        withMetadata: true,
-        maxCount: "0x3e8"
-      }]
-    })
+    // FROM
+    do {
 
-    transfers = transfers.concat(
-      res.data.result.transfers || []
-    )
+      const res = await rpc.post("/", {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "alchemy_getAssetTransfers",
+        params: [{
+          fromBlock: "0x0",
+          toBlock: "latest",
+          fromAddress: address,
+          category: [
+            "external",
+            "internal",
+            "erc20",
+            "erc721",
+            "erc1155"
+          ],
+          withMetadata: true,
+          maxCount: "0x3e8",
+          pageKey
+        }]
+      })
 
-    const res2 = await rpc.post("/", {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "alchemy_getAssetTransfers",
-      params: [{
-        fromBlock: "0x0",
-        toBlock: "latest",
-        toAddress: address,
-        category: ["erc20"],
-        withMetadata: true,
-        maxCount: "0x3e8"
-      }]
-    })
+      const result = res.data.result
+      transfers = transfers.concat(result.transfers || [])
+      pageKey = result.pageKey
 
-    transfers = transfers.concat(
-      res2.data.result.transfers || []
-    )
+    } while (pageKey)
+
+
+    // TO
+    pageKey = undefined
+
+    do {
+
+      const res = await rpc.post("/", {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "alchemy_getAssetTransfers",
+        params: [{
+          fromBlock: "0x0",
+          toBlock: "latest",
+          toAddress: address,
+          category: [
+            "external",
+            "internal",
+            "erc20",
+            "erc721",
+            "erc1155"
+          ],
+          withMetadata: true,
+          maxCount: "0x3e8",
+          pageKey
+        }]
+      })
+
+      const result = res.data.result
+      transfers = transfers.concat(result.transfers || [])
+      pageKey = result.pageKey
+
+    } while (pageKey)
+
 
     const txMap: Record<string, any[]> = {}
 
