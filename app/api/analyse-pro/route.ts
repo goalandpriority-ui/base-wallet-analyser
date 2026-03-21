@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     const address = wallet.toLowerCase()
 
     // =========================================
-    // 🔥 FETCH ALL TRANSFERS (IN + OUT)
+    // 🔥 FETCH ALL TRANSFERS (OUTGOING)
     // =========================================
     let allTransfers: any[] = []
     let pageKey: string | undefined = undefined
@@ -31,7 +31,6 @@ export async function POST(req: NextRequest) {
             excludeZeroValue: true,
             maxCount: "0x3e8",
             pageKey,
-            // 🔥 BOTH directions
             fromAddress: address,
           },
         ],
@@ -39,7 +38,7 @@ export async function POST(req: NextRequest) {
 
       const result = res.data.result
 
-      if (result.transfers) {
+      if (result?.transfers) {
         allTransfers = allTransfers.concat(result.transfers)
       }
 
@@ -49,7 +48,9 @@ export async function POST(req: NextRequest) {
 
     } while (pageKey)
 
-    // 🔥 ALSO GET INCOMING TRANSFERS
+    // =========================================
+    // 🔥 FETCH INCOMING TRANSFERS
+    // =========================================
     pageKey = undefined
 
     do {
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
 
       const result = res.data.result
 
-      if (result.transfers) {
+      if (result?.transfers) {
         allTransfers = allTransfers.concat(result.transfers)
       }
 
@@ -84,7 +85,7 @@ export async function POST(req: NextRequest) {
     } while (pageKey)
 
     // =========================================
-    // 🔥 GROUP BY TRANSACTION HASH
+    // 🔥 GROUP BY TX HASH
     // =========================================
     const txMap = new Map<string, any[]>()
 
@@ -99,13 +100,16 @@ export async function POST(req: NextRequest) {
     }
 
     // =========================================
-    // 🔥 DETECT SWAPS
+    // 🔥 SWAP DETECTION
     // =========================================
     let swapCount = 0
     let swapVolumeETH = 0
     const tradingDays = new Set<string>()
 
-    for (const [hash, transfers] of txMap) {
+    for (const entry of Array.from(txMap.entries())) {
+      const hash = entry[0]
+      const transfers = entry[1]
+
       let sent = 0
       let received = 0
 
@@ -131,7 +135,7 @@ export async function POST(req: NextRequest) {
       if (sent > 0 && received > 0 && sentAsset !== receivedAsset) {
         swapCount++
 
-        // 🔥 approximate ETH volume
+        // 🔥 ETH volume calculation
         if (sentAsset === "ETH") {
           swapVolumeETH += sent
         }
@@ -140,7 +144,7 @@ export async function POST(req: NextRequest) {
           swapVolumeETH += received
         }
 
-        // 🔥 active trading day
+        // 🔥 ACTIVE DAY
         const sample = transfers[0]
         if (sample.metadata?.blockTimestamp) {
           const day = new Date(sample.metadata.blockTimestamp)
@@ -152,6 +156,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // =========================================
+    // 🔥 RESPONSE
+    // =========================================
     return NextResponse.json({
       wallet,
       swapCount,
@@ -161,10 +168,10 @@ export async function POST(req: NextRequest) {
     })
 
   } catch (err) {
-    console.error("TRANSFER SWAP ERROR:", err)
+    console.error("FINAL ERROR:", err)
 
     return NextResponse.json({
-      error: "Swap detection failed",
+      error: "Analysis failed",
     })
   }
 }
