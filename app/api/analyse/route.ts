@@ -3,6 +3,11 @@ import axios from "axios"
 
 const cache: Record<string, any> = {}
 
+// 🔥 RPC SAFE (VERCEL FIX)
+const RPC =
+  process.env.BASE_RPC ||
+  `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
+
 // 🔥 DEX ROUTERS (BASE + ETH)
 const DEX_ROUTERS = [
   "0xE592427A0AEce92De3Edee1F18E0157C05861564".toLowerCase(), // Uniswap V3
@@ -44,7 +49,7 @@ export async function POST(req: NextRequest) {
     let pageKey: string | undefined = undefined
 
     do {
-      const res = await axios.post(process.env.BASE_RPC!, {
+      const res = await axios.post(RPC, {
         jsonrpc: "2.0",
         id: 1,
         method: "alchemy_getAssetTransfers",
@@ -173,8 +178,17 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(result)
 
-  } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: "Server error" }, { status: 500 })
+  } catch (err: any) {
+    console.error("analyse error:", err?.response?.data || err)
+
+    return NextResponse.json({
+      wallet: "",
+      totalTxns: 0,
+      totalVolumeETH: 0,
+      swapCount: 0,
+      swapVolumeETH: 0,
+      totalGasETH: 0,
+      activeDays: 0,
+    })
   }
-            }
+      }
