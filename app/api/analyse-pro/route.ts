@@ -91,32 +91,30 @@ export async function POST(req: NextRequest) {
       const txHash = entry[0]
       const transfers = entry[1]
 
-      let sent = false
-      let received = false
+      let sentAssets: string[] = []
+      let receivedAssets: string[] = []
 
       for (const t of transfers) {
 
         const asset = (t.asset || "").toUpperCase()
+
+        if (t.from?.toLowerCase() === address) {
+          sentAssets.push(asset)
+        }
+
+        if (t.to?.toLowerCase() === address) {
+          receivedAssets.push(asset)
+        }
+
         const value = Number(t.value || 0)
 
-        // ✅ sent detect
-        if (t.from?.toLowerCase() === address) {
-          sent = true
-
-          if (value) {
-            if (STABLES.includes(asset)) volumeUSD += value
-            if (asset === "ETH" || asset === "WETH") {
-              volumeUSD += value * 3000
-            }
+        if (value && t.from?.toLowerCase() === address) {
+          if (STABLES.includes(asset)) volumeUSD += value
+          if (asset === "ETH" || asset === "WETH") {
+            volumeUSD += value * 3000
           }
         }
 
-        // ✅ received detect
-        if (t.to?.toLowerCase() === address) {
-          received = true
-        }
-
-        // trading days
         if (t.metadata?.blockTimestamp) {
           const day = new Date(t.metadata.blockTimestamp)
             .toISOString()
@@ -126,8 +124,15 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // ✅ FINAL SWAP DETECT
-      if (sent && received) {
+      const uniqueSent = Array.from(new Set(sentAssets))
+      const uniqueReceived = Array.from(new Set(receivedAssets))
+
+      // ✅ ORIGINAL WORKING SWAP LOGIC
+      if (
+        uniqueSent.length > 0 &&
+        uniqueReceived.length > 0 &&
+        JSON.stringify(uniqueSent) !== JSON.stringify(uniqueReceived)
+      ) {
         swapCount++
 
         if (!processedTx[txHash]) {
@@ -213,4 +218,4 @@ export async function POST(req: NextRequest) {
       rank: 0
     })
   }
-      }
+}
