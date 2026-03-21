@@ -1,4 +1,3 @@
-// same imports...
 import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
 import { getSupabase } from "../../../lib/supabase"
@@ -11,6 +10,7 @@ const rpc = axios.create({
 export async function POST(req: NextRequest) {
   try {
     const supabase = getSupabase()
+
     const { wallet } = await req.json()
 
     if (!wallet) {
@@ -86,9 +86,7 @@ export async function POST(req: NextRequest) {
     const MAX_PARALLEL = 5
     let gasPromises: Promise<void>[] = []
 
-    for (const entry of Array.from(txMap.entries())) {
-      const txHash = entry[0]
-      const transfers = entry[1]
+    for (const [txHash, transfers] of txMap.entries()) {
 
       let sentAssets: string[] = []
       let receivedAssets: string[] = []
@@ -96,36 +94,40 @@ export async function POST(req: NextRequest) {
       for (const t of transfers) {
         const asset = (t.asset || "").toUpperCase()
 
-        if (t.from?.toLowerCase() === address) sentAssets.push(asset)
-        if (t.to?.toLowerCase() === address) receivedAssets.push(asset)
+        if (t.from?.toLowerCase() === address) {
+          sentAssets.push(asset)
+
+          const value = Number(t.value || 0)
+
+          if (value) {
+            if (STABLES.includes(asset)) volumeUSD += value
+            if (asset === "ETH" || asset === "WETH") volumeUSD += value * 3000
+          }
+        }
+
+        if (t.to?.toLowerCase() === address) {
+          receivedAssets.push(asset)
+        }
+
+        // trading days (old logic)
+        if (t.metadata?.blockTimestamp) {
+          const day = new Date(t.metadata.blockTimestamp)
+            .toISOString()
+            .split("T")[0]
+
+          tradingDays[day] = true
+        }
       }
 
       const uniqueSent = Array.from(new Set(sentAssets))
       const uniqueReceived = Array.from(new Set(receivedAssets))
 
-      // ✅ FIXED SWAP DETECTION
-      const isSwap =
+      if (
         uniqueSent.length > 0 &&
         uniqueReceived.length > 0 &&
-        (
-          uniqueSent.some(a => !uniqueReceived.includes(a)) ||
-          uniqueReceived.some(a => !uniqueSent.includes(a))
-        )
-
-      if (isSwap) {
+        JSON.stringify(uniqueSent) !== JSON.stringify(uniqueReceived)
+      ) {
         swapCount++
-
-        for (const t of transfers) {
-          const value = Number(t.value || 0)
-          const asset = (t.asset || "").toUpperCase()
-
-          if (!value || !asset) continue
-
-          if (t.from?.toLowerCase() === address) {
-            if (STABLES.includes(asset)) volumeUSD += value
-            if (asset === "ETH" || asset === "WETH") volumeUSD += value * 3000
-          }
-        }
 
         if (!processedTx[txHash]) {
           processedTx[txHash] = true
@@ -153,15 +155,6 @@ export async function POST(req: NextRequest) {
             await Promise.all(gasPromises)
             gasPromises = []
           }
-        }
-
-        const sample = transfers[0]
-        if (sample.metadata?.blockTimestamp) {
-          const day = new Date(sample.metadata.blockTimestamp)
-            .toISOString()
-            .split("T")[0]
-
-          tradingDays[day] = true
         }
       }
     }
