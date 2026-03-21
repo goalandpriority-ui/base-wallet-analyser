@@ -15,90 +15,59 @@ export async function POST(req: NextRequest) {
     let pageKey: string | undefined = undefined
 
     // =========================================
-    // 🔥 OUTGOING TRANSFERS
+    // 🔥 FETCH TRANSFERS (OUT + IN)
     // =========================================
-    do {
-      const res = await axios.post(process.env.BASE_RPC!, {
-        jsonrpc: "2.0",
-        id: 1,
-        method: "alchemy_getAssetTransfers",
-        params: [
-          {
-            fromBlock: "0x0",
-            toBlock: "latest",
-            category: ["external", "erc20"],
-            withMetadata: true,
-            excludeZeroValue: true,
-            maxCount: "0x3e8",
-            pageKey,
-            fromAddress: address,
-          },
-        ],
-      })
+    const fetchTransfers = async (type: "fromAddress" | "toAddress") => {
+      pageKey = undefined
 
-      const result = res.data.result
+      do {
+        const res = await axios.post(process.env.BASE_RPC!, {
+          jsonrpc: "2.0",
+          id: 1,
+          method: "alchemy_getAssetTransfers",
+          params: [
+            {
+              fromBlock: "0x0",
+              toBlock: "latest",
+              category: ["external", "erc20"],
+              withMetadata: true,
+              excludeZeroValue: true,
+              maxCount: "0x3e8",
+              pageKey,
+              [type]: address,
+            },
+          ],
+        })
 
-      if (result?.transfers) {
-        allTransfers = allTransfers.concat(result.transfers)
-      }
+        const result = res.data.result
 
-      pageKey = result.pageKey
-      if (allTransfers.length > 5000) break
+        if (result?.transfers) {
+          allTransfers = allTransfers.concat(result.transfers)
+        }
 
-    } while (pageKey)
+        pageKey = result.pageKey
+        if (allTransfers.length > 10000) break
 
-    // =========================================
-    // 🔥 INCOMING TRANSFERS
-    // =========================================
-    pageKey = undefined
+      } while (pageKey)
+    }
 
-    do {
-      const res = await axios.post(process.env.BASE_RPC!, {
-        jsonrpc: "2.0",
-        id: 1,
-        method: "alchemy_getAssetTransfers",
-        params: [
-          {
-            fromBlock: "0x0",
-            toBlock: "latest",
-            category: ["external", "erc20"],
-            withMetadata: true,
-            excludeZeroValue: true,
-            maxCount: "0x3e8",
-            pageKey,
-            toAddress: address,
-          },
-        ],
-      })
-
-      const result = res.data.result
-
-      if (result?.transfers) {
-        allTransfers = allTransfers.concat(result.transfers)
-      }
-
-      pageKey = result.pageKey
-      if (allTransfers.length > 10000) break
-
-    } while (pageKey)
+    await fetchTransfers("fromAddress")
+    await fetchTransfers("toAddress")
 
     // =========================================
-    // 🔥 GROUP BY TX HASH
+    // 🔥 GROUP BY TX
     // =========================================
     const txMap = new Map<string, any[]>()
 
     for (const tx of allTransfers) {
-      const hash = tx.hash
-
-      if (!txMap.has(hash)) {
-        txMap.set(hash, [])
+      if (!txMap.has(tx.hash)) {
+        txMap.set(tx.hash, [])
       }
-
-      txMap.get(hash)!.push(tx)
+      txMap.get(tx.hash)!.push(tx)
     }
 
     // =========================================
-    // 🔥 SWAP DETECT + USD VOLUME
+    // 🔥 SWAP + VOLUME
     // =========================================
     let swapCount = 0
     let volumeUSD = 0
@@ -114,7 +83,6 @@ export async function POST(req: NextRequest) {
 
       for (const t of transfers) {
         const asset = (t.asset || "").toUpperCase()
-        if (!asset) continue
 
         if (t.from?.toLowerCase() === address) {
           sentAssets.push(asset)
@@ -128,9 +96,6 @@ export async function POST(req: NextRequest) {
       const uniqueSent = Array.from(new Set(sentAssets))
       const uniqueReceived = Array.from(new Set(receivedAssets))
 
-      // =====================================
-      // 🔥 SWAP CONDITION
-      // =====================================
       if (
         uniqueSent.length > 0 &&
         uniqueReceived.length > 0 &&
@@ -138,32 +103,28 @@ export async function POST(req: NextRequest) {
       ) {
         swapCount++
 
-        // =====================================
-        // 🔥 USD VOLUME CALCULATION
-        // =====================================
         for (const t of transfers) {
-          const value = Number(t.value || 0)
+          let value = Number(t.value || 0)
           const asset = (t.asset || "").toUpperCase()
+          const decimals = t.rawContract?.decimal ?? 18
 
-          if (!value || !asset) continue
+          if (!value) continue
+
+          // 🔥 FIX DECIMALS
+          value = value / Math.pow(10, decimals)
 
           if (t.from?.toLowerCase() === address) {
 
-            // Stable coins → direct USD
             if (STABLES.includes(asset)) {
               volumeUSD += value
             }
 
-            // ETH / WETH → convert USD
             if (asset === "ETH" || asset === "WETH") {
-              volumeUSD += value * 3000 // rough ETH price
+              volumeUSD += value * 3000
             }
           }
         }
 
-        // =====================================
-        // 🔥 ACTIVE TRADING DAY
-        // =====================================
         const sample = transfers[0]
         if (sample.metadata?.blockTimestamp) {
           const day = new Date(sample.metadata.blockTimestamp)
@@ -175,22 +136,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // =========================================
-    // 🔥 FINAL RESPONSE (IMPORTANT FIX)
-    // =========================================
     return NextResponse.json({
       wallet,
       swapCount,
-      tradingVolumeUSD: Number(volumeUSD.toFixed(2)), // 🔥 USE THIS IN UI
+      tradingVolumeUSD: Number(volumeUSD.toFixed(2)),
       tradingDays: Object.keys(tradingDays).length,
-      source: "PRO FINAL 🔥",
     })
 
   } catch (err) {
-    console.error("FINAL ERROR:", err)
-
-    return NextResponse.json({
-      error: "Analysis failed",
-    })
+    console.error(err)
+    return NextResponse.json({ error: "Analysis failed" })
   }
 }
