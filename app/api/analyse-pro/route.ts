@@ -90,10 +90,11 @@ export async function POST(req: NextRequest) {
     const tradingDays: Record<string, boolean> = {}
     const processedTx: Record<string, boolean> = {}
 
-    const STABLES = ["USDC","USDT"]
+    const STABLES = ["USDC","USDT","DAI"]
+    const WETH = "WETH"
 
     // =========================
-    // REAL SWAP DETECTION
+    // REAL SWAP DETECTION (FIXED)
     // =========================
 
     for (const [txHash, txs] of txMap.entries()) {
@@ -113,18 +114,16 @@ export async function POST(req: NextRequest) {
 
         const topic = log.topics?.[0]?.toLowerCase()
 
-        // Uniswap V2 / Aerodrome
-        if (topic ===
-          "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e6a6b7e0a5eec8f3"
-        ) {
+        // Uniswap V2 / Aerodrome Swap
+        if (topic === "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e6a6b7e0a5eec8f3") {
           isSwap = true
+          break
         }
 
-        // Uniswap V3
-        if (topic ===
-          "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67"
-        ) {
+        // Uniswap V3 Swap
+        if (topic === "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67") {
           isSwap = true
+          break
         }
       }
 
@@ -143,7 +142,7 @@ export async function POST(req: NextRequest) {
               volumeUSD += value
             }
 
-            if (asset === "ETH" || asset === "WETH") {
+            if (asset === "ETH" || asset === WETH) {
               volumeUSD += value * 3000
             }
           }
