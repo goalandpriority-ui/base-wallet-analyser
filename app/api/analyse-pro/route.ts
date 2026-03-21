@@ -27,17 +27,16 @@ export async function POST(req: NextRequest) {
         params: [{
           fromBlock: "0x0",
           toBlock: "latest",
-          category: ["external", "internal", "erc20", "erc721", "erc1155"],
+          category: ["external", "internal", "erc20"],
           withMetadata: true,
           maxCount: "0x3e8",
           pageKey,
-          fromAddress: address,
-          chain: "base"   // ✅ FIX
+          fromAddress: address
         }]
       })
 
       if (res.data.error) {
-        console.error("Alchemy FROM error:", res.data.error.message)
+        console.error("Alchemy FROM error:", res.data.error)
         throw new Error("Alchemy FROM fetch failed")
       }
 
@@ -59,17 +58,16 @@ export async function POST(req: NextRequest) {
         params: [{
           fromBlock: "0x0",
           toBlock: "latest",
-          category: ["external", "internal", "erc20", "erc721", "erc1155"],
+          category: ["external", "internal", "erc20"],
           withMetadata: true,
           maxCount: "0x3e8",
           pageKey,
-          toAddress: address,
-          chain: "base"   // ✅ FIX
+          toAddress: address
         }]
       })
 
       if (res.data.error) {
-        console.error("Alchemy TO error:", res.data.error.message)
+        console.error("Alchemy TO error:", res.data.error)
         throw new Error("Alchemy TO fetch failed")
       }
 
@@ -100,12 +98,7 @@ export async function POST(req: NextRequest) {
     const STABLES = ["USDC", "USDT", "DAI"]
     const APPROX_ETH_PRICE = 3500
 
-    const extraTxs = new Set<string>()
-    for (const t of allTransfers) {
-      if (t.hash) extraTxs.add(t.hash)
-    }
-
-    const txHashes = Array.from(extraTxs)
+    const txHashes = Array.from(txMap.keys())
 
     for (const txHash of txHashes) {
 
