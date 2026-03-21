@@ -2,14 +2,17 @@ import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
 import { getSupabase } from "../../../lib/supabase"
 
+// ✅ HARDCODED RPC (debug)
 const rpc = axios.create({
-  baseURL: "https://base-mainnet.g.alchemy.com/v2/" + process.env.ALCHEMY_API_KEY,
+  baseURL: "https://base-mainnet.g.alchemy.com/v2/e9c7wDqC7HFFElN7KuQQP",
   timeout: 10000
 })
 
 export async function POST(req: NextRequest) {
 
   try {
+
+    console.log("RPC URL:", rpc.defaults.baseURL)
 
     const supabase = getSupabase()
     const { wallet } = await req.json()
