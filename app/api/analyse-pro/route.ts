@@ -3,9 +3,7 @@ import axios from "axios"
 import { getSupabase } from "../../../lib/supabase"
 
 const rpc = axios.create({
-  baseURL:
-    process.env.BASE_RPC?.trim() ||
-    "https://base-mainnet.g.alchemy.com/v2/e9c7wDqC7HFFElN7KuQQP",
+  baseURL: "https://base-mainnet.g.alchemy.com/v2/" + process.env.ALCHEMY_API_KEY,
   timeout: 10000
 })
 
@@ -209,6 +207,7 @@ export async function POST(req: NextRequest) {
         processedTx[txHash] = true
 
         const gasUsed = BigInt(r.gasUsed || "0x0")
+
         let gasPrice = BigInt(r.effectiveGasPrice || "0x0")
 
         if (gasPrice === BigInt(0)) {
