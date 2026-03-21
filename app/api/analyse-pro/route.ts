@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
 import { getSupabase } from "../../../lib/supabase"
 
-// ✅ HARDCODED RPC (debug)
 const rpc = axios.create({
   baseURL: "https://base-mainnet.g.alchemy.com/v2/e9c7wDqC7HFFElN7KuQQP",
   timeout: 10000
@@ -11,8 +10,6 @@ const rpc = axios.create({
 export async function POST(req: NextRequest) {
 
   try {
-
-    console.log("RPC URL:", rpc.defaults.baseURL)
 
     const supabase = getSupabase()
     const { wallet } = await req.json()
@@ -23,7 +20,7 @@ export async function POST(req: NextRequest) {
 
     // FETCH FROM
     do {
-      const res = await rpc.post("/", {
+      const res = await rpc.post("", {
         jsonrpc: "2.0",
         id: 1,
         method: "alchemy_getAssetTransfers",
@@ -54,7 +51,7 @@ export async function POST(req: NextRequest) {
     pageKey = undefined
 
     do {
-      const res = await rpc.post("/", {
+      const res = await rpc.post("", {
         jsonrpc: "2.0",
         id: 1,
         method: "alchemy_getAssetTransfers",
@@ -105,7 +102,7 @@ export async function POST(req: NextRequest) {
 
     for (const txHash of txHashes) {
 
-      const txData = await rpc.post("/", {
+      const txData = await rpc.post("", {
         jsonrpc: "2.0",
         id: 1,
         method: "eth_getTransactionByHash",
@@ -115,7 +112,7 @@ export async function POST(req: NextRequest) {
       const tx = txData.data.result
       if (!tx) continue
 
-      const receipt = await rpc.post("/", {
+      const receipt = await rpc.post("", {
         jsonrpc: "2.0",
         id: 1,
         method: "eth_getTransactionReceipt",
