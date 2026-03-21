@@ -9,14 +9,11 @@ process.env.ALCHEMY_API_KEY,
 timeout:20000
 })
 
-const SWAP_METHODS = [
-"0x38ed1739",
-"0x18cbafe5",
-"0x5c11d795",
-"0x7ff36ab5",
-"0x8803dbee",
-"0x4a25d94a",
-"0xfb3bdb41"
+const ROUTERS = [
+"0xcF77a3Ba9A5CA399B7c97c74d54e5B1cE3F9C2bB", // aerodrome
+"0x1111111254EEB25477B68fb85Ed929f73A960582", // 1inch
+"0xE592427A0AEce92De3Edee1F18E0157C05861564", // uniswap v3
+"0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45"  // universal
 ]
 
 const ETH_PRICE = 3500
@@ -53,28 +50,15 @@ const tradingDays=new Set<string>()
 
 for(const tx of txs){
 
-const hash = tx.hash
+const to =
+tx.to?.toLowerCase()
 
-const txData = await rpc.post("/",{
-jsonrpc:"2.0",
-id:1,
-method:"eth_getTransactionByHash",
-params:[hash]
-})
-
-const input =
-txData.data.result?.input?.slice(0,10)
-
-if(!SWAP_METHODS.includes(input))
+if(!ROUTERS.includes(to))
 continue
 
 swapCount++
 
-const value =
-parseInt(txData.data.result.value,16)
-/1e18
-
-volumeUSD += value * ETH_PRICE
+volumeUSD += Number(tx.value || 0) * ETH_PRICE
 
 if(tx.metadata?.blockTimestamp){
 
@@ -90,7 +74,7 @@ const receipt = await rpc.post("/",{
 jsonrpc:"2.0",
 id:1,
 method:"eth_getTransactionReceipt",
-params:[hash]
+params:[tx.hash]
 })
 
 const r = receipt.data.result
