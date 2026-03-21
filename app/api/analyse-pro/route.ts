@@ -15,8 +15,8 @@ export async function POST(req: NextRequest) {
 
     const address = wallet.toLowerCase()
 
-    // get transfers
-    const res = await rpc.post("", {
+    // fetch sent transfers
+    const resFrom = await rpc.post("", {
       jsonrpc: "2.0",
       id: 1,
       method: "alchemy_getAssetTransfers",
@@ -30,7 +30,25 @@ export async function POST(req: NextRequest) {
       }]
     })
 
-    const transfers = res.data.result.transfers || []
+    // fetch received transfers
+    const resTo = await rpc.post("", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "alchemy_getAssetTransfers",
+      params: [{
+        fromBlock: "0x0",
+        toBlock: "latest",
+        toAddress: address,
+        category: ["external","internal","erc20"],
+        withMetadata: true,
+        maxCount: "0x3e8"
+      }]
+    })
+
+    const transfers = [
+      ...(resFrom.data.result.transfers || []),
+      ...(resTo.data.result.transfers || [])
+    ]
 
     // group by tx hash
     const txMap = new Map<string, any[]>()
@@ -154,4 +172,4 @@ export async function POST(req: NextRequest) {
 
   }
 
-      }
+}
