@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
     let allTransfers: any[] = []
     let pageKey: any = undefined
 
+    // FETCH FROM
     do {
       const res = await rpc.post("", {
         jsonrpc: "2.0",
@@ -34,13 +35,18 @@ export async function POST(req: NextRequest) {
         }]
       })
 
-      if (res.data.error) console.error("Alchemy FROM error:", res.data.error.message)
+      if (res.data.error) {
+        console.error("Alchemy FROM error:", res.data.error.message)
+        throw new Error("Alchemy FROM fetch failed")
+      }
+
       const result = res.data.result
       allTransfers = allTransfers.concat(result.transfers || [])
       pageKey = result.pageKey
 
     } while (pageKey)
 
+    // FETCH TO
     pageKey = undefined
 
     do {
@@ -59,14 +65,18 @@ export async function POST(req: NextRequest) {
         }]
       })
 
-      if (res.data.error) console.error("Alchemy TO error:", res.data.error.message)
+      if (res.data.error) {
+        console.error("Alchemy TO error:", res.data.error.message)
+        throw new Error("Alchemy TO fetch failed")
+      }
+
       const result = res.data.result
       allTransfers = allTransfers.concat(result.transfers || [])
       pageKey = result.pageKey
 
     } while (pageKey)
 
-    console.log("Total transfers fetched:", allTransfers.length) // DEBUG
+    console.log("Total transfers fetched:", allTransfers.length) // DEBUG: local-la check pannu
 
     const txMap = new Map<string, any[]>()
 
@@ -131,7 +141,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Aggregator/Router detection - expanded signatures for Universal, Rainbow, Relay, Bitget
+      // Aggregator / Router detection for routed swaps
       if (!isSwap && tx.input && tx.input !== "0x") {
         const inputLower = tx.input.toLowerCase()
         if (
@@ -140,12 +150,14 @@ export async function POST(req: NextRequest) {
           inputLower.startsWith("0x3593564c") || // V3 exactInput
           inputLower.startsWith("0x414bf389") || // V3 exactInputSingle
           inputLower.startsWith("0x791ac947") || // Rainbow/Relay common
-          inputLower.startsWith("0xe8e33700") || // Aerodrome swap
-          inputLower.startsWith("0x0b66f3f5") || // Bitget swap like
-          inputLower.includes("execute") || inputLower.includes("swap") || inputLower.includes("exactinput")
+          inputLower.startsWith("0xe8e33700") || // Aerodrome-like
+          inputLower.startsWith("0x0b66f3f5") || // Bitget-like
+          inputLower.includes("execute") || 
+          inputLower.includes("swap") || 
+          inputLower.includes("exactinput")
         ) {
           isSwap = true
-          console.log(`Aggregator/Router swap detected in tx: ${txHash}, input: ${tx.input.slice(0, 10)}...`)
+          console.log(`Aggregator/Router swap detected in tx: ${txHash}, input starts with: ${tx.input.slice(0,10)}`)
         }
       }
 
@@ -204,19 +216,26 @@ export async function POST(req: NextRequest) {
       (volumeUSD / 100) +
       (gasETH * 5000)
 
-    await supabase
-      .from("leaderboard")
-      .upsert(
-        {
-          wallet: address,
-          score,
-          swaps: swapCount,
-          volume: volumeUSD,
-          days: tradingDaysCount,
-          gas: gasETH
-        },
-        { ignoreDuplicates: true, onConflict: "wallet" }
-      )
+    // Leaderboard store - env correct-a irundha mattum work aagum
+    try {
+      await supabase
+        .from("leaderboard")
+        .upsert(
+          {
+            wallet: address,
+            score,
+            swaps: swapCount,
+            volume: volumeUSD,
+            days: tradingDaysCount,
+            gas: gasETH
+          },
+          { ignoreDuplicates: true, onConflict: "wallet" }
+        )
+      console.log("Leaderboard updated for wallet:", address)
+    } catch (supabaseErr) {
+      console.error("Supabase insert error:", supabaseErr.message)
+      // Continue anyway, don't break response
+    }
 
     return NextResponse.json({
       wallet,
