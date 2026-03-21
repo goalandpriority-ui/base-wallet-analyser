@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     let page = 1
     let allTx: any[] = []
 
-    while (page <= 20) {
+    while (page <= 25) {
 
       const res = await api.get(
         `?module=account&action=tokentx&address=${address}&page=${page}&offset=100`
@@ -52,9 +52,8 @@ export async function POST(req: NextRequest) {
       const txs = txMap[hash]
       if (txs.length < 2) continue
 
-      swapCount++
-
-      let txVolume = 0
+      let ethSide = 0
+      let stableSide = 0
 
       for (const tx of txs) {
 
@@ -65,22 +64,16 @@ export async function POST(req: NextRequest) {
         const symbol =
           (tx.tokenSymbol || "").toUpperCase()
 
-        // stable
-        if (STABLES.includes(symbol)) {
-          txVolume += value
-        }
-
-        // eth
+        // ETH side
         if (symbol === "ETH" || symbol === "WETH") {
-          txVolume += value * ETH_PRICE
+          ethSide += value * ETH_PRICE
         }
 
-        // fallback estimate
-        if (!STABLES.includes(symbol)) {
-          txVolume += value * 0.1
+        // stable side
+        if (STABLES.includes(symbol)) {
+          stableSide += value
         }
 
-        // gas
         const gas =
           (Number(tx.gasUsed) * Number(tx.gasPrice)) / 1e18
 
@@ -94,7 +87,12 @@ export async function POST(req: NextRequest) {
         tradingDays.add(day)
       }
 
-      volumeUSD += txVolume
+      const txVolume = Math.max(ethSide, stableSide)
+
+      if (txVolume > 0) {
+        swapCount++
+        volumeUSD += txVolume
+      }
     }
 
     const tradingDaysCount = tradingDays.size
