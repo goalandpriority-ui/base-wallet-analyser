@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
+import { supabase } from "@/lib/supabase"
 
 const rpc = axios.create({
   baseURL: process.env.BASE_RPC,
-  timeout: 8000, // 🔥 prevent hanging
+  timeout: 8000,
 })
 
 export async function POST(req: NextRequest) {
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
           pageKey = result.pageKey
 
         } catch {
-          break // 🔥 stop but don't fail
+          break
         }
 
         if (allTransfers.length > 10000) break
@@ -160,24 +161,67 @@ export async function POST(req: NextRequest) {
 
     await Promise.all(gasPromises)
 
-    // 🔥 NEVER FAIL RESPONSE
+    // ===============================
+    // 🔥 SCORE CALCULATION
+    // ===============================
+    const tradingDaysCount = Object.keys(tradingDays).length
+
+    const score =
+      (swapCount * 2) +
+      tradingDaysCount +
+      (volumeUSD / 100) +
+      (gasETH * 5000)
+
+    // ===============================
+    // 🔥 SAVE LEADERBOARD
+    // ===============================
+    await supabase.from("leaderboard").insert({
+      wallet: address,
+      score,
+      swaps: swapCount,
+      volume: volumeUSD,
+      days: tradingDaysCount,
+      gas: gasETH
+    })
+
+    // ===============================
+    // 🔥 GET RANK (24H)
+    // ===============================
+    const last24h = new Date(
+      Date.now() - 24 * 60 * 60 * 1000
+    ).toISOString()
+
+    const { count } = await supabase
+      .from("leaderboard")
+      .select("*", { count: "exact", head: true })
+      .gt("score", score)
+      .gte("created_at", last24h)
+
+    const rank = (count || 0) + 1
+
+    // ===============================
+    // FINAL RESPONSE
+    // ===============================
     return NextResponse.json({
       wallet,
       swapCount: swapCount || 0,
       tradingVolumeUSD: Number(volumeUSD.toFixed(2)) || 0,
-      tradingDays: Object.keys(tradingDays).length || 0,
+      tradingDays: tradingDaysCount || 0,
       tradingGasETH: Number(gasETH.toFixed(6)) || 0,
+      score: Math.round(score),
+      rank
     })
 
   } catch (err) {
 
-    // 🔥 NEVER THROW ERROR
     return NextResponse.json({
       wallet: "",
       swapCount: 0,
       tradingVolumeUSD: 0,
       tradingDays: 0,
       tradingGasETH: 0,
+      score: 0,
+      rank: 0
     })
   }
 }
