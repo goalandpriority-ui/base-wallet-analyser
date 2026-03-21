@@ -13,12 +13,18 @@ export async function POST(req: NextRequest) {
     const supabase = getSupabase()
     const { wallet } = await req.json()
 
+    if (!wallet) {
+      return NextResponse.json({ error: "Wallet required" })
+    }
+
     const address = wallet.toLowerCase()
 
     let allTransfers:any[] = []
     let pageKey:any = undefined
 
-    // fetch ALL pages
+    // =========================================
+    // FETCH OUTGOING
+    // =========================================
     do {
 
       const res = await rpc.post("", {
@@ -30,6 +36,7 @@ export async function POST(req: NextRequest) {
           toBlock: "latest",
           category: ["external","internal","erc20"],
           withMetadata: true,
+          excludeZeroValue: true,
           maxCount: "0x3e8",
           pageKey,
           fromAddress: address
@@ -38,12 +45,20 @@ export async function POST(req: NextRequest) {
 
       const result = res.data.result
 
-      allTransfers = allTransfers.concat(result.transfers || [])
+      if (result?.transfers) {
+        allTransfers = allTransfers.concat(result.transfers)
+      }
 
       pageKey = result.pageKey
 
+      if (allTransfers.length > 15000) break
+
     } while (pageKey)
 
+
+    // =========================================
+    // FETCH INCOMING
+    // =========================================
     pageKey = undefined
 
     do {
@@ -57,6 +72,7 @@ export async function POST(req: NextRequest) {
           toBlock: "latest",
           category: ["external","internal","erc20"],
           withMetadata: true,
+          excludeZeroValue: true,
           maxCount: "0x3e8",
           pageKey,
           toAddress: address
@@ -65,13 +81,20 @@ export async function POST(req: NextRequest) {
 
       const result = res.data.result
 
-      allTransfers = allTransfers.concat(result.transfers || [])
+      if (result?.transfers) {
+        allTransfers = allTransfers.concat(result.transfers)
+      }
 
       pageKey = result.pageKey
 
+      if (allTransfers.length > 30000) break
+
     } while (pageKey)
 
-    // group tx
+
+    // =========================================
+    // GROUP BY TX HASH
+    // =========================================
     const txMap = new Map<string, any[]>()
 
     for (const tx of allTransfers) {
@@ -81,6 +104,7 @@ export async function POST(req: NextRequest) {
       txMap.get(tx.hash)!.push(tx)
     }
 
+
     let swapCount = 0
     let volumeUSD = 0
     let gasETH = 0
@@ -88,30 +112,42 @@ export async function POST(req: NextRequest) {
     const tradingDays: Record<string, boolean> = {}
     const processedTx: Record<string, boolean> = {}
 
+    const STABLES = ["USDC","USDT"]
+
+    // =========================================
+    // ANALYSE TX
+    // =========================================
     for (const [txHash, txs] of txMap.entries()) {
 
-      let sent = false
-      let received = false
+      let sentAssets: string[] = []
+      let receivedAssets: string[] = []
 
       for (const tx of txs) {
-
-        if (tx.from?.toLowerCase() === address) sent = true
-        if (tx.to?.toLowerCase() === address) received = true
 
         const asset = (tx.asset || "").toUpperCase()
         const value = Number(tx.value || 0)
 
-        if (value && tx.from?.toLowerCase() === address) {
+        if (tx.from?.toLowerCase() === address) {
+          sentAssets.push(asset)
 
-          if (asset === "USDC" || asset === "USDT") {
-            volumeUSD += value
-          }
+          // volume calc
+          if (value) {
 
-          if (asset === "ETH" || asset === "WETH") {
-            volumeUSD += value * 3000
+            if (STABLES.includes(asset)) {
+              volumeUSD += value
+            }
+
+            if (asset === "ETH" || asset === "WETH") {
+              volumeUSD += value * 3000
+            }
           }
         }
 
+        if (tx.to?.toLowerCase() === address) {
+          receivedAssets.push(asset)
+        }
+
+        // trading day
         if (tx.metadata?.blockTimestamp) {
           const day = new Date(tx.metadata.blockTimestamp)
             .toISOString()
@@ -121,31 +157,50 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      if (sent && received) {
+      const uniqueSent = Array.from(new Set(sentAssets))
+      const uniqueReceived = Array.from(new Set(receivedAssets))
+
+      // =========================================
+      // SWAP DETECT
+      // =========================================
+      if (
+        uniqueSent.length > 0 &&
+        uniqueReceived.length > 0 &&
+        JSON.stringify(uniqueSent) !== JSON.stringify(uniqueReceived)
+      ) {
 
         swapCount++
 
+        // =====================================
+        // GAS CALC
+        // =====================================
         if (!processedTx[txHash]) {
 
           processedTx[txHash] = true
 
-          const receipt = await rpc.post("", {
-            jsonrpc:"2.0",
-            id:1,
-            method:"eth_getTransactionReceipt",
-            params:[txHash]
-          })
+          try {
 
-          const r = receipt.data.result
+            const receipt = await rpc.post("", {
+              jsonrpc:"2.0",
+              id:1,
+              method:"eth_getTransactionReceipt",
+              params:[txHash]
+            })
 
-          if (r) {
-            const gasUsed = parseInt(r.gasUsed,16)
-            const gasPrice = parseInt(r.effectiveGasPrice,16)
-            gasETH += (gasUsed * gasPrice) / 1e18
-          }
+            const r = receipt.data.result
+
+            if (r) {
+              const gasUsed = parseInt(r.gasUsed,16)
+              const gasPrice = parseInt(r.effectiveGasPrice || "0x0",16)
+
+              gasETH += (gasUsed * gasPrice) / 1e18
+            }
+
+          } catch {}
         }
       }
     }
+
 
     const tradingDaysCount = Object.keys(tradingDays).length
 
@@ -155,6 +210,10 @@ export async function POST(req: NextRequest) {
       (volumeUSD / 100) +
       (gasETH * 5000)
 
+
+    // =========================================
+    // INSERT LEADERBOARD
+    // =========================================
     await supabase.from("leaderboard").insert({
       wallet: address,
       score,
@@ -163,6 +222,7 @@ export async function POST(req: NextRequest) {
       days: tradingDaysCount,
       gas: gasETH
     })
+
 
     return NextResponse.json({
       wallet,
@@ -174,7 +234,9 @@ export async function POST(req: NextRequest) {
       rank: 1
     })
 
-  } catch {
+  } catch (err) {
+
+    console.log(err)
 
     return NextResponse.json({
       wallet:"",
