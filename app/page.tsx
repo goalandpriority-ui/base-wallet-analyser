@@ -27,6 +27,9 @@ export default function Home() {
       const basicData = await basicRes.json()
       const proData = await proRes.json()
 
+      console.log("BASIC:", basicData)
+      console.log("PRO:", proData)
+
       // 🔥 MERGE DATA
       setData({
         ...basicData,
@@ -48,7 +51,7 @@ export default function Home() {
         placeholder="Enter wallet address"
         value={wallet}
         onChange={(e) => setWallet(e.target.value)}
-        style={{ padding: 10, width: 300 }}
+        style={{ padding: 10, width: 320 }}
       />
 
       <br /><br />
@@ -60,24 +63,42 @@ export default function Home() {
       <br /><br />
 
       {data && !data.error && (
-        <div style={{ background: "#111", color: "#0f0", padding: 20 }}>
+        <div style={{
+          background: "#111",
+          color: "#0f0",
+          padding: 20,
+          borderRadius: 10
+        }}>
 
-          {/* 🔥 OLD DATA */}
-          <p>📊 Transactions: {data.totalTxns}</p>
-          <p>💰 Transfer Volume: {data.totalVolumeETH} ETH</p>
-          <p>⛽ Gas: {data.totalGasETH} ETH</p>
-          <p>📅 Active Days: {data.activeDays}</p>
+          {/* 🔥 BASIC DATA */}
+          <p>📊 Transactions: {data.totalTxns || 0}</p>
+          <p>💰 Transfer Volume: {data.totalVolumeETH || 0} ETH</p>
+          <p>⛽ Gas: {data.totalGasETH || 0} ETH</p>
+          <p>📅 Active Days: {data.activeDays || 0}</p>
 
           <hr style={{ margin: "15px 0", borderColor: "#333" }} />
 
           {/* 🔥 PRO DATA */}
           <p>🔁 Swaps: {data.swapCount || 0}</p>
-          <p>💎 Trading Volume: ${data.totalVolumeUSD || 0}</p>
+
+          {/* ✅ FINAL FIX HERE */}
+          <p>
+            💎 Trading Volume: $
+            {data.tradingVolumeUSD !== undefined
+              ? data.tradingVolumeUSD
+              : 0}
+          </p>
+
+          <p>📅 Trading Days: {data.tradingDays || 0}</p>
 
         </div>
       )}
 
-      {data?.error && <p style={{ color: "red" }}>{data.error}</p>}
+      {data?.error && (
+        <p style={{ color: "red" }}>
+          {data.error}
+        </p>
+      )}
     </main>
   )
 }
