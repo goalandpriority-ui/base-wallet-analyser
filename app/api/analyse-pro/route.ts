@@ -16,64 +16,75 @@ export async function POST(req: NextRequest) {
     const twoYearsAgo =
       Math.floor(Date.now() / 1000) - (2 * 365 * 24 * 60 * 60)
 
-    // 🔥 MULTI QUERY (FULL COVERAGE)
-    const query = `
-    {
-      senderSwaps: swaps(
-        first: 100,
-        orderBy: timestamp,
-        orderDirection: desc,
-        where: {
-          sender: "${address}",
-          timestamp_gt: ${twoYearsAgo}
+    let allSwaps: any[] = []
+    let skip = 0
+    const limit = 100
+
+    // 🔥 PAGINATION LOOP
+    while (true) {
+      const query = `
+      {
+        senderSwaps: swaps(
+          first: ${limit},
+          skip: ${skip},
+          orderBy: timestamp,
+          orderDirection: desc,
+          where: {
+            sender: "${address}",
+            timestamp_gt: ${twoYearsAgo}
+          }
+        ) {
+          amountUSD
+          timestamp
+          id
         }
-      ) {
-        amountUSD
-        timestamp
-        id
-      }
 
-      recipientSwaps: swaps(
-        first: 100,
-        orderBy: timestamp,
-        orderDirection: desc,
-        where: {
-          recipient: "${address}",
-          timestamp_gt: ${twoYearsAgo}
+        recipientSwaps: swaps(
+          first: ${limit},
+          skip: ${skip},
+          orderBy: timestamp,
+          orderDirection: desc,
+          where: {
+            recipient: "${address}",
+            timestamp_gt: ${twoYearsAgo}
+          }
+        ) {
+          amountUSD
+          timestamp
+          id
         }
-      ) {
-        amountUSD
-        timestamp
-        id
       }
+      `
+
+      const res = await axios.post(GRAPH_URL, { query })
+
+      if (!res.data || !res.data.data) break
+
+      const sender = res.data.data.senderSwaps || []
+      const recipient = res.data.data.recipientSwaps || []
+
+      const batch = [...sender, ...recipient]
+
+      if (batch.length === 0) break
+
+      allSwaps = allSwaps.concat(batch)
+
+      skip += limit
+
+      // 🔥 SAFETY LIMIT (avoid overload)
+      if (skip > 2000) break
     }
-    `
 
-    const res = await axios.post(GRAPH_URL, { query })
-
-    if (!res.data || !res.data.data) {
-      return NextResponse.json({ error: "No data from Graph" })
-    }
-
-    const senderSwaps = res.data.data.senderSwaps || []
-    const recipientSwaps = res.data.data.recipientSwaps || []
-
-    // 🔥 MERGE + REMOVE DUPLICATES
+    // 🔥 REMOVE DUPLICATES
     const map = new Map()
 
-    for (const swap of senderSwaps) {
-      map.set(swap.id, swap)
-    }
-
-    for (const swap of recipientSwaps) {
+    for (const swap of allSwaps) {
       map.set(swap.id, swap)
     }
 
     const swaps = Array.from(map.values())
 
     let totalVolumeUSD = 0
-    let swapCount = swaps.length
-
     const daysSet = new Set<string>()
 
     for (const swap of swaps) {
@@ -88,17 +99,17 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       wallet,
-      swapCount,
+      swapCount: swaps.length,
       totalVolumeUSD: Number(totalVolumeUSD.toFixed(2)),
       activeDays: daysSet.size,
-      period: "Last 2 Years (Full Tracking)",
+      period: "Last 2 Years (FULL PAGINATION)",
     })
 
   } catch (err) {
-    console.error("GRAPH ERROR:", err)
+    console.error("GRAPH PAGINATION ERROR:", err)
 
     return NextResponse.json({
-      error: "Graph fetch failed",
+      error: "Pagination fetch failed",
     })
   }
 }
