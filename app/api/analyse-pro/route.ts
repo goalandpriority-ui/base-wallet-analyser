@@ -1,3 +1,4 @@
+// same imports...
 import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
 import { getSupabase } from "../../../lib/supabase"
@@ -10,7 +11,6 @@ const rpc = axios.create({
 export async function POST(req: NextRequest) {
   try {
     const supabase = getSupabase()
-
     const { wallet } = await req.json()
 
     if (!wallet) {
@@ -103,11 +103,16 @@ export async function POST(req: NextRequest) {
       const uniqueSent = Array.from(new Set(sentAssets))
       const uniqueReceived = Array.from(new Set(receivedAssets))
 
-      if (
+      // ✅ FIXED SWAP DETECTION
+      const isSwap =
         uniqueSent.length > 0 &&
         uniqueReceived.length > 0 &&
-        JSON.stringify(uniqueSent) !== JSON.stringify(uniqueReceived)
-      ) {
+        (
+          uniqueSent.some(a => !uniqueReceived.includes(a)) ||
+          uniqueReceived.some(a => !uniqueSent.includes(a))
+        )
+
+      if (isSwap) {
         swapCount++
 
         for (const t of transfers) {
@@ -194,16 +199,15 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       wallet,
-      swapCount: swapCount || 0,
-      tradingVolumeUSD: Number(volumeUSD.toFixed(2)) || 0,
-      tradingDays: tradingDaysCount || 0,
-      tradingGasETH: Number(gasETH.toFixed(6)) || 0,
+      swapCount,
+      tradingVolumeUSD: Number(volumeUSD.toFixed(2)),
+      tradingDays: tradingDaysCount,
+      tradingGasETH: Number(gasETH.toFixed(6)),
       score: Math.round(score),
       rank
     })
 
   } catch (err) {
-
     return NextResponse.json({
       wallet: "",
       swapCount: 0,
@@ -214,4 +218,4 @@ export async function POST(req: NextRequest) {
       rank: 0
     })
   }
-            }
+}
