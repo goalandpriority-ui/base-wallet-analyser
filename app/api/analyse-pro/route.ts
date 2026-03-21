@@ -10,12 +10,7 @@ const rpc = axios.create({
 })
 
 const ETH_PRICE = 3500
-
-const SWAP_TOPICS = [
-"0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e6a6b7e0a5eec8f3", // V2
-"0x414bf3890f28e7f0e0e1b6a4b7e3a1a996a96f2ef749acd972d4b8ca0d24dd47", // V3
-"0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67"  // aero
-]
+const STABLES = ["USDC","USDT","DAI"]
 
 export async function POST(req: NextRequest) {
 
@@ -37,11 +32,11 @@ method:"alchemy_getAssetTransfers",
 params:[{
 fromBlock:"0x0",
 toBlock:"latest",
-fromAddress:address,
 category:["external","internal","erc20"],
 withMetadata:true,
 maxCount:"0x3e8",
-pageKey
+pageKey,
+fromAddress:address
 }]
 })
 
@@ -51,7 +46,41 @@ pageKey = result.pageKey
 
 } while (pageKey)
 
-const hashes = [...new Set(transfers.map((t:any)=>t.hash))]
+
+pageKey = undefined
+
+do {
+
+const res = await rpc.post("/", {
+jsonrpc:"2.0",
+id:1,
+method:"alchemy_getAssetTransfers",
+params:[{
+fromBlock:"0x0",
+toBlock:"latest",
+category:["external","internal","erc20"],
+withMetadata:true,
+maxCount:"0x3e8",
+pageKey,
+toAddress:address
+}]
+})
+
+const result = res.data.result
+transfers = transfers.concat(result.transfers || [])
+pageKey = result.pageKey
+
+} while (pageKey)
+
+
+
+const txMap:Record<string,any[]> = {}
+
+for (const t of transfers) {
+if (!txMap[t.hash]) txMap[t.hash] = []
+txMap[t.hash].push(t)
+}
+
 
 let swapCount = 0
 let volumeUSD = 0
@@ -59,61 +88,54 @@ let gasETH = 0
 
 const tradingDays = new Set<string>()
 
-for (const hash of hashes) {
 
-const receipt = await rpc.post("/", {
-jsonrpc:"2.0",
-id:1,
-method:"eth_getTransactionReceipt",
-params:[hash]
-})
+for (const hash in txMap) {
 
-const r = receipt.data.result
-if (!r) continue
+const txs = txMap[hash]
+if (txs.length < 2) continue
 
-const logs = r.logs || []
+let hasIn = false
+let hasOut = false
+let txVolume = 0
 
-let isSwap = false
+for (const t of txs) {
 
-for (const log of logs) {
+const symbol = (t.asset || "").toUpperCase()
+const value = Number(t.value || 0)
 
-const topic = log.topics?.[0]?.toLowerCase()
-
-if (SWAP_TOPICS.includes(topic)) {
-isSwap = true
-break
+if (t.from?.toLowerCase() === address) {
+hasOut = true
 }
 
+if (t.to?.toLowerCase() === address) {
+hasIn = true
 }
 
-if (!isSwap) continue
-
-swapCount++
-
-const tx = transfers.find(
-(t:any)=>t.hash===hash
-)
-
-if (tx?.value) {
-volumeUSD += Number(tx.value) * ETH_PRICE
+if (symbol === "ETH" || symbol === "WETH") {
+txVolume += value * ETH_PRICE
 }
 
-if (tx?.metadata?.blockTimestamp) {
+if (STABLES.includes(symbol)) {
+txVolume += value
+}
+
+if (t.metadata?.blockTimestamp) {
 
 const day =
-new Date(tx.metadata.blockTimestamp)
+new Date(t.metadata.blockTimestamp)
 .toISOString()
 .split("T")[0]
 
 tradingDays.add(day)
 }
 
-const gas =
-(parseInt(r.gasUsed,16) *
-parseInt(r.effectiveGasPrice,16))
-/1e18
+}
 
-gasETH += gas
+if (hasIn && hasOut) {
+swapCount++
+volumeUSD += txVolume
+}
+
 }
 
 const tradingDaysCount = tradingDays.size
