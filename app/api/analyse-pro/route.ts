@@ -14,9 +14,6 @@ export async function POST(req: NextRequest) {
     let allTransfers: any[] = []
     let pageKey: string | undefined = undefined
 
-    // =========================================
-    // 🔥 FETCH TRANSFERS (OUT + IN)
-    // =========================================
     const fetchTransfers = async (type: "fromAddress" | "toAddress") => {
       pageKey = undefined
 
@@ -54,9 +51,6 @@ export async function POST(req: NextRequest) {
     await fetchTransfers("fromAddress")
     await fetchTransfers("toAddress")
 
-    // =========================================
-    // 🔥 GROUP BY TX
-    // =========================================
     const txMap = new Map<string, any[]>()
 
     for (const tx of allTransfers) {
@@ -66,15 +60,14 @@ export async function POST(req: NextRequest) {
       txMap.get(tx.hash)!.push(tx)
     }
 
-    // =========================================
-    // 🔥 SWAP + VOLUME + GAS
-    // =========================================
     let swapCount = 0
     let volumeUSD = 0
     let gasETH = 0
 
     const tradingDays: Record<string, boolean> = {}
     const processedTx: Record<string, boolean> = {}
+
+    const gasPromises: Promise<void>[] = []
 
     const STABLES = ["USDC", "USDT"]
 
@@ -107,9 +100,7 @@ export async function POST(req: NextRequest) {
       ) {
         swapCount++
 
-        // =====================================
-        // 🔥 VOLUME LOGIC (UNCHANGED)
-        // =====================================
+        // volume
         for (const t of transfers) {
           const value = Number(t.value || 0)
           const asset = (t.asset || "").toUpperCase()
@@ -117,7 +108,6 @@ export async function POST(req: NextRequest) {
           if (!value || !asset) continue
 
           if (t.from?.toLowerCase() === address) {
-
             if (STABLES.includes(asset)) {
               volumeUSD += value
             }
@@ -128,21 +118,17 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // =====================================
-        // 🔥 GAS CALCULATION (NEW 🔥)
-        // =====================================
+        // 🔥 FAST GAS FETCH (parallel)
         if (!processedTx[txHash]) {
           processedTx[txHash] = true
 
-          try {
-            const receiptRes = await axios.post(process.env.BASE_RPC!, {
-              jsonrpc: "2.0",
-              id: 1,
-              method: "eth_getTransactionReceipt",
-              params: [txHash],
-            })
-
-            const receipt = receiptRes.data.result
+          const promise = axios.post(process.env.BASE_RPC!, {
+            jsonrpc: "2.0",
+            id: 1,
+            method: "eth_getTransactionReceipt",
+            params: [txHash],
+          }).then(res => {
+            const receipt = res.data.result
 
             if (receipt) {
               const gasUsed = parseInt(receipt.gasUsed, 16)
@@ -151,15 +137,11 @@ export async function POST(req: NextRequest) {
               const gas = (gasUsed * gasPrice) / 1e18
               gasETH += gas
             }
+          }).catch(() => {})
 
-          } catch (e) {
-            // silent fail
-          }
+          gasPromises.push(promise)
         }
 
-        // =====================================
-        // 🔥 ACTIVE DAY
-        // =====================================
         const sample = transfers[0]
         if (sample.metadata?.blockTimestamp) {
           const day = new Date(sample.metadata.blockTimestamp)
@@ -171,12 +153,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    await Promise.all(gasPromises)
+
     return NextResponse.json({
       wallet,
       swapCount,
       tradingVolumeUSD: Number(volumeUSD.toFixed(2)),
       tradingDays: Object.keys(tradingDays).length,
-      tradingGasETH: Number(gasETH.toFixed(6)), // 🔥 NEW
+      tradingGasETH: Number(gasETH.toFixed(6)),
     })
 
   } catch (err) {
