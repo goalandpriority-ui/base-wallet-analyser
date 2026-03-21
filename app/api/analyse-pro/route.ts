@@ -7,8 +7,8 @@ const GRAPH_URL = "https://gateway.thegraph.com/api/public/subgraphs/id/9zvRrR7v
 // 🔥 Base RPC
 const provider = new ethers.JsonRpcProvider(process.env.BASE_RPC!)
 
-// 🔥 Swap event topic (Uniswap V2 style)
-const SWAP_TOPIC = "0xd78ad95fa46c994b6551d0da85fc275fe613d1f7c7b5d2e0e5e8f7c6f6f6f6"
+// 🔥 Correct Swap Topic (FIXED)
+const SWAP_TOPIC = ethers.id("Swap(address,uint256,uint256,uint256,uint256,address)")
 
 export async function POST(req: NextRequest) {
   try {
@@ -119,63 +119,69 @@ export async function POST(req: NextRequest) {
     }
 
     // =========================================
-    // 🔥 BASE EVENT DECODE (REAL FIX 🔥)
+    // 🔥 BASE EVENT DECODE (FINAL FIX 🔥)
     // =========================================
 
     const currentBlock = await provider.getBlockNumber()
 
-    // 🔥 scan last ~2M blocks (~Base history window)
-    const fromBlock = currentBlock - 2_000_000
-
-    const logs = await provider.getLogs({
-      fromBlock,
-      toBlock: currentBlock,
-      topics: [SWAP_TOPIC],
-    })
+    const STEP = 50000
+    const START_BLOCK = currentBlock - 500000 // safer range
 
     let swapCount = 0
     let swapVolumeETH = 0
     const daysSet = new Set<string>()
 
-    for (const log of logs) {
+    for (let from = START_BLOCK; from < currentBlock; from += STEP) {
+      const to = Math.min(from + STEP, currentBlock)
+
       try {
-        const tx = await provider.getTransaction(log.transactionHash)
+        const logs = await provider.getLogs({
+          fromBlock: from,
+          toBlock: to,
+          topics: [SWAP_TOPIC],
+        })
 
-        if (!tx) continue
+        for (const log of logs) {
+          try {
+            const tx = await provider.getTransaction(log.transactionHash)
 
-        // 🔥 only wallet related swaps
-        if (
-          tx.from.toLowerCase() !== address &&
-          tx.to?.toLowerCase() !== address
-        ) continue
+            if (!tx) continue
 
-        swapCount++
+            if (
+              tx.from.toLowerCase() !== address &&
+              tx.to?.toLowerCase() !== address
+            ) continue
 
-        // 🔥 decode swap values
-        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-          ["uint256", "uint256", "uint256", "uint256"],
-          log.data
-        )
+            swapCount++
 
-        const [a0in, a1in, a0out, a1out] = decoded
+            const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
+              ["uint256", "uint256", "uint256", "uint256"],
+              log.data
+            )
 
-        const volume =
-          Number(a0in) +
-          Number(a1in) +
-          Number(a0out) +
-          Number(a1out)
+            const [a0in, a1in, a0out, a1out] = decoded
 
-        swapVolumeETH += volume / 1e18
+            const volume =
+              Number(a0in) +
+              Number(a1in) +
+              Number(a0out) +
+              Number(a1out)
 
-        // 🔥 active trading day
-        const block = await provider.getBlock(log.blockNumber)
+            swapVolumeETH += volume / 1e18
 
-        if (block?.timestamp) {
-          const day = new Date(block.timestamp * 1000)
-            .toISOString()
-            .split("T")[0]
+            const block = await provider.getBlock(log.blockNumber)
 
-          daysSet.add(day)
+            if (block?.timestamp) {
+              const day = new Date(block.timestamp * 1000)
+                .toISOString()
+                .split("T")[0]
+
+              daysSet.add(day)
+            }
+
+          } catch {
+            continue
+          }
         }
 
       } catch {
@@ -188,8 +194,8 @@ export async function POST(req: NextRequest) {
       swapCount,
       swapVolumeETH: Number(swapVolumeETH.toFixed(4)),
       tradingDays: daysSet.size,
-      source: "Base Event Decode 🔥",
-      period: "Last ~2M blocks",
+      source: "Base Event Decode 🔥 (Chunked)",
+      period: "Last ~500k blocks",
     })
 
   } catch (err) {
