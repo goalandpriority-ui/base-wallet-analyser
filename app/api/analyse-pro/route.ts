@@ -3,7 +3,9 @@ import axios from "axios"
 import { getSupabase } from "../../../lib/supabase"
 
 const rpc = axios.create({
-  baseURL: process.env.BASE_RPC,
+  baseURL:
+    process.env.BASE_RPC?.trim() ||
+    "https://base-mainnet.g.alchemy.com/v2/e9c7wDqC7HFFElN7KuQQP",
   timeout: 10000
 })
 
@@ -20,7 +22,7 @@ export async function POST(req: NextRequest) {
 
     // FETCH FROM
     do {
-      const res = await rpc.post("", {
+      const res = await rpc.post("/", {
         jsonrpc: "2.0",
         id: 1,
         method: "alchemy_getAssetTransfers",
@@ -51,7 +53,7 @@ export async function POST(req: NextRequest) {
     pageKey = undefined
 
     do {
-      const res = await rpc.post("", {
+      const res = await rpc.post("/", {
         jsonrpc: "2.0",
         id: 1,
         method: "alchemy_getAssetTransfers",
@@ -98,7 +100,6 @@ export async function POST(req: NextRequest) {
     const STABLES = ["USDC", "USDT", "DAI"]
     const APPROX_ETH_PRICE = 3500
 
-    // 🔥 FIX — include ALL tx hashes
     const extraTxs = new Set<string>()
     for (const t of allTransfers) {
       if (t.hash) extraTxs.add(t.hash)
@@ -108,7 +109,7 @@ export async function POST(req: NextRequest) {
 
     for (const txHash of txHashes) {
 
-      const txData = await rpc.post("", {
+      const txData = await rpc.post("/", {
         jsonrpc: "2.0",
         id: 1,
         method: "eth_getTransactionByHash",
@@ -118,7 +119,7 @@ export async function POST(req: NextRequest) {
       const tx = txData.data.result
       if (!tx) continue
 
-      const receipt = await rpc.post("", {
+      const receipt = await rpc.post("/", {
         jsonrpc: "2.0",
         id: 1,
         method: "eth_getTransactionReceipt",
@@ -132,7 +133,6 @@ export async function POST(req: NextRequest) {
 
       let isSwap = false
 
-      // 🔥 log based detection
       for (const log of logs) {
 
         const topic = log.topics?.[0]?.toLowerCase() || ""
@@ -146,7 +146,6 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 🔥 router detection
       if (!isSwap && tx.input && tx.input !== "0x") {
 
         const inputLower = tx.input.toLowerCase()
@@ -210,7 +209,6 @@ export async function POST(req: NextRequest) {
         processedTx[txHash] = true
 
         const gasUsed = BigInt(r.gasUsed || "0x0")
-
         let gasPrice = BigInt(r.effectiveGasPrice || "0x0")
 
         if (gasPrice === BigInt(0)) {
@@ -276,4 +274,4 @@ export async function POST(req: NextRequest) {
     }, { status: 500 })
 
   }
-  }
+}
