@@ -2,24 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
 import { getSupabase } from "../../../lib/supabase"
 
-// 🔥 RPC SAFE
-const RPC =
-  process.env.BASE_RPC ||
-  `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
-
 const rpc = axios.create({
-  baseURL: RPC,
+  baseURL: process.env.BASE_RPC,
   timeout: 10000
 })
-
-// 🔥 BASE DEX ROUTERS
-const ROUTERS = [
-  "0x1111111254eeb25477b68fb85ed929f73a960582", // 1inch
-  "0xe592427a0aece92de3edee1f18e0157c05861564", // uniswap v3
-  "0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad", // universal router
-  "0xdef1c0ded9bec7f1a1670819833240f027b25eff", // 0x
-  "0x2626664c2603336e57b271c5c0b26f421741e481", // base router
-]
 
 export async function POST(req: NextRequest) {
 
@@ -27,24 +13,26 @@ export async function POST(req: NextRequest) {
 
     const supabase = getSupabase()
     const { wallet } = await req.json()
-
     const address = wallet.toLowerCase()
 
     let allTransfers:any[] = []
     let pageKey:any = undefined
 
-    // FROM
+    // =========================
+    // FETCH TRANSFERS (OLD LOGIC KEEP)
+    // =========================
+
     do {
       const res = await rpc.post("", {
-        jsonrpc: "2.0",
-        id: 1,
-        method: "alchemy_getAssetTransfers",
-        params: [{
-          fromBlock: "0x0",
-          toBlock: "latest",
-          category: ["external","internal","erc20"],
-          withMetadata: true,
-          maxCount: "0x3e8",
+        jsonrpc:"2.0",
+        id:1,
+        method:"alchemy_getAssetTransfers",
+        params:[{
+          fromBlock:"0x0",
+          toBlock:"latest",
+          category:["external","internal","erc20"],
+          withMetadata:true,
+          maxCount:"0x3e8",
           pageKey,
           fromAddress: address
         }]
@@ -54,22 +42,22 @@ export async function POST(req: NextRequest) {
       allTransfers = allTransfers.concat(result.transfers || [])
       pageKey = result.pageKey
 
-    } while (pageKey)
+    } while(pageKey)
 
-    // TO
+
     pageKey = undefined
 
     do {
       const res = await rpc.post("", {
-        jsonrpc: "2.0",
-        id: 1,
-        method: "alchemy_getAssetTransfers",
-        params: [{
-          fromBlock: "0x0",
-          toBlock: "latest",
-          category: ["external","internal","erc20"],
-          withMetadata: true,
-          maxCount: "0x3e8",
+        jsonrpc:"2.0",
+        id:1,
+        method:"alchemy_getAssetTransfers",
+        params:[{
+          fromBlock:"0x0",
+          toBlock:"latest",
+          category:["external","internal","erc20"],
+          withMetadata:true,
+          maxCount:"0x3e8",
           pageKey,
           toAddress: address
         }]
@@ -79,7 +67,12 @@ export async function POST(req: NextRequest) {
       allTransfers = allTransfers.concat(result.transfers || [])
       pageKey = result.pageKey
 
-    } while (pageKey)
+    } while(pageKey)
+
+
+    // =========================
+    // GROUP TX
+    // =========================
 
     const txMap = new Map<string, any[]>()
 
@@ -99,45 +92,52 @@ export async function POST(req: NextRequest) {
 
     const STABLES = ["USDC","USDT"]
 
+    // =========================
+    // REAL SWAP DETECTION
+    // =========================
+
     for (const [txHash, txs] of txMap.entries()) {
 
-      // 🔥 GET TX
-      const txData = await rpc.post("", {
+      const receipt = await rpc.post("", {
         jsonrpc:"2.0",
         id:1,
-        method:"eth_getTransactionByHash",
+        method:"eth_getTransactionReceipt",
         params:[txHash]
       })
 
-      const tx = txData.data.result
-      const to = tx?.to?.toLowerCase()
-      const input = tx?.input || ""
+      const logs = receipt.data.result?.logs || []
 
-      // 🔥 ROUTER DETECT
-      const routerSwap = ROUTERS.includes(to)
+      let isSwap = false
 
-      // 🔥 METHOD DETECT
-      const methodSwap =
-        input.startsWith("0x38ed1739") ||
-        input.startsWith("0x18cbafe5") ||
-        input.startsWith("0x7ff36ab5") ||
-        input.startsWith("0x5c11d795") ||
-        input.startsWith("0x414bf389") ||
-        input.startsWith("0x3593564c") ||
-        input.startsWith("0x04e45aaf")
+      for (const log of logs) {
 
-      const isSwap = routerSwap || methodSwap
+        const topic = log.topics?.[0]?.toLowerCase()
+
+        // Uniswap V2 / Aerodrome
+        if (topic ===
+          "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e6a6b7e0a5eec8f3"
+        ) {
+          isSwap = true
+        }
+
+        // Uniswap V3
+        if (topic ===
+          "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67"
+        ) {
+          isSwap = true
+        }
+      }
 
       if (isSwap) {
 
         swapCount++
 
-        for (const t of txs) {
+        for (const tx of txs) {
 
-          const asset = (t.asset || "").toUpperCase()
-          const value = Number(t.value || 0)
+          const asset = (tx.asset || "").toUpperCase()
+          const value = Number(tx.value || 0)
 
-          if (value && t.from?.toLowerCase() === address) {
+          if (value && tx.from?.toLowerCase() === address) {
 
             if (STABLES.includes(asset)) {
               volumeUSD += value
@@ -148,8 +148,9 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          if (t.metadata?.blockTimestamp) {
-            const day = new Date(t.metadata.blockTimestamp)
+          if (tx.metadata?.blockTimestamp) {
+
+            const day = new Date(tx.metadata.blockTimestamp)
               .toISOString()
               .split("T")[0]
 
@@ -160,13 +161,6 @@ export async function POST(req: NextRequest) {
         if (!processedTx[txHash]) {
 
           processedTx[txHash] = true
-
-          const receipt = await rpc.post("", {
-            jsonrpc:"2.0",
-            id:1,
-            method:"eth_getTransactionReceipt",
-            params:[txHash]
-          })
 
           const r = receipt.data.result
 
@@ -206,9 +200,9 @@ export async function POST(req: NextRequest) {
       rank: 1
     })
 
-  } catch (e:any) {
+  } catch (e) {
 
-    console.log("analyse-pro error:", e?.response?.data || e)
+    console.log("analyse-pro error:", e)
 
     return NextResponse.json({
       wallet:"",
@@ -221,5 +215,4 @@ export async function POST(req: NextRequest) {
     })
 
   }
-
 }
