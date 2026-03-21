@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
-import { supabase } from "../../../lib/supabase"
+import { getSupabase } from "../../../lib/supabase"
 
 const rpc = axios.create({
   baseURL: process.env.BASE_RPC,
@@ -9,6 +9,8 @@ const rpc = axios.create({
 
 export async function POST(req: NextRequest) {
   try {
+    const supabase = getSupabase()
+
     const { wallet } = await req.json()
 
     if (!wallet) {
@@ -212,4 +214,4 @@ export async function POST(req: NextRequest) {
       rank: 0
     })
   }
-}
+            }
