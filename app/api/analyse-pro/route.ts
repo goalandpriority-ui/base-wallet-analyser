@@ -35,7 +35,6 @@ export async function POST(req: NextRequest) {
         }]
       })
 
-      if (res.data.error) throw new Error(res.data.error.message)
       const result = res.data.result
       allTransfers = allTransfers.concat(result.transfers || [])
       pageKey = result.pageKey
@@ -61,15 +60,13 @@ export async function POST(req: NextRequest) {
         }]
       })
 
-      if (res.data.error) throw new Error(res.data.error.message)
       const result = res.data.result
       allTransfers = allTransfers.concat(result.transfers || [])
       pageKey = result.pageKey
 
     } while (pageKey)
 
-    console.log("Total transfers fetched:", allTransfers.length) // DEBUG: local-la paaru entha transfers varudhu
-
+    // GROUP TX
     const txMap = new Map<string, any[]>()
 
     for (const tx of allTransfers) {
@@ -119,6 +116,7 @@ export async function POST(req: NextRequest) {
       let isSwap = false
 
       for (const log of logs) {
+
         const topic = log.topics?.[0]?.toLowerCase() || ""
 
         // Uniswap V2 / Aerodrome / Solidly forks
@@ -127,13 +125,25 @@ export async function POST(req: NextRequest) {
           break
         }
 
-        // Uniswap V3 / Pancake V3 / concentrated liquidity swaps
+        // Uniswap V3 / Pancake V3
         if (topic === "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67") {
           isSwap = true
           break
         }
+      }
 
-        // Extra: Some DEXs use Transfer event for in/out, but Swap event primary
+      // Aggregator / routed swaps detection (tx.input signatures) - extra check
+      if (!isSwap && tx.input) {
+        const inputLower = tx.input.toLowerCase()
+        if (
+          inputLower.startsWith("0x38ed1739") || // Uniswap V2 swapExactTokensForTokens
+          inputLower.startsWith("0x5ae401dc") || // Universal Router execute
+          inputLower.startsWith("0x3593564c") || // Uniswap V3 exactInput
+          inputLower.startsWith("0xe8e33700") || // Aerodrome swap (possible)
+          inputLower.includes("swap")          // rough catch for aggregator methods
+        ) {
+          isSwap = true
+        }
       }
 
       if (!isSwap) continue
@@ -143,32 +153,45 @@ export async function POST(req: NextRequest) {
       const txs = txMap.get(txHash) || []
 
       for (const t of txs) {
+
         const asset = (t.asset || "").toUpperCase()
         const value = Number(t.value || 0)
         const fromAddr = t.from?.toLowerCase()
         const toAddr = t.to?.toLowerCase()
 
         if (value > 0) {
-          if (fromAddr === address) { // sold/out
-            if (STABLES.includes(asset)) volumeUSD += value
-            if (asset === "ETH" || asset === "WETH") volumeUSD += value * APPROX_ETH_PRICE
+
+          if (fromAddr === address) {
+            if (STABLES.includes(asset)) {
+              volumeUSD += value
+            }
+            if (asset === "ETH" || asset === "WETH") {
+              volumeUSD += value * APPROX_ETH_PRICE
+            }
           }
-          if (toAddr === address) { // bought/in
-            if (STABLES.includes(asset)) volumeUSD += value
-            if (asset === "ETH" || asset === "WETH") volumeUSD += value * APPROX_ETH_PRICE
+
+          if (toAddr === address) {
+            if (STABLES.includes(asset)) {
+              volumeUSD += value
+            }
+            if (asset === "ETH" || asset === "WETH") {
+              volumeUSD += value * APPROX_ETH_PRICE
+            }
           }
         }
 
         if (t.metadata?.blockTimestamp) {
-          const day = new Date(t.metadata.blockTimestamp).toISOString().split("T")[0]
+          const day = new Date(t.metadata.blockTimestamp)
+            .toISOString()
+            .split("T")[0]
           tradingDays[day] = true
         }
       }
 
       if (!processedTx[txHash]) {
+
         processedTx[txHash] = true
 
-        // Gas safe without literals
         const gasUsed = BigInt(r.gasUsed || "0x0")
         let gasPrice = BigInt(r.effectiveGasPrice || "0x0")
         if (gasPrice === BigInt("0")) {
@@ -182,7 +205,11 @@ export async function POST(req: NextRequest) {
 
     const tradingDaysCount = Object.keys(tradingDays).length
 
-    const score = (swapCount * 2) + tradingDaysCount + (volumeUSD / 100) + (gasETH * 5000)
+    const score =
+      (swapCount * 2) +
+      tradingDaysCount +
+      (volumeUSD / 100) +
+      (gasETH * 5000)
 
     await supabase
       .from("leaderboard")
@@ -209,7 +236,9 @@ export async function POST(req: NextRequest) {
     })
 
   } catch (e: any) {
+
     console.error("analyse-pro error:", e.message || e)
+
     return NextResponse.json({
       wallet: "",
       swapCount: 0,
@@ -220,5 +249,6 @@ export async function POST(req: NextRequest) {
       rank: 0,
       error: e.message || "Unknown error"
     }, { status: 500 })
+
   }
 }
