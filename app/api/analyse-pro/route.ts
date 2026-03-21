@@ -99,6 +99,8 @@ export async function POST(req: NextRequest) {
         const asset = (t.asset || "").toUpperCase()
         const value = Number(t.value || 0)
 
+        if (!asset) continue
+
         if (t.from?.toLowerCase() === address) {
           sentAssets.push(asset)
 
@@ -123,14 +125,19 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      const uniqueSent = Array.from(new Set(sentAssets))
-      const uniqueReceived = Array.from(new Set(receivedAssets))
+      // 🔥 NEW CORRECT SWAP LOGIC
+      const sentSet = new Set(sentAssets)
+      const receivedSet = new Set(receivedAssets)
 
-      // 🔥 FIXED SWAP DETECTION (only change)
-      if (
-        uniqueSent.length > 0 &&
-        uniqueReceived.length > 0
-      ) {
+      const isSwap =
+        sentSet.size > 0 &&
+        receivedSet.size > 0 &&
+        (
+          [...sentSet].some(a => !receivedSet.has(a)) ||
+          [...receivedSet].some(a => !sentSet.has(a))
+        )
+
+      if (isSwap) {
         swapCount++
 
         if (!processedTx[txHash]) {
