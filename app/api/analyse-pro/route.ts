@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
               {
                 fromBlock: "0x0",
                 toBlock: "latest",
-                category: ["erc20"], // 🔥 IMPORTANT
+                category: ["external", "erc20"],
                 withMetadata: true,
                 excludeZeroValue: true,
                 maxCount: "0x3e8",
@@ -86,10 +86,13 @@ export async function POST(req: NextRequest) {
     const MAX_PARALLEL = 5
     let gasPromises: Promise<void>[] = []
 
-    for (const [txHash, transfers] of txMap.entries()) {
+    for (const entry of Array.from(txMap.entries())) {
 
-      let sent = false
-      let received = false
+      const txHash = entry[0]
+      const transfers = entry[1]
+
+      let sentAssets: string[] = []
+      let receivedAssets: string[] = []
 
       for (const t of transfers) {
 
@@ -97,15 +100,18 @@ export async function POST(req: NextRequest) {
         const value = Number(t.value || 0)
 
         if (t.from?.toLowerCase() === address) {
-          sent = true
+          sentAssets.push(asset)
 
           if (value) {
             if (STABLES.includes(asset)) volumeUSD += value
+            if (asset === "ETH" || asset === "WETH") {
+              volumeUSD += value * 3000
+            }
           }
         }
 
         if (t.to?.toLowerCase() === address) {
-          received = true
+          receivedAssets.push(asset)
         }
 
         if (t.metadata?.blockTimestamp) {
@@ -117,10 +123,18 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      if (sent && received) {
+      const uniqueSent = Array.from(new Set(sentAssets))
+      const uniqueReceived = Array.from(new Set(receivedAssets))
+
+      if (
+        uniqueSent.length > 0 &&
+        uniqueReceived.length > 0 &&
+        JSON.stringify(uniqueSent) !== JSON.stringify(uniqueReceived)
+      ) {
         swapCount++
 
         if (!processedTx[txHash]) {
+
           processedTx[txHash] = true
 
           const promise = rpc.post("", {
