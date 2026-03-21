@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
               {
                 fromBlock: "0x0",
                 toBlock: "latest",
-                category: ["external", "erc20"],
+                category: ["external","internal","erc20","erc721","erc1155"],
                 withMetadata: true,
                 excludeZeroValue: true,
                 maxCount: "0x3e8",
