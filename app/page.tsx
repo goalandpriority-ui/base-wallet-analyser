@@ -12,7 +12,6 @@ export default function Home() {
     setData(null)
 
     try {
-      // 🔥 CALL BOTH APIs
       const [basicRes, proRes] = await Promise.all([
         fetch("/api/analyse", {
           method: "POST",
@@ -27,10 +26,6 @@ export default function Home() {
       const basicData = await basicRes.json()
       const proData = await proRes.json()
 
-      console.log("BASIC:", basicData)
-      console.log("PRO:", proData)
-
-      // 🔥 MERGE DATA
       setData({
         ...basicData,
         ...proData,
@@ -70,7 +65,6 @@ export default function Home() {
           borderRadius: 10
         }}>
 
-          {/* 🔥 BASIC DATA */}
           <p>📊 Transactions: {data.totalTxns || 0}</p>
           <p>💰 Transfer Volume: {data.totalVolumeETH || 0} ETH</p>
           <p>⛽ Gas: {data.totalGasETH || 0} ETH</p>
@@ -78,7 +72,6 @@ export default function Home() {
 
           <hr style={{ margin: "15px 0", borderColor: "#333" }} />
 
-          {/* 🔥 PRO DATA */}
           <p>🔁 Swaps: {data.swapCount || 0}</p>
 
           <p>
@@ -90,10 +83,7 @@ export default function Home() {
 
           <p>📅 Trading Days: {data.tradingDays || 0}</p>
 
-          {/* 🔥 NEW */}
-          <p>
-            ⛽ Trading Gas: {data.tradingGasETH || 0} ETH
-          </p>
+          <p>⛽ Trading Gas: {data.tradingGasETH || 0} ETH</p>
 
         </div>
       )}
