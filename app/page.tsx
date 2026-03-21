@@ -90,11 +90,9 @@ export default function Home() {
 
           <p>📅 Trading Days: {data.tradingDays || 0}</p>
 
-          {/* 🔥 NEW TRADING GAS */}
+          {/* 🔥 NEW */}
           <p>
-            ⛽ Trading Gas: {data.tradingGasETH !== undefined
-              ? data.tradingGasETH
-              : 0} ETH
+            ⛽ Trading Gas: {data.tradingGasETH || 0} ETH
           </p>
 
         </div>
