@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
-import { supabase } from "@/lib/supabase"
+import { supabase } from "../../../lib/supabase"
 
 const rpc = axios.create({
   baseURL: process.env.BASE_RPC,
@@ -161,9 +161,6 @@ export async function POST(req: NextRequest) {
 
     await Promise.all(gasPromises)
 
-    // ===============================
-    // 🔥 SCORE CALCULATION
-    // ===============================
     const tradingDaysCount = Object.keys(tradingDays).length
 
     const score =
@@ -172,9 +169,6 @@ export async function POST(req: NextRequest) {
       (volumeUSD / 100) +
       (gasETH * 5000)
 
-    // ===============================
-    // 🔥 SAVE LEADERBOARD
-    // ===============================
     await supabase.from("leaderboard").insert({
       wallet: address,
       score,
@@ -184,9 +178,6 @@ export async function POST(req: NextRequest) {
       gas: gasETH
     })
 
-    // ===============================
-    // 🔥 GET RANK (24H)
-    // ===============================
     const last24h = new Date(
       Date.now() - 24 * 60 * 60 * 1000
     ).toISOString()
@@ -199,9 +190,6 @@ export async function POST(req: NextRequest) {
 
     const rank = (count || 0) + 1
 
-    // ===============================
-    // FINAL RESPONSE
-    // ===============================
     return NextResponse.json({
       wallet,
       swapCount: swapCount || 0,
