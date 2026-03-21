@@ -19,9 +19,8 @@ export async function POST(req: NextRequest) {
     let pageKey:any = undefined
 
     // =========================
-    // FETCH TRANSFERS (OLD LOGIC KEEP)
+    // FETCH FROM
     // =========================
-
     do {
       const res = await rpc.post("", {
         jsonrpc:"2.0",
@@ -30,7 +29,7 @@ export async function POST(req: NextRequest) {
         params:[{
           fromBlock:"0x0",
           toBlock:"latest",
-          category:["external","internal","erc20"],
+          category:["external","internal","erc20","erc721","erc1155"],
           withMetadata:true,
           maxCount:"0x3e8",
           pageKey,
@@ -45,6 +44,9 @@ export async function POST(req: NextRequest) {
     } while(pageKey)
 
 
+    // =========================
+    // FETCH TO
+    // =========================
     pageKey = undefined
 
     do {
@@ -55,7 +57,7 @@ export async function POST(req: NextRequest) {
         params:[{
           fromBlock:"0x0",
           toBlock:"latest",
-          category:["external","internal","erc20"],
+          category:["external","internal","erc20","erc721","erc1155"],
           withMetadata:true,
           maxCount:"0x3e8",
           pageKey,
@@ -90,15 +92,34 @@ export async function POST(req: NextRequest) {
     const tradingDays: Record<string, boolean> = {}
     const processedTx: Record<string, boolean> = {}
 
-    const STABLES = ["USDC","USDT","DAI"]
-    const WETH = "WETH"
+    const STABLES = ["USDC","USDT"]
 
     // =========================
-    // REAL SWAP DETECTION (FIXED)
+    // ANALYSE
     // =========================
 
     for (const [txHash, txs] of txMap.entries()) {
 
+      // fetch tx input
+      const txData = await rpc.post("", {
+        jsonrpc:"2.0",
+        id:1,
+        method:"eth_getTransactionByHash",
+        params:[txHash]
+      })
+
+      const input = txData.data.result?.input || ""
+
+      // router swap signatures
+      const isSwapByInput =
+        input.startsWith("0x38ed1739") ||
+        input.startsWith("0x18cbafe5") ||
+        input.startsWith("0x7ff36ab5") ||
+        input.startsWith("0x5c11d795") ||
+        input.startsWith("0x414bf389") ||
+        input.startsWith("0x3593564c")
+
+      // receipt logs check
       const receipt = await rpc.post("", {
         jsonrpc:"2.0",
         id:1,
@@ -108,24 +129,28 @@ export async function POST(req: NextRequest) {
 
       const logs = receipt.data.result?.logs || []
 
-      let isSwap = false
+      let isSwapByLog = false
 
       for (const log of logs) {
 
         const topic = log.topics?.[0]?.toLowerCase()
 
-        // Uniswap V2 / Aerodrome Swap
-        if (topic === "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e6a6b7e0a5eec8f3") {
-          isSwap = true
-          break
+        // Uniswap V2 / Aerodrome
+        if (topic ===
+          "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e6a6b7e0a5eec8f3"
+        ) {
+          isSwapByLog = true
         }
 
-        // Uniswap V3 Swap
-        if (topic === "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67") {
-          isSwap = true
-          break
+        // Uniswap V3
+        if (topic ===
+          "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67"
+        ) {
+          isSwapByLog = true
         }
       }
+
+      const isSwap = isSwapByInput || isSwapByLog
 
       if (isSwap) {
 
@@ -142,7 +167,7 @@ export async function POST(req: NextRequest) {
               volumeUSD += value
             }
 
-            if (asset === "ETH" || asset === WETH) {
+            if (asset === "ETH" || asset === "WETH") {
               volumeUSD += value * 3000
             }
           }
