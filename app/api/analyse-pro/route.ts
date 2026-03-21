@@ -103,28 +103,32 @@ export async function POST(req: NextRequest) {
       ) {
         swapCount++
 
+        // =====================================
+        // 🔥 FIXED VOLUME LOGIC
+        // =====================================
         for (const t of transfers) {
-          let value = Number(t.value || 0)
+          const value = Number(t.value || 0) // ✅ USE DIRECT VALUE (NO DIVIDE)
           const asset = (t.asset || "").toUpperCase()
-          const decimals = t.rawContract?.decimal ?? 18
 
-          if (!value) continue
-
-          // 🔥 FIX DECIMALS
-          value = value / Math.pow(10, decimals)
+          if (!value || !asset) continue
 
           if (t.from?.toLowerCase() === address) {
 
+            // ✅ Stable → USD
             if (STABLES.includes(asset)) {
               volumeUSD += value
             }
 
+            // ✅ ETH / WETH → USD
             if (asset === "ETH" || asset === "WETH") {
               volumeUSD += value * 3000
             }
           }
         }
 
+        // =====================================
+        // 🔥 ACTIVE DAY
+        // =====================================
         const sample = transfers[0]
         if (sample.metadata?.blockTimestamp) {
           const day = new Date(sample.metadata.blockTimestamp)
