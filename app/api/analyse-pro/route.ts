@@ -4,6 +4,7 @@ import { getSupabase } from "../../../lib/supabase"
 
 const rpc = axios.create({
   baseURL: process.env.BASE_RPC,
+  timeout: 10000
 })
 
 export async function POST(req: NextRequest) {
@@ -18,11 +19,8 @@ export async function POST(req: NextRequest) {
     let allTransfers:any[] = []
     let pageKey:any = undefined
 
-    // ===============================
-    // FETCH FROM
-    // ===============================
+    // fetch FROM
     do {
-
       const res = await rpc.post("", {
         jsonrpc: "2.0",
         id: 1,
@@ -30,7 +28,7 @@ export async function POST(req: NextRequest) {
         params: [{
           fromBlock: "0x0",
           toBlock: "latest",
-          category: ["external","internal","erc20","erc721","erc1155"],
+          category: ["external","internal","erc20"],
           withMetadata: true,
           maxCount: "0x3e8",
           pageKey,
@@ -44,13 +42,10 @@ export async function POST(req: NextRequest) {
 
     } while (pageKey)
 
-    // ===============================
-    // FETCH TO
-    // ===============================
+    // fetch TO
     pageKey = undefined
 
     do {
-
       const res = await rpc.post("", {
         jsonrpc: "2.0",
         id: 1,
@@ -58,7 +53,7 @@ export async function POST(req: NextRequest) {
         params: [{
           fromBlock: "0x0",
           toBlock: "latest",
-          category: ["external","internal","erc20","erc721","erc1155"],
+          category: ["external","internal","erc20"],
           withMetadata: true,
           maxCount: "0x3e8",
           pageKey,
@@ -72,9 +67,7 @@ export async function POST(req: NextRequest) {
 
     } while (pageKey)
 
-    // ===============================
-    // GROUP TX
-    // ===============================
+    // group tx
     const txMap = new Map<string, any[]>()
 
     for (const tx of allTransfers) {
@@ -93,31 +86,32 @@ export async function POST(req: NextRequest) {
 
     const STABLES = ["USDC","USDT"]
 
-    // ===============================
-    // ANALYSE
-    // ===============================
     for (const [txHash, txs] of txMap.entries()) {
 
-      // 🔥 get tx
-      const txData = await rpc.post("", {
-        jsonrpc:"2.0",
-        id:1,
-        method:"eth_getTransactionByHash",
-        params:[txHash]
-      })
+      let sentAssets:string[] = []
+      let receivedAssets:string[] = []
 
-      const input = txData.data.result?.input || ""
-      const to = txData.data.result?.to?.toLowerCase() || ""
+      for (const tx of txs) {
 
-      // 🔥 detect swap
+        const asset = (tx.asset || "").toUpperCase()
+
+        if (tx.from?.toLowerCase() === address) {
+          sentAssets.push(asset)
+        }
+
+        if (tx.to?.toLowerCase() === address) {
+          receivedAssets.push(asset)
+        }
+      }
+
+      const uniqueSent = Array.from(new Set(sentAssets))
+      const uniqueReceived = Array.from(new Set(receivedAssets))
+
+      // 🔥 SWAP DETECTION
       const isSwap =
-        input.startsWith("0x38ed1739") ||   // swapExactTokens
-        input.startsWith("0x18cbafe5") ||   // swapTokens
-        input.startsWith("0x7ff36ab5") ||   // swapETH
-        input.startsWith("0x5c11d795") ||   // universal router
-        input.startsWith("0x414bf389") ||   // 0x
-        input.length > 200 ||               // aggregator swaps
-        txs.length > 2                      // multi transfer swap
+        uniqueSent.length > 0 &&
+        uniqueReceived.length > 0 &&
+        JSON.stringify(uniqueSent) !== JSON.stringify(uniqueReceived)
 
       if (isSwap) {
 
@@ -197,7 +191,9 @@ export async function POST(req: NextRequest) {
       rank: 1
     })
 
-  } catch {
+  } catch (e) {
+
+    console.log("analyse-pro error:", e)
 
     return NextResponse.json({
       wallet:"",
