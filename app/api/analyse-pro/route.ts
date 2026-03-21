@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
                 toBlock: "latest",
                 category: ["external","internal","erc20","erc721","erc1155"],
                 withMetadata: true,
-                excludeZeroValue: false, // 🔥 FIXED
+                excludeZeroValue: false,
                 maxCount: "0x3e8",
                 pageKey,
                 [type]: address,
@@ -126,10 +126,10 @@ export async function POST(req: NextRequest) {
       const uniqueSent = Array.from(new Set(sentAssets))
       const uniqueReceived = Array.from(new Set(receivedAssets))
 
+      // 🔥 FIXED SWAP DETECTION (only change)
       if (
         uniqueSent.length > 0 &&
-        uniqueReceived.length > 0 &&
-        JSON.stringify(uniqueSent) !== JSON.stringify(uniqueReceived)
+        uniqueReceived.length > 0
       ) {
         swapCount++
 
