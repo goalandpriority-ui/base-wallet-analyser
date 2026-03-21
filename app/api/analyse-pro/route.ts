@@ -15,45 +15,66 @@ export async function POST(req: NextRequest) {
 
     const address = wallet.toLowerCase()
 
-    // fetch sent transfers
-    const resFrom = await rpc.post("", {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "alchemy_getAssetTransfers",
-      params: [{
-        fromBlock: "0x0",
-        toBlock: "latest",
-        fromAddress: address,
-        category: ["external","internal","erc20"],
-        withMetadata: true,
-        maxCount: "0x3e8"
-      }]
-    })
+    let allTransfers:any[] = []
+    let pageKey:any = undefined
 
-    // fetch received transfers
-    const resTo = await rpc.post("", {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "alchemy_getAssetTransfers",
-      params: [{
-        fromBlock: "0x0",
-        toBlock: "latest",
-        toAddress: address,
-        category: ["external","internal","erc20"],
-        withMetadata: true,
-        maxCount: "0x3e8"
-      }]
-    })
+    // fetch ALL pages
+    do {
 
-    const transfers = [
-      ...(resFrom.data.result.transfers || []),
-      ...(resTo.data.result.transfers || [])
-    ]
+      const res = await rpc.post("", {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "alchemy_getAssetTransfers",
+        params: [{
+          fromBlock: "0x0",
+          toBlock: "latest",
+          category: ["external","internal","erc20"],
+          withMetadata: true,
+          maxCount: "0x3e8",
+          pageKey,
+          fromAddress: address
+        }]
+      })
 
-    // group by tx hash
+      const result = res.data.result
+
+      allTransfers = allTransfers.concat(result.transfers || [])
+
+      pageKey = result.pageKey
+
+    } while (pageKey)
+
+    pageKey = undefined
+
+    do {
+
+      const res = await rpc.post("", {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "alchemy_getAssetTransfers",
+        params: [{
+          fromBlock: "0x0",
+          toBlock: "latest",
+          category: ["external","internal","erc20"],
+          withMetadata: true,
+          maxCount: "0x3e8",
+          pageKey,
+          toAddress: address
+        }]
+      })
+
+      const result = res.data.result
+
+      allTransfers = allTransfers.concat(result.transfers || [])
+
+      pageKey = result.pageKey
+
+    } while (pageKey)
+
+    // group tx
     const txMap = new Map<string, any[]>()
 
-    for (const tx of transfers) {
+    for (const tx of allTransfers) {
       if (!txMap.has(tx.hash)) {
         txMap.set(tx.hash, [])
       }
@@ -74,13 +95,8 @@ export async function POST(req: NextRequest) {
 
       for (const tx of txs) {
 
-        if (tx.from?.toLowerCase() === address) {
-          sent = true
-        }
-
-        if (tx.to?.toLowerCase() === address) {
-          received = true
-        }
+        if (tx.from?.toLowerCase() === address) sent = true
+        if (tx.to?.toLowerCase() === address) received = true
 
         const asset = (tx.asset || "").toUpperCase()
         const value = Number(tx.value || 0)
@@ -105,8 +121,8 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // swap detect
       if (sent && received) {
+
         swapCount++
 
         if (!processedTx[txHash]) {
