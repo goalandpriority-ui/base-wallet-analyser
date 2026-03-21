@@ -44,7 +44,6 @@ export async function POST(req: NextRequest) {
 
     } while (pageKey)
 
-
     // ===============================
     // FETCH TO
     // ===============================
@@ -73,7 +72,6 @@ export async function POST(req: NextRequest) {
 
     } while (pageKey)
 
-
     // ===============================
     // GROUP TX
     // ===============================
@@ -100,7 +98,7 @@ export async function POST(req: NextRequest) {
     // ===============================
     for (const [txHash, txs] of txMap.entries()) {
 
-      // 🔥 NEW — detect swap via tx input
+      // 🔥 get tx
       const txData = await rpc.post("", {
         jsonrpc:"2.0",
         id:1,
@@ -109,13 +107,17 @@ export async function POST(req: NextRequest) {
       })
 
       const input = txData.data.result?.input || ""
+      const to = txData.data.result?.to?.toLowerCase() || ""
 
+      // 🔥 detect swap
       const isSwap =
-        input.startsWith("0x38ed1739") ||
-        input.startsWith("0x18cbafe5") ||
-        input.startsWith("0x7ff36ab5") ||
-        input.startsWith("0x5c11d795") ||
-        input.startsWith("0x414bf389")
+        input.startsWith("0x38ed1739") ||   // swapExactTokens
+        input.startsWith("0x18cbafe5") ||   // swapTokens
+        input.startsWith("0x7ff36ab5") ||   // swapETH
+        input.startsWith("0x5c11d795") ||   // universal router
+        input.startsWith("0x414bf389") ||   // 0x
+        input.length > 200 ||               // aggregator swaps
+        txs.length > 2                      // multi transfer swap
 
       if (isSwap) {
 
@@ -209,4 +211,4 @@ export async function POST(req: NextRequest) {
 
   }
 
-      }
+}
