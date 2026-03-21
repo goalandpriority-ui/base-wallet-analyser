@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
 import { getSupabase } from "../../../lib/supabase"
 
-const api = axios.create({
-  baseURL: "https://base.blockscout.com/api",
-  timeout: 8000
+const rpc = axios.create({
+  baseURL:
+    "https://base-mainnet.g.alchemy.com/v2/" +
+    process.env.ALCHEMY_API_KEY,
+  timeout: 10000
 })
 
 const ETH_PRICE = 3500
+const STABLES = ["USDC","USDT","DAI"]
 
 export async function POST(req: NextRequest) {
 
@@ -17,81 +20,106 @@ export async function POST(req: NextRequest) {
     const { wallet } = await req.json()
     const address = wallet.toLowerCase()
 
-    // fetch normal tx
-    const normal = await api.get(
-      `?module=account&action=txlist&address=${address}&page=1&offset=1000`
+    let transfers: any[] = []
+
+    const res = await rpc.post("/", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "alchemy_getAssetTransfers",
+      params: [{
+        fromBlock: "0x0",
+        toBlock: "latest",
+        fromAddress: address,
+        category: ["erc20"],
+        withMetadata: true,
+        maxCount: "0x3e8"
+      }]
+    })
+
+    transfers = transfers.concat(
+      res.data.result.transfers || []
     )
 
-    // fetch token tx
-    const token = await api.get(
-      `?module=account&action=tokentx&address=${address}&page=1&offset=1000`
+    const res2 = await rpc.post("/", {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "alchemy_getAssetTransfers",
+      params: [{
+        fromBlock: "0x0",
+        toBlock: "latest",
+        toAddress: address,
+        category: ["erc20"],
+        withMetadata: true,
+        maxCount: "0x3e8"
+      }]
+    })
+
+    transfers = transfers.concat(
+      res2.data.result.transfers || []
     )
 
-    const normalTx = normal.data.result || []
-    const tokenTx = token.data.result || []
+    const txMap: Record<string, any[]> = {}
 
-    const swapHashes = new Set<string>()
+    for (const t of transfers) {
+      if (!txMap[t.hash]) txMap[t.hash] = []
+      txMap[t.hash].push(t)
+    }
 
+    let swapCount = 0
     let volumeUSD = 0
     let gasETH = 0
 
     const tradingDays = new Set<string>()
 
-    // detect swaps from normal tx
-    for (const tx of normalTx) {
+    for (const hash in txMap) {
 
-      if (!tx.input || tx.input === "0x") continue
+      const txs = txMap[hash]
+      if (txs.length < 2) continue
 
-      // router swap detection
-      if (
-        tx.input.startsWith("0x38ed1739") ||
-        tx.input.startsWith("0x18cbafe5") ||
-        tx.input.startsWith("0x7ff36ab5") ||
-        tx.input.startsWith("0x414bf389") ||
-        tx.input.startsWith("0x5ae401dc")
-      ) {
-        swapHashes.add(tx.hash)
-      }
+      let txVolume = 0
+      let isSwap = false
 
-      const gas =
-        (Number(tx.gasUsed) * Number(tx.gasPrice)) / 1e18
+      for (const t of txs) {
 
-      gasETH += gas
-
-      const day =
-        new Date(parseInt(tx.timeStamp)*1000)
-          .toISOString()
-          .split("T")[0]
-
-      tradingDays.add(day)
-    }
-
-    // detect ETH volume
-    for (const tx of tokenTx) {
-
-      const symbol =
-        (tx.tokenSymbol || "").toUpperCase()
-
-      if (symbol === "WETH" || symbol === "ETH") {
-
-        const decimals =
-          Number(tx.tokenDecimal || 18)
+        const symbol =
+          (t.asset || "").toUpperCase()
 
         const value =
-          Number(tx.value) / (10 ** decimals)
+          Number(t.value || 0)
 
-        volumeUSD += value * ETH_PRICE
+        if (symbol === "ETH" || symbol === "WETH") {
+          txVolume += value * ETH_PRICE
+          isSwap = true
+        }
+
+        if (STABLES.includes(symbol)) {
+          txVolume += value
+          isSwap = true
+        }
+
+        if (t.metadata?.blockTimestamp) {
+
+          const day =
+            new Date(t.metadata.blockTimestamp)
+              .toISOString()
+              .split("T")[0]
+
+          tradingDays.add(day)
+        }
+      }
+
+      if (isSwap) {
+        swapCount++
+        volumeUSD += txVolume
       }
     }
 
-    const swapCount = swapHashes.size
     const tradingDaysCount = tradingDays.size
 
     const score =
       (swapCount * 2) +
       tradingDaysCount +
-      (volumeUSD / 100) +
-      (gasETH * 5000)
+      (volumeUSD / 100)
 
     await supabase
       .from("leaderboard")
@@ -126,8 +154,7 @@ export async function POST(req: NextRequest) {
       tradingDays: 0,
       tradingGasETH: 0,
       score: 0,
-      rank: 0,
-      error: e.message || "error"
+      rank: 0
     }, { status: 500 })
 
   }
