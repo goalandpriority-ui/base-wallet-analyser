@@ -11,12 +11,12 @@ export async function POST(req: NextRequest) {
 
     const address = wallet.toLowerCase()
 
-    // =========================================
-    // 🔥 FETCH ALL TRANSFERS (OUTGOING)
-    // =========================================
     let allTransfers: any[] = []
     let pageKey: string | undefined = undefined
 
+    // =========================================
+    // 🔥 OUTGOING
+    // =========================================
     do {
       const res = await axios.post(process.env.BASE_RPC!, {
         jsonrpc: "2.0",
@@ -43,13 +43,12 @@ export async function POST(req: NextRequest) {
       }
 
       pageKey = result.pageKey
-
       if (allTransfers.length > 5000) break
 
     } while (pageKey)
 
     // =========================================
-    // 🔥 FETCH INCOMING TRANSFERS
+    // 🔥 INCOMING
     // =========================================
     pageKey = undefined
 
@@ -79,13 +78,12 @@ export async function POST(req: NextRequest) {
       }
 
       pageKey = result.pageKey
-
       if (allTransfers.length > 10000) break
 
     } while (pageKey)
 
     // =========================================
-    // 🔥 GROUP BY TX HASH
+    // 🔥 GROUP BY TX
     // =========================================
     const txMap = new Map<string, any[]>()
 
@@ -100,51 +98,77 @@ export async function POST(req: NextRequest) {
     }
 
     // =========================================
-    // 🔥 SWAP DETECTION
+    // 🔥 SWAP DETECT + VOLUME
     // =========================================
     let swapCount = 0
     let swapVolumeETH = 0
     const tradingDays = new Set<string>()
 
+    const STABLES = ["USDC", "USDT"]
+    const ETH_PRICE = 3000 // rough
+
     for (const entry of Array.from(txMap.entries())) {
-      const hash = entry[0]
       const transfers = entry[1]
 
-      let sent = 0
-      let received = 0
+      let sentTotal = 0
+      let receivedTotal = 0
 
-      let sentAsset = ""
-      let receivedAsset = ""
+      let sentAssets: string[] = []
+      let receivedAssets: string[] = []
 
       for (const t of transfers) {
         const value = Number(t.value || 0)
         const asset = (t.asset || "").toUpperCase()
 
+        if (!value || !asset) continue
+
         if (t.from?.toLowerCase() === address) {
-          sent += value
-          sentAsset = asset
+          sentTotal += value
+          sentAssets.push(asset)
         }
 
         if (t.to?.toLowerCase() === address) {
-          received += value
-          receivedAsset = asset
+          receivedTotal += value
+          receivedAssets.push(asset)
         }
       }
 
+      const uniqueSent = [...new Set(sentAssets)]
+      const uniqueReceived = [...new Set(receivedAssets)]
+
       // 🔥 SWAP CONDITION
-      if (sent > 0 && received > 0 && sentAsset !== receivedAsset) {
+      if (
+        sentTotal > 0 &&
+        receivedTotal > 0 &&
+        JSON.stringify(uniqueSent) !== JSON.stringify(uniqueReceived)
+      ) {
         swapCount++
 
-        // 🔥 ETH volume calculation
-        if (sentAsset === "ETH") {
-          swapVolumeETH += sent
+        // =====================================
+        // 🔥 VOLUME LOGIC (REAL FIX)
+        // =====================================
+        for (const t of transfers) {
+          const value = Number(t.value || 0)
+          const asset = (t.asset || "").toUpperCase()
+
+          if (!value || !asset) continue
+
+          if (t.from?.toLowerCase() === address) {
+            // ETH / WETH
+            if (asset === "ETH" || asset === "WETH") {
+              swapVolumeETH += value
+            }
+
+            // STABLE → convert
+            if (STABLES.includes(asset)) {
+              swapVolumeETH += value / ETH_PRICE
+            }
+          }
         }
 
-        if (receivedAsset === "ETH") {
-          swapVolumeETH += received
-        }
-
+        // =====================================
         // 🔥 ACTIVE DAY
+        // =====================================
         const sample = transfers[0]
         if (sample.metadata?.blockTimestamp) {
           const day = new Date(sample.metadata.blockTimestamp)
@@ -156,15 +180,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // =========================================
-    // 🔥 RESPONSE
-    // =========================================
     return NextResponse.json({
       wallet,
       swapCount,
       swapVolumeETH: Number(swapVolumeETH.toFixed(4)),
       tradingDays: tradingDays.size,
-      source: "Transfer-based detection 🔥",
+      source: "Transfer-based PRO 🔥",
     })
 
   } catch (err) {
