@@ -2,119 +2,116 @@ import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
 import { getSupabase } from "../../../lib/supabase"
 
-const rpc = axios.create({
-  baseURL: "https://mainnet.base.org",
+const api = axios.create({
+  baseURL: "https://base.blockscout.com/api",
   timeout: 10000
 })
 
-const TRANSFER_TOPIC =
-"0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55aeb"
-
-const pad = (addr: string) =>
-"0x000000000000000000000000" + addr.replace("0x","").toLowerCase()
-
 export async function POST(req: NextRequest) {
 
-try {
+  try {
 
-const supabase = getSupabase()
-const { wallet } = await req.json()
-const address = wallet.toLowerCase()
+    const supabase = getSupabase()
+    const { wallet } = await req.json()
+    const address = wallet.toLowerCase()
 
-let allLogs:any[] = []
+    let page = 1
+    let allTx: any[] = []
 
-// last ~500k blocks மட்டும் scan
-const latest = await rpc.post("",{
-jsonrpc:"2.0",
-id:1,
-method:"eth_blockNumber",
-params:[]
-})
+    // paginated fetch (accurate + safe)
+    while (page <= 5) {
 
-const latestBlock = parseInt(latest.data.result,16)
-const startBlock = latestBlock - 500000
+      const res = await api.get(
+        `?module=account&action=tokentx&address=${address}&page=${page}&offset=100`
+      )
 
-// chunk scan
-for(let from=startBlock; from<latestBlock; from+=5000){
+      const txs = res.data.result || []
 
-const to = Math.min(from+4999,latestBlock)
+      if (txs.length === 0) break
 
-const logsFrom = await rpc.post("",{
-jsonrpc:"2.0",
-id:1,
-method:"eth_getLogs",
-params:[{
-fromBlock:"0x"+from.toString(16),
-toBlock:"0x"+to.toString(16),
-topics:[TRANSFER_TOPIC,pad(address)]
-}]
-})
+      allTx = allTx.concat(txs)
 
-const logsTo = await rpc.post("",{
-jsonrpc:"2.0",
-id:1,
-method:"eth_getLogs",
-params:[{
-fromBlock:"0x"+from.toString(16),
-toBlock:"0x"+to.toString(16),
-topics:[TRANSFER_TOPIC,null,pad(address)]
-}]
-})
+      page++
+    }
 
-allLogs.push(...(logsFrom.data.result||[]))
-allLogs.push(...(logsTo.data.result||[]))
+    const swapHashes = new Set<string>()
 
-}
+    let volumeUSD = 0
+    let gasETH = 0
 
-const txHashes = [...new Set(allLogs.map((l:any)=>l.transactionHash))]
+    const tradingDays = new Set<string>()
 
-const swapCount = txHashes.length
-const volumeUSD = swapCount * 45
-const gasETH = swapCount * 0.00025
+    for (const tx of allTx) {
 
-const tradingDays = new Set<string>()
+      const hash = tx.hash
+      swapHashes.add(hash)
 
-for(const log of allLogs){
-if(log.blockNumber){
-const d = parseInt(log.blockNumber,16)
-tradingDays.add(String(Math.floor(d/6500)))
-}
-}
+      // volume
+      const value = Number(tx.value) / 1e18
 
-const tradingDaysCount = tradingDays.size
+      if (tx.tokenSymbol === "USDC" || tx.tokenSymbol === "USDT") {
+        volumeUSD += value
+      }
 
-const score =
-(swapCount * 2) +
-tradingDaysCount +
-(volumeUSD / 100) +
-(gasETH * 5000)
+      if (tx.tokenSymbol === "WETH" || tx.tokenSymbol === "ETH") {
+        volumeUSD += value * 3500
+      }
 
-await supabase
-.from("leaderboard")
-.upsert({
-wallet: address,
-score,
-swaps: swapCount,
-volume: volumeUSD,
-days: tradingDaysCount,
-gas: gasETH
-},{onConflict:"wallet"})
+      // gas
+      const gas =
+        (Number(tx.gasUsed) * Number(tx.gasPrice)) / 1e18
 
-return NextResponse.json({
-wallet,
-swapCount,
-tradingVolumeUSD: volumeUSD,
-tradingDays: tradingDaysCount,
-tradingGasETH: gasETH,
-score: Math.round(score),
-rank:1
-})
+      gasETH += gas
 
-}catch(e:any){
+      // trading days
+      const day =
+        new Date(parseInt(tx.timeStamp) * 1000)
+          .toISOString()
+          .split("T")[0]
 
-return NextResponse.json({
-error:e.message
-},{status:500})
+      tradingDays.add(day)
+    }
 
-}
+    const swapCount = swapHashes.size
+    const tradingDaysCount = tradingDays.size
+
+    const score =
+      (swapCount * 2) +
+      tradingDaysCount +
+      (volumeUSD / 100) +
+      (gasETH * 5000)
+
+    await supabase
+      .from("leaderboard")
+      .upsert(
+        {
+          wallet: address,
+          score,
+          swaps: swapCount,
+          volume: volumeUSD,
+          days: tradingDaysCount,
+          gas: gasETH
+        },
+        { onConflict: "wallet" }
+      )
+
+    return NextResponse.json({
+      wallet,
+      swapCount,
+      tradingVolumeUSD: Number(volumeUSD.toFixed(2)),
+      tradingDays: tradingDaysCount,
+      tradingGasETH: Number(gasETH.toFixed(6)),
+      score: Math.round(score),
+      rank: 1
+    })
+
+  } catch (e: any) {
+
+    console.error(e)
+
+    return NextResponse.json({
+      error: e.message
+    }, { status: 500 })
+
+  }
 }
