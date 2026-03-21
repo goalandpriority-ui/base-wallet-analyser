@@ -35,6 +35,9 @@ export async function POST(req: NextRequest) {
         }]
       })
 
+      if (res.data.error) {
+        console.error("Alchemy FROM error:", res.data.error)
+      }
       const result = res.data.result
       allTransfers = allTransfers.concat(result.transfers || [])
       pageKey = result.pageKey
@@ -60,13 +63,17 @@ export async function POST(req: NextRequest) {
         }]
       })
 
+      if (res.data.error) {
+        console.error("Alchemy TO error:", res.data.error)
+      }
       const result = res.data.result
       allTransfers = allTransfers.concat(result.transfers || [])
       pageKey = result.pageKey
 
     } while (pageKey)
 
-    // GROUP TX
+    console.log("Total transfers fetched:", allTransfers.length) // DEBUG: local-la paaru
+
     const txMap = new Map<string, any[]>()
 
     for (const tx of allTransfers) {
@@ -115,34 +122,35 @@ export async function POST(req: NextRequest) {
 
       let isSwap = false
 
+      // Existing event-based detection
       for (const log of logs) {
-
         const topic = log.topics?.[0]?.toLowerCase() || ""
 
-        // Uniswap V2 / Aerodrome / Solidly forks
         if (topic === "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e6a6b7e0a5eec8f3") {
           isSwap = true
           break
         }
 
-        // Uniswap V3 / Pancake V3
         if (topic === "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67") {
           isSwap = true
           break
         }
       }
 
-      // Aggregator / routed swaps detection (tx.input signatures) - extra check
-      if (!isSwap && tx.input) {
+      // Aggregator / Router detection via tx.input signatures (for Uniswap Universal, Rainbow, Bitget, Relay etc)
+      if (!isSwap && tx.input && tx.input !== "0x") {
         const inputLower = tx.input.toLowerCase()
         if (
-          inputLower.startsWith("0x38ed1739") || // Uniswap V2 swapExactTokensForTokens
           inputLower.startsWith("0x5ae401dc") || // Universal Router execute
-          inputLower.startsWith("0x3593564c") || // Uniswap V3 exactInput
-          inputLower.startsWith("0xe8e33700") || // Aerodrome swap (possible)
-          inputLower.includes("swap")          // rough catch for aggregator methods
+          inputLower.startsWith("0x38ed1739") || // V2 swapExactTokensForTokens
+          inputLower.startsWith("0x3593564c") || // V3 exactInput
+          inputLower.startsWith("0x414bf389") || // V3 exactInputSingle
+          inputLower.startsWith("0xe8e33700") || // Aerodrome-like swap
+          inputLower.startsWith("0x791ac947") || // Rainbow/Relay common
+          inputLower.includes("swap") || inputLower.includes("execute") // rough catch for aggregators
         ) {
           isSwap = true
+          console.log(`Aggregator swap detected in tx: ${txHash}, input starts with: ${tx.input.slice(0,10)}`)
         }
       }
 
@@ -162,28 +170,18 @@ export async function POST(req: NextRequest) {
         if (value > 0) {
 
           if (fromAddr === address) {
-            if (STABLES.includes(asset)) {
-              volumeUSD += value
-            }
-            if (asset === "ETH" || asset === "WETH") {
-              volumeUSD += value * APPROX_ETH_PRICE
-            }
+            if (STABLES.includes(asset)) volumeUSD += value
+            if (asset === "ETH" || asset === "WETH") volumeUSD += value * APPROX_ETH_PRICE
           }
 
           if (toAddr === address) {
-            if (STABLES.includes(asset)) {
-              volumeUSD += value
-            }
-            if (asset === "ETH" || asset === "WETH") {
-              volumeUSD += value * APPROX_ETH_PRICE
-            }
+            if (STABLES.includes(asset)) volumeUSD += value
+            if (asset === "ETH" || asset === "WETH") volumeUSD += value * APPROX_ETH_PRICE
           }
         }
 
         if (t.metadata?.blockTimestamp) {
-          const day = new Date(t.metadata.blockTimestamp)
-            .toISOString()
-            .split("T")[0]
+          const day = new Date(t.metadata.blockTimestamp).toISOString().split("T")[0]
           tradingDays[day] = true
         }
       }
