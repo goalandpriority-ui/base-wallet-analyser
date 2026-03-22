@@ -10,44 +10,6 @@ timeout:20000
 })
 
 const ETH_PRICE = 3500
-const STABLES = ["USDC","USDT","DAI"]
-
-async function fetchAll(address:string,type:"from"|"to"){
-
-let transfers:any[]=[]
-let pageKey:any=undefined
-
-do{
-
-const res=await rpc.post("/",{
-jsonrpc:"2.0",
-id:1,
-method:"alchemy_getAssetTransfers",
-params:[{
-fromBlock:"0x0",
-toBlock:"latest",
-category:["external","internal","erc20"],
-withMetadata:true,
-maxCount:"0x3e8",
-...(type==="from"
-?{fromAddress:address}
-:{toAddress:address}),
-pageKey
-}]
-})
-
-const result=res.data.result
-
-transfers=transfers.concat(
-result.transfers || []
-)
-
-pageKey=result.pageKey
-
-}while(pageKey)
-
-return transfers
-}
 
 export async function POST(req:NextRequest){
 
@@ -57,94 +19,85 @@ const supabase=getSupabase()
 const {wallet}=await req.json()
 const address=wallet.toLowerCase()
 
-const fromTransfers=await fetchAll(address,"from")
-const toTransfers=await fetchAll(address,"to")
+const res=await rpc.post("/",{
+jsonrpc:"2.0",
+id:1,
+method:"alchemy_getAssetTransfers",
+params:[{
+fromBlock:"0x0",
+toBlock:"latest",
+fromAddress:address,
+category:["external"],
+maxCount:"0x3e8"
+}]
+})
 
-const transfers=[
-...fromTransfers,
-...toTransfers
-]
+const txs=res.data.result.transfers || []
 
-const txMap:Record<string,any[]>={}
+let swaps=0
+let volume=0
+let gas=0
 
-for(const t of transfers){
-if(!txMap[t.hash]) txMap[t.hash]=[]
-txMap[t.hash].push(t)
-}
-
-let swapCount=0
-let volumeUSD=0
 const days=new Set<string>()
 
-for(const hash in txMap){
+for(const tx of txs){
 
-const txs=txMap[hash]
-if(txs.length<2) continue
+const receipt=await rpc.post("/",{
+jsonrpc:"2.0",
+id:1,
+method:"alchemy_getTransactionReceipts",
+params:[{
+blockHash: tx.blockHash
+}]
+})
 
-let hasIn=false
-let hasOut=false
-let txVol=0
+const receipts=
+receipt.data.result.receipts || []
 
-for(const t of txs){
+for(const r of receipts){
 
-const symbol=(t.asset||"").toUpperCase()
-const value=Number(t.value||0)
+if(r.from?.toLowerCase()!==address)
+continue
 
-if(t.to?.toLowerCase()===address)
-hasIn=true
+const logs=r.logs || []
 
-if(t.from?.toLowerCase()===address)
-hasOut=true
+if(logs.length<2) continue
 
-if(symbol==="ETH"||symbol==="WETH")
-txVol+=value*ETH_PRICE
+swaps++
 
-if(STABLES.includes(symbol))
-txVol+=value
+const g=
+(parseInt(r.gasUsed,16)*
+parseInt(r.effectiveGasPrice,16))
+/1e18
 
-if(t.metadata?.blockTimestamp){
-
-const day=
-new Date(t.metadata.blockTimestamp)
-.toISOString()
-.split("T")[0]
-
-days.add(day)
-}
+gas+=g
 
 }
 
-if(hasIn && hasOut){
-swapCount++
-volumeUSD+=txVol
 }
-
-}
-
-const tradingDays=days.size
 
 const score=
-swapCount*2+
-tradingDays+
-volumeUSD/100
+swaps*2+
+volume/100+
+gas*5000
 
 await supabase
 .from("leaderboard")
 .upsert({
 wallet:address,
 score,
-swaps:swapCount,
-volume:volumeUSD,
-days:tradingDays,
-gas:0
+swaps,
+volume,
+days:days.size,
+gas
 },{onConflict:"wallet"})
 
 return NextResponse.json({
 wallet,
-swapCount,
-tradingVolumeUSD:Number(volumeUSD.toFixed(2)),
-tradingDays,
-tradingGasETH:0,
+swapCount:swaps,
+tradingVolumeUSD:Number(volume.toFixed(2)),
+tradingDays:days.size,
+tradingGasETH:Number(gas.toFixed(6)),
 score:Math.round(score),
 rank:1
 })
