@@ -1,15 +1,41 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { getSupabase } from "@/lib/supabase"
 
-export async function GET() {
+export async function GET(req:NextRequest){
 
 const supabase = getSupabase()
+
+const { searchParams } = new URL(req.url)
+
+const page = Number(searchParams.get("page") || 1)
+const wallet = searchParams.get("wallet")
+
+const limit = 1000
+const offset = (page-1)*limit
 
 const { data } = await supabase
 .from("leaderboard")
 .select("*")
-.order("score", { ascending:false })
-.limit(50)
+.order("score",{ascending:false})
+.range(offset, offset+limit-1)
 
-return NextResponse.json(data || [])
+let yourRank = null
+
+if(wallet){
+
+const { data: all } = await supabase
+.from("leaderboard")
+.select("wallet")
+.order("score",{ascending:false})
+
+yourRank =
+all?.findIndex(w=>w.wallet===wallet)+1
+
+}
+
+return NextResponse.json({
+data,
+yourRank
+})
+
 }
