@@ -1,28 +1,50 @@
-import { NextResponse } from "next/server"
-import { getSupabase } from "@/lib/supabase"
+import { NextRequest, NextResponse } from "next/server"
+import { getSupabase } from "../../../lib/supabase"
 
-export async function GET() {
-  try {
-    const supabase = getSupabase()
+export async function GET(req:NextRequest){
 
-    const last24h = new Date(
-      Date.now() - 24 * 60 * 60 * 1000
-    ).toISOString()
+const supabase = getSupabase()
 
-    const { data, error } = await supabase
-      .from("leaderboard")
-      .select("*")
-      .gte("created_at", last24h)
-      .order("score", { ascending: false })
-      .limit(50)
+const { searchParams } = new URL(req.url)
 
-    if (error) {
-      return NextResponse.json([])
-    }
+const page = Number(searchParams.get("page") || 1)
+const wallet = searchParams.get("wallet")
 
-    return NextResponse.json(data || [])
+const limit = 1000
+const offset = (page - 1) * limit
 
-  } catch {
-    return NextResponse.json([])
-  }
+/* leaderboard page */
+
+const { data } = await supabase
+.from("leaderboard")
+.select("*")
+.order("score",{ascending:false})
+.range(offset, offset + limit - 1)
+
+/* your rank */
+
+let yourRank = null
+
+if(wallet){
+
+const { data: better } = await supabase
+.from("leaderboard")
+.select("score")
+.gt("score",
+supabase
+.from("leaderboard")
+.select("score")
+.eq("wallet",wallet)
+)
+
+yourRank = better?.length + 1
+
+}
+
+return NextResponse.json({
+data,
+page,
+yourRank
+})
+
 }
