@@ -1,32 +1,49 @@
 "use client"
 
-import Link from "next/link"
 import { useEffect, useState } from "react"
+import Link from "next/link"
 
-export default function Page(){
+export default function TopTraders() {
 
 const [data,setData]=useState<any[]>([])
+const [loading,setLoading]=useState(true)
 
 useEffect(()=>{
+
 fetch("/api/top-traders")
 .then(res=>res.json())
-.then(setData)
+.then(d=>{
+setData(d || [])
+setLoading(false)
+})
+
 },[])
 
-return(
-<div className="p-6">
+return (
+<div style={{padding:20}}>
 
-<Link href="/" className="text-blue-500">
+<Link href="/" style={{color:"#6b46c1"}}>
 ← Back to Home
 </Link>
 
-<h1 className="text-3xl font-bold mt-2 mb-6">
+<h1 style={{fontSize:32,fontWeight:"bold",margin:"10px 0 20px"}}>
 📈 Top Traders
 </h1>
 
+{loading && <p>Loading...</p>}
+
 {data.map((w,i)=>(
-<div key={i} className="bg-black text-green-400 p-3 mb-2 rounded">
-#{i+1} — {w.wallet} — swaps: {w.swaps}
+<div key={i} style={{
+background:"#000",
+color:"#00ff9c",
+padding:15,
+borderRadius:10,
+marginBottom:10
+}}>
+<div>#{i+1}</div>
+<div>{w.wallet}</div>
+<div>Volume: ${w.tradingVolumeUSD}</div>
+<div>Swaps: {w.swapCount}</div>
 </div>
 ))}
 
