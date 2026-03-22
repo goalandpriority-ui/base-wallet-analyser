@@ -3,48 +3,67 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 
-export default function HighestVolume() {
+export default function HighestVolume(){
 
 const [data,setData]=useState<any[]>([])
-const [loading,setLoading]=useState(true)
+const [page,setPage]=useState(1)
+const [rank,setRank]=useState<number|null>(null)
+
+const wallet =
+typeof window !== "undefined"
+? localStorage.getItem("lastWallet")
+: null
 
 useEffect(()=>{
 
-fetch("/api/highest-volume")
+fetch(`/api/highest-volume?page=${page}&wallet=${wallet||""}`)
 .then(res=>res.json())
-.then(d=>{
-setData(d || [])
-setLoading(false)
+.then(res=>{
+setData(res.data || [])
+setRank(res.yourRank)
 })
 
-},[])
+},[page])
 
-return (
-<div style={{padding:20}}>
+return(
+<div className="p-6">
 
-<Link href="/" style={{color:"#6b46c1"}}>
-← Back to Home
-</Link>
+<Link href="/">← Back to Home</Link>
 
-<h1 style={{fontSize:32,fontWeight:"bold",margin:"10px 0 20px"}}>
+<h1 className="text-3xl font-bold mt-2 mb-4">
 💰 Highest Volume
 </h1>
 
-{loading && <p>Loading...</p>}
+{rank && (
+<div className="bg-black text-green-400 p-3 rounded mb-4">
+Your Rank: #{rank}
+</div>
+)}
 
+<div className="space-y-2">
 {data.map((w,i)=>(
-<div key={i} style={{
-background:"#000",
-color:"#00ff9c",
-padding:15,
-borderRadius:10,
-marginBottom:10
-}}>
-<div>#{i+1}</div>
-<div>{w.wallet}</div>
-<div>Volume: ${w.tradingVolumeUSD}</div>
+<div key={i}
+className="bg-black text-green-400 p-3 rounded"
+>
+#{(page-1)*1000+i+1} — {w.wallet}
+ — ${Math.round(w.volume)}
 </div>
 ))}
+</div>
+
+<div className="flex gap-4 mt-6">
+
+<button onClick={()=>setPage(p=>Math.max(1,p-1))}>
+Prev
+</button>
+
+<span>Page {page}</span>
+
+<button onClick={()=>setPage(p=>p+1)}>
+Next
+</button>
+
+</div>
 
 </div>
 )
