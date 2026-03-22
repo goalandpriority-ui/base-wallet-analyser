@@ -121,7 +121,7 @@ marginBottom:15
 <hr style={{margin:"10px 0",borderColor:"#222"}} />
 
 <div style={{fontWeight:700}}>
-🔥 Trending Wallets
+⚡ Live Activity
 </div>
 
 {stats.trending?.map((w:any,i:number)=>(
