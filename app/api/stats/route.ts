@@ -5,22 +5,30 @@ export async function GET(){
 
 const supabase = getSupabase()
 
+const fiveMinAgo =
+new Date(Date.now() - 5 * 60 * 1000).toISOString()
+
+// global stats
 const { data } = await supabase
 .from("leaderboard")
 .select("*")
 
-let wallets = data.length
+let wallets = data?.length || 0
 let swaps = 0
 let volume = 0
 
-for(const w of data){
+for(const w of data || []){
 swaps += w.swaps || 0
 volume += w.volume || 0
 }
 
-const trending = [...data]
-.sort((a,b)=>b.swaps-a.swaps)
-.slice(0,5)
+// trending last 5 min
+const { data: trending } = await supabase
+.from("leaderboard")
+.select("*")
+.gt("updated_at", fiveMinAgo)
+.order("updated_at",{ascending:false})
+.limit(5)
 
 return NextResponse.json({
 wallets,
