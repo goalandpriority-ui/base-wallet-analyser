@@ -8,13 +8,14 @@ export default function Leaderboard(){
 const [data,setData]=useState<any[]>([])
 const [page,setPage]=useState(1)
 const [rank,setRank]=useState<number|null>(null)
+const [search,setSearch]=useState("")
 
 const wallet =
 typeof window !== "undefined"
 ? localStorage.getItem("lastWallet")
 : null
 
-useEffect(()=>{
+const load = ()=>{
 
 fetch(`/api/leaderboard?page=${page}&wallet=${wallet||""}`)
 .then(res=>res.json())
@@ -23,7 +24,42 @@ setData(res.data || [])
 setRank(res.yourRank)
 })
 
+}
+
+useEffect(()=>{
+
+load()
+
+// live update every 5 sec
+const i=setInterval(load,5000)
+
+return ()=>clearInterval(i)
+
 },[page])
+
+const jumpToRank = ()=>{
+
+if(!rank) return
+
+const targetPage = Math.ceil(rank / 1000)
+setPage(targetPage)
+
+}
+
+const searchWallet = ()=>{
+
+if(!search) return
+
+fetch(`/api/leaderboard?wallet=${search}`)
+.then(res=>res.json())
+.then(res=>{
+if(res.yourRank){
+const p = Math.ceil(res.yourRank / 1000)
+setPage(p)
+}
+})
+
+}
 
 const getBadge = (position:number)=>{
 
@@ -62,11 +98,38 @@ background:"#000",
 color:"#00ff9c",
 padding:15,
 borderRadius:10,
-marginBottom:20
+marginBottom:15
 }}>
 Your Rank: #{rank}
+
+<button
+onClick={jumpToRank}
+style={{
+marginLeft:10
+}}
+>
+Jump to my rank
+</button>
+
 </div>
 )}
+
+{/* search */}
+
+<div style={{marginBottom:15}}>
+
+<input
+placeholder="Search wallet..."
+value={search}
+onChange={(e)=>setSearch(e.target.value)}
+style={{padding:8,width:300}}
+/>
+
+<button onClick={searchWallet}>
+Search
+</button>
+
+</div>
 
 {/* list */}
 
@@ -151,4 +214,4 @@ Next
 
 </div>
 )
-  }
+}
