@@ -6,79 +6,64 @@ const rpc = axios.create({
 baseURL:
 "https://base-mainnet.g.alchemy.com/v2/" +
 process.env.ALCHEMY_API_KEY,
-timeout:10000
+timeout:20000
 })
 
 const ETH_PRICE = 3500
 const STABLES = ["USDC","USDT","DAI"]
 
-export async function POST(req:NextRequest){
-
-try{
-
-const supabase = getSupabase()
-const {wallet} = await req.json()
-const address = wallet.toLowerCase()
+async function fetchAll(address:string,type:"from"|"to"){
 
 let transfers:any[]=[]
 let pageKey:any=undefined
 
-// FROM
 do{
 
-const res = await rpc.post("/",{
+const res=await rpc.post("/",{
 jsonrpc:"2.0",
 id:1,
 method:"alchemy_getAssetTransfers",
 params:[{
 fromBlock:"0x0",
 toBlock:"latest",
-fromAddress:address,
 category:["external","internal","erc20"],
 withMetadata:true,
 maxCount:"0x3e8",
+...(type==="from"
+?{fromAddress:address}
+:{toAddress:address}),
 pageKey
 }]
 })
 
+const result=res.data.result
+
 transfers=transfers.concat(
-res.data.result.transfers || []
+result.transfers || []
 )
 
-pageKey=res.data.result.pageKey
+pageKey=result.pageKey
 
 }while(pageKey)
 
+return transfers
+}
 
-// TO
-pageKey=undefined
+export async function POST(req:NextRequest){
 
-do{
+try{
 
-const res = await rpc.post("/",{
-jsonrpc:"2.0",
-id:1,
-method:"alchemy_getAssetTransfers",
-params:[{
-fromBlock:"0x0",
-toBlock:"latest",
-toAddress:address,
-category:["external","internal","erc20"],
-withMetadata:true,
-maxCount:"0x3e8",
-pageKey
-}]
-})
+const supabase=getSupabase()
+const {wallet}=await req.json()
+const address=wallet.toLowerCase()
 
-transfers=transfers.concat(
-res.data.result.transfers || []
-)
+const fromTransfers=await fetchAll(address,"from")
+const toTransfers=await fetchAll(address,"to")
 
-pageKey=res.data.result.pageKey
-
-}while(pageKey)
-
-
+const transfers=[
+...fromTransfers,
+...toTransfers
+]
 
 const txMap:Record<string,any[]>={}
 
@@ -89,19 +74,16 @@ txMap[t.hash].push(t)
 
 let swapCount=0
 let volumeUSD=0
-let gasETH=0
-
-const tradingDays=new Set<string>()
+const days=new Set<string>()
 
 for(const hash in txMap){
 
 const txs=txMap[hash]
-
-if(txs.length < 2) continue
+if(txs.length<2) continue
 
 let hasIn=false
 let hasOut=false
-let txVolume=0
+let txVol=0
 
 for(const t of txs){
 
@@ -114,11 +96,11 @@ hasIn=true
 if(t.from?.toLowerCase()===address)
 hasOut=true
 
-if(symbol==="ETH" || symbol==="WETH")
-txVolume+=value*ETH_PRICE
+if(symbol==="ETH"||symbol==="WETH")
+txVol+=value*ETH_PRICE
 
 if(STABLES.includes(symbol))
-txVolume+=value
+txVol+=value
 
 if(t.metadata?.blockTimestamp){
 
@@ -127,23 +109,23 @@ new Date(t.metadata.blockTimestamp)
 .toISOString()
 .split("T")[0]
 
-tradingDays.add(day)
+days.add(day)
 }
 
 }
 
 if(hasIn && hasOut){
 swapCount++
-volumeUSD+=txVolume
+volumeUSD+=txVol
 }
 
 }
 
-const tradingDaysCount=tradingDays.size
+const tradingDays=days.size
 
 const score=
 swapCount*2+
-tradingDaysCount+
+tradingDays+
 volumeUSD/100
 
 await supabase
@@ -153,15 +135,15 @@ wallet:address,
 score,
 swaps:swapCount,
 volume:volumeUSD,
-days:tradingDaysCount,
-gas:gasETH
+days:tradingDays,
+gas:0
 },{onConflict:"wallet"})
 
 return NextResponse.json({
 wallet,
 swapCount,
 tradingVolumeUSD:Number(volumeUSD.toFixed(2)),
-tradingDays:tradingDaysCount,
+tradingDays,
 tradingGasETH:0,
 score:Math.round(score),
 rank:1
