@@ -1,40 +1,44 @@
 "use client"
 
+import Link from "next/link"
 import { useEffect, useState } from "react"
 
 export default function Leaderboard() {
 
-  const [data, setData] = useState<any[]>([])
+const [data,setData]=useState<any[]>([])
 
-  useEffect(() => {
-    fetch("/api/leaderboard")
-      .then(res => res.json())
-      .then(setData)
-  }, [])
+useEffect(()=>{
 
-  return (
-    <main style={{ padding: 40, fontFamily: "sans-serif" }}>
+fetch("/api/leaderboard")
+.then(res=>res.json())
+.then(setData)
 
-      <h1>🏆 Leaderboard (24h)</h1>
+},[])
 
-      {data.map((w, i) => (
-        <div key={i} style={{
-          background:"#111",
-          color:"#0f0",
-          padding:15,
-          marginBottom:10,
-          borderRadius:8
-        }}>
-          #{i+1} — {w.wallet}
-          <br/>
-          Score: {w.score}
-          <br/>
-          Volume: ${Number(w.volume).toFixed(2)}
-          <br/>
-          Swaps: {w.swaps}
-        </div>
-      ))}
+return (
+<div className="p-6">
 
-    </main>
-  )
+<Link href="/" className="text-blue-500">
+← Back to Home
+</Link>
+
+<h1 className="text-3xl font-bold mt-2 mb-6">
+🏆 Leaderboard (24h)
+</h1>
+
+<div className="space-y-2">
+{data.map((w,i)=>(
+<div
+key={i}
+className="bg-black text-green-400 p-3 rounded"
+>
+<div>#{i+1}</div>
+<div>{w.wallet}</div>
+<div>Score: {w.score}</div>
+</div>
+))}
+</div>
+
+</div>
+)
 }
