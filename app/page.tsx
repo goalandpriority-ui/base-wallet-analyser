@@ -32,7 +32,6 @@ export default function Home() {
         ...basicData,
         ...proData,
       })
-
     } catch (err) {
       alert("Error analysing wallet")
     }
@@ -41,28 +40,39 @@ export default function Home() {
   }
 
   return (
-    <main style={{ padding: 40, fontFamily: "sans-serif" }}>
+    <main style={{
+      padding:20,
+      fontFamily:"system-ui",
+      maxWidth:700,
+      margin:"auto"
+    }}>
 
-      {/* 🔥 TOP BAR */}
+      {/* HEADER */}
       <div style={{
         display:"flex",
         justifyContent:"space-between",
         alignItems:"center",
-        marginBottom:20
+        marginBottom:25
       }}>
 
-        <h1>🔥 Base Wallet Analyser (PRO)</h1>
+        <h1 style={{
+          fontSize:28,
+          fontWeight:700
+        }}>
+          🔥 Base Wallet Analyser (PRO)
+        </h1>
 
-        {/* ☰ MENU BUTTON */}
+        {/* MENU BUTTON */}
         <div style={{ position:"relative" }}>
           <button
             onClick={() => setMenu(!menu)}
             style={{
-              background:"#111",
-              color:"#0f0",
-              border:"1px solid #333",
-              padding:"8px 12px",
-              borderRadius:6,
+              background:"#0b0b0b",
+              color:"#00ff9c",
+              border:"1px solid #222",
+              padding:"8px 14px",
+              borderRadius:8,
+              fontSize:16,
               cursor:"pointer"
             }}
           >
@@ -74,29 +84,29 @@ export default function Home() {
             <div style={{
               position:"absolute",
               right:0,
-              top:40,
-              background:"#111",
-              border:"1px solid #333",
-              borderRadius:8,
-              padding:10,
-              width:180,
-              zIndex:100
+              top:45,
+              background:"#0b0b0b",
+              border:"1px solid #222",
+              borderRadius:10,
+              width:200,
+              overflow:"hidden",
+              boxShadow:"0 10px 30px rgba(0,0,0,0.5)"
             }}>
 
               <Link href="/leaderboard">
                 <div style={menuItem}>🏆 Leaderboard</div>
               </Link>
 
-              <Link href="/leaderboard/top-wallets">
+              <Link href="/top-wallets">
                 <div style={menuItem}>👑 Top Wallets</div>
               </Link>
 
-              <Link href="/leaderboard/top-traders">
+              <Link href="/top-traders">
                 <div style={menuItem}>📈 Top Traders</div>
               </Link>
 
-              <Link href="/leaderboard/top-volume">
-                <div style={menuItem}>💰 Highest Volume</div>
+              <Link href="/highest-volume">
+                <div style={menuItemNoBorder}>💰 Highest Volume</div>
               </Link>
 
             </div>
@@ -105,16 +115,32 @@ export default function Home() {
 
       </div>
 
+      {/* INPUT */}
       <input
         placeholder="Enter wallet address"
         value={wallet}
         onChange={(e) => setWallet(e.target.value)}
-        style={{ padding: 10, width: 320 }}
+        style={{
+          padding:12,
+          width:"100%",
+          borderRadius:8,
+          border:"1px solid #ccc",
+          fontSize:14
+        }}
       />
 
       <br /><br />
 
-      <button onClick={analyse} style={{ padding: 10 }}>
+      <button
+        onClick={analyse}
+        style={{
+          padding:"10px 20px",
+          borderRadius:8,
+          border:"1px solid #ccc",
+          background:"#fff",
+          cursor:"pointer"
+        }}
+      >
         {loading ? "Analysing..." : "Analyse"}
       </button>
 
@@ -122,10 +148,11 @@ export default function Home() {
 
       {data && !data.error && (
         <div style={{
-          background: "#111",
-          color: "#0f0",
-          padding: 20,
-          borderRadius: 10
+          background:"#0b0b0b",
+          color:"#00ff9c",
+          padding:20,
+          borderRadius:14,
+          marginTop:10
         }}>
 
           <p>📊 Transactions: {data.totalTxns || 0}</p>
@@ -133,23 +160,19 @@ export default function Home() {
           <p>⛽ Gas: {data.totalGasETH || 0} ETH</p>
           <p>📅 Active Days: {data.activeDays || 0}</p>
 
-          <hr style={{ margin: "15px 0", borderColor: "#333" }} />
+          <hr style={divider} />
 
           <p>🔁 Swaps: {data.swapCount || 0}</p>
 
           <p>
             💎 Trading Volume: $
-            {data.tradingVolumeUSD !== undefined
-              ? data.tradingVolumeUSD
-              : 0}
+            {data.tradingVolumeUSD ?? 0}
           </p>
 
           <p>📅 Trading Days: {data.tradingDays || 0}</p>
-
           <p>⛽ Trading Gas: {data.tradingGasETH || 0} ETH</p>
 
-          {/* leaderboard */}
-          <hr style={{ margin: "15px 0", borderColor: "#333" }} />
+          <hr style={divider} />
 
           <p>🏆 Rank: #{data.rank || "-"}</p>
           <p>⭐ Score: {data.score || 0}</p>
@@ -158,16 +181,29 @@ export default function Home() {
       )}
 
       {data?.error && (
-        <p style={{ color: "red" }}>
+        <p style={{ color:"red" }}>
           {data.error}
         </p>
       )}
+
     </main>
   )
 }
 
 const menuItem = {
-  padding:"10px",
-  borderBottom:"1px solid #222",
-  cursor:"pointer"
+  padding:"12px",
+  borderBottom:"1px solid #1a1a1a",
+  cursor:"pointer",
+  color:"#00ff9c"
+}
+
+const menuItemNoBorder = {
+  padding:"12px",
+  cursor:"pointer",
+  color:"#00ff9c"
+}
+
+const divider = {
+  margin:"15px 0",
+  borderColor:"#222"
 }
