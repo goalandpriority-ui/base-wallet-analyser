@@ -9,6 +9,7 @@ const [data,setData]=useState<any[]>([])
 const [page,setPage]=useState(1)
 const [rank,setRank]=useState<number|null>(null)
 const [search,setSearch]=useState("")
+const [stats,setStats]=useState<any>(null)
 
 const wallet =
 typeof window !== "undefined"
@@ -26,21 +27,28 @@ setRank(res.yourRank)
 
 }
 
+// leaderboard refresh
 useEffect(()=>{
 
 load()
 
-// live update every 5 sec
 const i=setInterval(load,5000)
-
 return ()=>clearInterval(i)
 
 },[page])
 
+// stats load
+useEffect(()=>{
+
+fetch("/api/stats")
+.then(res=>res.json())
+.then(setStats)
+
+},[])
+
 const jumpToRank = ()=>{
 
 if(!rank) return
-
 const targetPage = Math.ceil(rank / 1000)
 setPage(targetPage)
 
@@ -90,6 +98,42 @@ return(
 🏆 Leaderboard
 </h1>
 
+{/* GLOBAL STATS + TRENDING */}
+
+{stats && (
+
+<div style={{
+background:"#000",
+color:"#00ff9c",
+padding:15,
+borderRadius:10,
+marginBottom:15
+}}>
+
+<div style={{fontWeight:700,marginBottom:10}}>
+🌍 Global Stats
+</div>
+
+<div>Wallets: {stats.wallets}</div>
+<div>Swaps: {stats.swaps}</div>
+<div>Volume: ${Math.round(stats.volume)}</div>
+
+<hr style={{margin:"10px 0",borderColor:"#222"}} />
+
+<div style={{fontWeight:700}}>
+🔥 Trending Wallets
+</div>
+
+{stats.trending?.map((w:any,i:number)=>(
+<div key={i}>
+#{i+1} {w.wallet}
+</div>
+))}
+
+</div>
+
+)}
+
 {/* your rank */}
 
 {rank && (
@@ -104,9 +148,7 @@ Your Rank: #{rank}
 
 <button
 onClick={jumpToRank}
-style={{
-marginLeft:10
-}}
+style={{marginLeft:10}}
 >
 Jump to my rank
 </button>
