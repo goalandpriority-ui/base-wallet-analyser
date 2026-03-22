@@ -14,6 +14,10 @@ export default function Home() {
     setData(null)
 
     try {
+
+      // ✅ SAVE LAST WALLET FOR LEADERBOARD PAGES
+      localStorage.setItem("lastWallet", wallet)
+
       const [basicRes, proRes] = await Promise.all([
         fetch("/api/analyse", {
           method: "POST",
