@@ -72,25 +72,39 @@ parseInt(r.effectiveGasPrice,16))
 
 gas+=g
 
+// active days
+if(r.blockNumber){
+const day=parseInt(r.blockNumber,16)
+days.add(String(Math.floor(day/6500)))
 }
 
 }
+
+}
+
+// USD volume estimate
+volume = gas * ETH_PRICE
 
 const score=
 swaps*2+
 volume/100+
 gas*5000
 
+/* ---------------- SAVE TO DB ---------------- */
+
 await supabase
 .from("leaderboard")
 .upsert({
 wallet:address,
 score,
-swaps,
-volume,
-days:days.size,
-gas
+swapCount:swaps,
+tradingVolumeUSD:volume,
+tradingDays:days.size,
+tradingGasETH:gas,
+updated_at:new Date().toISOString()
 },{onConflict:"wallet"})
+
+/* ---------------- RETURN ---------------- */
 
 return NextResponse.json({
 wallet,
