@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
+import Link from "next/link"
 
 export default function WalletProfile(){
 
@@ -11,12 +12,25 @@ const address = params?.address as string
 const [data,setData]=useState<any>(null)
 const [tokens,setTokens]=useState<any[]>([])
 const [following,setFollowing]=useState(false)
+const [paid,setPaid]=useState(false)
+
+/* check paid */
+
+useEffect(()=>{
+
+if(!address) return
+
+fetch(`/api/check-paid?wallet=${address}`)
+.then(res=>res.json())
+.then(res=>setPaid(res.paid))
+
+},[address])
 
 /* fetch */
 
 useEffect(()=>{
 
-if(!address) return
+if(!address || !paid) return
 
 const load = async()=>{
 
@@ -54,7 +68,7 @@ setTokens([])
 
 load()
 
-},[address])
+},[address,paid])
 
 /* actions */
 
@@ -113,6 +127,32 @@ tokens.reduce(
 0
 )
 
+/* locked */
+
+if(!paid){
+return(
+<div style={{padding:20,maxWidth:700,margin:"auto"}}>
+
+<div style={lockCard}>
+
+<h2>🔒 Wallet Locked</h2>
+
+<p>
+Pay once to unlock wallet analytics
+</p>
+
+<Link href="/">
+<button style={unlockBtn}>
+Unlock Wallet
+</button>
+</Link>
+
+</div>
+
+</div>
+)
+}
+
 if(!data){
 return <div style={{padding:20}}>Loading...</div>
 }
@@ -123,10 +163,24 @@ return(
 {/* header */}
 <div style={card}>
 
-<div style={{fontSize:12,opacity:.6}}>Wallet</div>
+<div style={{fontSize:12,opacity:.6}}>
+Wallet
+</div>
+
+<div style={{
+display:"flex",
+gap:8,
+alignItems:"center"
+}}>
 
 <div style={{fontSize:18,wordBreak:"break-all"}}>
 {address}
+</div>
+
+<div style={proBadge}>
+PRO
+</div>
+
 </div>
 
 <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap"}}>
@@ -251,4 +305,30 @@ padding:"6px 12px",
 background:"#facc15",
 border:"none",
 borderRadius:8
+}
+
+const proBadge={
+background:"#22c55e",
+color:"#020617",
+padding:"2px 8px",
+borderRadius:6,
+fontSize:10,
+fontWeight:700
+}
+
+const lockCard={
+background:"#020617",
+padding:30,
+borderRadius:14,
+border:"1px solid #22c55e",
+textAlign:"center" as const
+}
+
+const unlockBtn={
+marginTop:10,
+padding:"10px 20px",
+borderRadius:8,
+background:"#22c55e",
+border:"none",
+cursor:"pointer"
 }
