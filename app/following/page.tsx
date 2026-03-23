@@ -11,16 +11,28 @@ const [activity,setActivity]=useState<any[]>([])
 const load = ()=>{
 
 const wallet = localStorage.getItem("lastWallet")
+if(!wallet) return
 
-// followed wallets
+/* followed wallets */
 fetch(`/api/follow?wallet=${wallet}`)
 .then(res=>res.json())
 .then(setData)
 
-// live activity
+/* live activity */
 fetch(`/api/following-activity?wallet=${wallet}`)
 .then(res=>res.json())
-.then(setActivity)
+.then(res=>{
+
+/* FIX FIELD NAMES */
+const mapped = (res || []).map((w:any)=>({
+...w,
+swaps: w.swapCount || w.swaps || 0,
+volume: w.tradingVolumeUSD || w.volume || 0
+}))
+
+setActivity(mapped)
+
+})
 
 }
 
@@ -33,6 +45,10 @@ return ()=>clearInterval(i)
 
 },[])
 
+const copy = (wallet:string)=>{
+navigator.clipboard.writeText(wallet)
+}
+
 return(
 <div style={{padding:20,maxWidth:900,margin:"auto"}}>
 
@@ -43,6 +59,7 @@ return(
 <Link
 key={i}
 href={`/wallet/${w.followed}`}
+style={{textDecoration:"none"}}
 >
 <div style={card}>
 {w.followed}
@@ -61,6 +78,7 @@ href={`/wallet/${w.followed}`}
 <Link
 key={i}
 href={`/wallet/${w.wallet}`}
+style={{textDecoration:"none"}}
 >
 <div style={card}>
 
@@ -106,7 +124,10 @@ Volume: ${Math.round(w.volume)}
 Best token trader
 </div>
 
-<button style={copyBtn}>
+<button
+onClick={()=>copy(w.wallet)}
+style={copyBtn}
+>
 Copy trades
 </button>
 
