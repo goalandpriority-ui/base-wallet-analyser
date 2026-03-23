@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
-import Link from "next/link"
 
 export default function WalletProfile(){
 
@@ -14,23 +13,15 @@ const [tokens,setTokens]=useState<any[]>([])
 const [following,setFollowing]=useState(false)
 const [paid,setPaid]=useState(false)
 
-/* check paid */
-
-useEffect(()=>{
-
-if(!address) return
-
-fetch(`/api/check-paid?wallet=${address}`)
-.then(res=>res.json())
-.then(res=>setPaid(res.paid))
-
-},[address])
+/* NEW FOLLOW STATS */
+const [followers,setFollowers]=useState(0)
+const [followingCount,setFollowingCount]=useState(0)
 
 /* fetch */
 
 useEffect(()=>{
 
-if(!address || !paid) return
+if(!address) return
 
 const load = async()=>{
 
@@ -64,11 +55,31 @@ setTokens(Array.isArray(j)?j:[])
 setTokens([])
 }
 
+/* check paid */
+try{
+
+const p = await fetch(`/api/check-paid?wallet=${address}`)
+const pj = await p.json()
+setPaid(pj?.paid)
+
+}catch{}
+
+/* follow stats */
+try{
+
+const f = await fetch(`/api/follow-count?wallet=${address}`)
+const j = await f.json()
+
+setFollowers(j.followers || 0)
+setFollowingCount(j.following || 0)
+
+}catch{}
+
 }
 
 load()
 
-},[address,paid])
+},[address])
 
 /* actions */
 
@@ -127,32 +138,6 @@ tokens.reduce(
 0
 )
 
-/* locked */
-
-if(!paid){
-return(
-<div style={{padding:20,maxWidth:700,margin:"auto"}}>
-
-<div style={lockCard}>
-
-<h2>🔒 Wallet Locked</h2>
-
-<p>
-Pay once to unlock wallet analytics
-</p>
-
-<Link href="/">
-<button style={unlockBtn}>
-Unlock Wallet
-</button>
-</Link>
-
-</div>
-
-</div>
-)
-}
-
 if(!data){
 return <div style={{padding:20}}>Loading...</div>
 }
@@ -168,19 +153,32 @@ Wallet
 </div>
 
 <div style={{
+fontSize:18,
+wordBreak:"break-all",
 display:"flex",
-gap:8,
-alignItems:"center"
+alignItems:"center",
+gap:8
 }}>
-
-<div style={{fontSize:18,wordBreak:"break-all"}}>
 {address}
-</div>
 
-<div style={proBadge}>
+{paid && (
+<span style={proBadge}>
 PRO
+</span>
+)}
+
 </div>
 
+{/* FOLLOW COUNT */}
+<div style={{
+display:"flex",
+gap:14,
+marginTop:6,
+fontSize:12,
+opacity:.8
+}}>
+<div>⭐ Followers: {followers}</div>
+<div>➡️ Following: {followingCount}</div>
 </div>
 
 <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap"}}>
@@ -257,6 +255,15 @@ Copy Next Trade
 )
 }
 
+const proBadge={
+background:"#22c55e",
+color:"#020617",
+padding:"2px 8px",
+borderRadius:6,
+fontSize:10,
+fontWeight:700
+}
+
 const card={
 background:"#020617",
 padding:20,
@@ -305,30 +312,4 @@ padding:"6px 12px",
 background:"#facc15",
 border:"none",
 borderRadius:8
-}
-
-const proBadge={
-background:"#22c55e",
-color:"#020617",
-padding:"2px 8px",
-borderRadius:6,
-fontSize:10,
-fontWeight:700
-}
-
-const lockCard={
-background:"#020617",
-padding:30,
-borderRadius:14,
-border:"1px solid #22c55e",
-textAlign:"center" as const
-}
-
-const unlockBtn={
-marginTop:10,
-padding:"10px 20px",
-borderRadius:8,
-background:"#22c55e",
-border:"none",
-cursor:"pointer"
 }
