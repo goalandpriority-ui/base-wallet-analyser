@@ -11,11 +11,12 @@ const [loading,setLoading]=useState(false)
 const [paid,setPaid]=useState(false)
 const [connecting,setConnecting]=useState(true)
 
-/* FARCASTER CONNECT */
+/* CONNECT */
 useEffect(()=>{
 
 const init = async()=>{
 
+/* FARCASTER */
 try{
 
 await sdk.actions.ready()
@@ -29,11 +30,32 @@ if(userWallet){
 setWallet(userWallet)
 localStorage.setItem("lastWallet",userWallet)
 checkPaid(userWallet)
+setConnecting(false)
+return
 }
 
-}catch(e){
-console.log("farcaster not found")
+}catch{}
+
+/* BROWSER WALLETS */
+try{
+
+const eth = (window as any).ethereum
+
+if(eth){
+
+const accounts = await eth.request({
+method:"eth_accounts"
+})
+
+if(accounts?.[0]){
+setWallet(accounts[0])
+localStorage.setItem("lastWallet",accounts[0])
+checkPaid(accounts[0])
 }
+
+}
+
+}catch{}
 
 setConnecting(false)
 
@@ -42,6 +64,34 @@ setConnecting(false)
 init()
 
 },[])
+
+/* MANUAL CONNECT */
+const connectWallet = async()=>{
+
+try{
+
+const eth = (window as any).ethereum
+
+if(!eth){
+alert("Wallet not found")
+return
+}
+
+const accounts = await eth.request({
+method:"eth_requestAccounts"
+})
+
+const addr = accounts[0]
+
+setWallet(addr)
+localStorage.setItem("lastWallet",addr)
+checkPaid(addr)
+
+}catch{
+alert("Wallet connect failed")
+}
+
+}
 
 /* CHECK PAYMENT */
 const checkPaid = async (addr?:string)=>{
@@ -98,16 +148,14 @@ blockExplorerUrls:["https://basescan.org"]
 try{
 
 tx = await (sdk as any).wallet.sendTransaction({
-
 chainId:8453,
 to:process.env.NEXT_PUBLIC_PAY_TO!,
-value:"0x16bcc41e9000" // 0.000025 ETH
-
+value:"0x16bcc41e9000"
 })
 
 }catch{}
 
-/* BROWSER WALLET TX */
+/* BROWSER TX */
 if(!tx){
 
 const eth = (window as any).ethereum
@@ -136,7 +184,7 @@ body:JSON.stringify({wallet})
 
 setPaid(true)
 
-/* AUTO CAST */
+/* CAST */
 try{
 await (sdk as any).actions.composeCast({
 text:`🔥 Wallet analysed
@@ -149,7 +197,7 @@ Open miniapp to view full stats`
 
 }
 
-}catch(e){
+}catch{
 
 alert("Payment failed")
 
@@ -223,27 +271,19 @@ alignItems:"center",
 gap:14
 }}>
 
-<div style={icon}>
-⚡
-</div>
+<div style={icon}>⚡</div>
 
 <div>
-
-<h1 style={title}>
-Base Wallet Analyser
-</h1>
-
+<h1 style={title}>Base Wallet Analyser</h1>
 <div style={subtitle}>
 Analyse wallets on Base network
 </div>
-
 </div>
 
 </div>
-
 </div>
 
-{/* wallet card */}
+{/* WALLET */}
 <div style={card}>
 
 <div style={{fontSize:12,opacity:.6}}>
@@ -269,11 +309,17 @@ PRO
 </div>
 )}
 
-</div>
+{!wallet && !connecting && (
+<button onClick={connectWallet} style={connectBtn}>
+Connect
+</button>
+)}
 
 </div>
 
-{/* payment */}
+</div>
+
+{/* PAYMENT */}
 {!paid && wallet && (
 
 <div style={payCard}>
@@ -282,10 +328,7 @@ PRO
 🔒 Pay 0.000025 ETH to unlock wallet analytics
 </div>
 
-<button
-onClick={pay}
-style={payBtn}
->
+<button onClick={pay} style={payBtn}>
 Pay & Unlock
 </button>
 
@@ -293,13 +336,10 @@ Pay & Unlock
 
 )}
 
-{/* analyse */}
+{/* ANALYSE */}
 {paid && (
 
-<button
-onClick={analyse}
-style={analyseBtn}
->
+<button onClick={analyse} style={analyseBtn}>
 {loading ? "Analysing..." : "Analyse Wallet"}
 </button>
 
@@ -307,7 +347,7 @@ style={analyseBtn}
 
 <br/><br/>
 
-{/* results */}
+{/* RESULTS */}
 {data && !data.error && (
 
 <div style={result}>
@@ -321,12 +361,10 @@ style={analyseBtn}
 
 <p>🔁 Swaps: {data.swapCount || 0}</p>
 
-<p>
-💎 Trading Volume: $
-{data.tradingVolumeUSD ?? 0}
-</p>
+<p>💎 Trading Volume: ${data.tradingVolumeUSD ?? 0}</p>
 
 <p>📅 Trading Days: {data.tradingDays || 0}</p>
+
 <p>⛽ Trading Gas: {data.tradingGasETH || 0} ETH</p>
 
 <hr style={divider}/>
@@ -343,6 +381,8 @@ style={analyseBtn}
 
 }
 
+/* styles */
+
 const header={
 background:"linear-gradient(135deg,#020617,#020617,#001a1a)",
 padding:24,
@@ -350,12 +390,12 @@ borderRadius:18,
 marginBottom:25,
 border:"1px solid rgba(34,197,94,0.2)",
 boxShadow:"0 0 60px rgba(34,197,94,0.08)",
-position:"relative" as const,
+position:"relative",
 overflow:"hidden"
 }
 
 const glow={
-position:"absolute" as const,
+position:"absolute",
 width:200,
 height:200,
 background:"radial-gradient(circle,#22c55e33,transparent)",
@@ -364,28 +404,11 @@ right:-60,
 filter:"blur(40px)"
 }
 
-const icon={
-fontSize:34,
-background:"linear-gradient(135deg,#60a5fa,#34d399)",
-WebkitBackgroundClip:"text" as const,
-WebkitTextFillColor:"transparent"
-}
+const icon={fontSize:34}
 
-const title={
-fontSize:28,
-fontWeight:700,
-margin:0,
-background:"linear-gradient(90deg,#60a5fa,#34d399,#60a5fa)",
-backgroundSize:"200% 100%",
-WebkitBackgroundClip:"text" as const,
-WebkitTextFillColor:"transparent"
-}
+const title={fontSize:28,fontWeight:700,margin:0}
 
-const subtitle={
-fontSize:13,
-color:"#9ca3af",
-marginTop:4
-}
+const subtitle={fontSize:13,color:"#9ca3af",marginTop:4}
 
 const card={
 background:"#020617",
@@ -408,8 +431,7 @@ marginTop:10,
 padding:"8px 16px",
 borderRadius:8,
 background:"#22c55e",
-border:"none",
-cursor:"pointer"
+border:"none"
 }
 
 const analyseBtn={
@@ -418,8 +440,7 @@ borderRadius:10,
 border:"1px solid #22c55e",
 background:"linear-gradient(90deg,#16a34a,#22c55e)",
 color:"#022c22",
-fontWeight:600,
-cursor:"pointer"
+fontWeight:600
 }
 
 const result={
@@ -427,8 +448,7 @@ background:"rgba(2,6,23,0.8)",
 color:"#00ff9c",
 padding:20,
 borderRadius:14,
-marginTop:10,
-border:"1px solid rgba(34,197,94,0.15)"
+marginTop:10
 }
 
 const divider={
@@ -444,3 +464,12 @@ borderRadius:6,
 fontSize:10,
 fontWeight:700
 }
+
+const connectBtn={
+marginLeft:8,
+padding:"4px 10px",
+borderRadius:6,
+background:"#22c55e",
+border:"none",
+fontSize:11
+                               }
