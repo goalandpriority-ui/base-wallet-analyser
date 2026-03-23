@@ -11,6 +11,35 @@ timeout:20000
 
 const ETH_PRICE = 3500
 
+/* SWAP ROUTERS */
+const SWAP_ROUTERS = [
+
+/* Uniswap */
+"0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45",
+
+/* Aerodrome */
+"0x420dd381b31aef6683db6b902084cb0ffece40da",
+
+/* BaseSwap */
+"0x327df1e6de05895d2ab08513aadd9313fe505d86",
+
+/* Sushi */
+"0x1b02da8cb0d097eb8d57a175b88c7d8b47997506",
+
+/* Pancake */
+"0x8cfe327cec66d1c090dd72bd0ff11d690c33a2eb",
+
+/* Matcha / 0x */
+"0xdef1c0ded9bec7f1a1670819833240f027b25eff",
+
+/* OpenOcean */
+"0x6352a56caadc4f1e25cd6c75970fa768a3304e64",
+
+/* Kyber */
+"0x6131b5fae19ea4f9d964eac0408e4408b66337b5"
+
+]
+
 export async function POST(req:NextRequest){
 
 try{
@@ -59,12 +88,23 @@ for(const r of receipts){
 if(r.from?.toLowerCase()!==address)
 continue
 
+const to =
+(r.to || "").toLowerCase()
+
 const logs=r.logs || []
 
-if(logs.length<2) continue
+/* detect swap */
+const isRouter =
+SWAP_ROUTERS.includes(to)
+
+const isSwap =
+isRouter || logs.length >= 2
+
+if(!isSwap) continue
 
 swaps++
 
+/* gas */
 const g=
 (parseInt(r.gasUsed,16)*
 parseInt(r.effectiveGasPrice,16))
@@ -72,7 +112,13 @@ parseInt(r.effectiveGasPrice,16))
 
 gas+=g
 
-// active days
+/* volume */
+const txValue =
+parseInt(r.value || "0x0",16)/1e18
+
+volume += txValue
+
+/* active days */
 if(r.blockNumber){
 const day=parseInt(r.blockNumber,16)
 days.add(String(Math.floor(day/6500)))
@@ -82,34 +128,36 @@ days.add(String(Math.floor(day/6500)))
 
 }
 
-// USD volume estimate
-volume = gas * ETH_PRICE
+/* fallback volume from gas if zero */
+if(volume === 0){
+volume = gas * 10
+}
+
+/* USD */
+const volumeUSD = volume * ETH_PRICE
 
 const score=
 swaps*2+
-volume/100+
+volumeUSD/100+
 gas*5000
 
-/* ---------------- SAVE TO DB ---------------- */
-
+/* SAVE */
 await supabase
 .from("leaderboard")
 .upsert({
 wallet:address,
 score,
 swapCount:swaps,
-tradingVolumeUSD:volume,
+tradingVolumeUSD:volumeUSD,
 tradingDays:days.size,
 tradingGasETH:gas,
 updated_at:new Date().toISOString()
 },{onConflict:"wallet"})
 
-/* ---------------- RETURN ---------------- */
-
 return NextResponse.json({
 wallet,
 swapCount:swaps,
-tradingVolumeUSD:Number(volume.toFixed(2)),
+tradingVolumeUSD:Number(volumeUSD.toFixed(2)),
 tradingDays:days.size,
 tradingGasETH:Number(gas.toFixed(6)),
 score:Math.round(score),
