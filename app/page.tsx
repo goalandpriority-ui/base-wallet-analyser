@@ -20,10 +20,10 @@ try{
 
 await sdk.actions.ready()
 
-const context = await sdk.context
+const context:any = await sdk.context
 
 const userWallet =
-context?.user?.verified_addresses?.eth_addresses?.[0]
+context?.user?.verifiedAddresses?.ethAddresses?.[0]
 
 if(userWallet){
 setWallet(userWallet)
@@ -387,4 +387,4 @@ padding:"2px 8px",
 borderRadius:6,
 fontSize:10,
 fontWeight:700
-}
+  }
