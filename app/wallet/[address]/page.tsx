@@ -1,18 +1,22 @@
 "use client"
 
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 
 export default function WalletProfile(){
 
 const params = useParams()
-const address = params.address as string
+const address = params?.address as string
 
 const [data,setData]=useState<any>(null)
 const [tokens,setTokens]=useState<any[]>([])
 const [following,setFollowing]=useState(false)
 
+/* ---------------- FETCH ---------------- */
+
 useEffect(()=>{
+
+if(!address) return
 
 fetch("/api/analyse-pro",{
 method:"POST",
@@ -20,7 +24,8 @@ headers:{ "Content-Type":"application/json" },
 body:JSON.stringify({wallet:address})
 })
 .then(res=>res.json())
-.then(setData)
+.then(res=>setData(res || {}))
+.catch(()=>setData({}))
 
 fetch("/api/wallet-tokens",{
 method:"POST",
@@ -28,52 +33,12 @@ headers:{ "Content-Type":"application/json" },
 body:JSON.stringify({wallet:address})
 })
 .then(res=>res.json())
-.then(setTokens)
+.then(res=>setTokens(Array.isArray(res)?res:[]))
+.catch(()=>setTokens([]))
 
 },[address])
 
-/* ---------- CALCULATIONS (SAFE) ---------- */
-
-const totalWins = useMemo(
-()=>tokens.reduce((a,t)=>a+(t?.wins||0),0),
-[tokens]
-)
-
-const totalLoss = useMemo(
-()=>tokens.reduce((a,t)=>a+(t?.losses||0),0),
-[tokens]
-)
-
-const walletWinRate = useMemo(()=>{
-return (totalWins+totalLoss)>0
-? (totalWins/(totalWins+totalLoss))*100
-: 0
-},[totalWins,totalLoss])
-
-const bestToken = useMemo(()=>{
-if(!tokens?.length) return null
-return [...tokens].sort(
-(a,b)=>(b?.winRate||0)-(a?.winRate||0)
-)[0]
-},[tokens])
-
-const pnl = useMemo(()=>{
-return tokens.reduce(
-(a,t)=>a+(t?.volume||0)*(t?.winRate||0)/100,
-0
-)
-},[tokens])
-
-/* ALERT (SAFE) */
-useEffect(()=>{
-
-if(walletWinRate > 70){
-setTimeout(()=>{
-alert("🔥 High win rate trader detected")
-},1200)
-}
-
-},[walletWinRate])
+/* ---------------- ACTIONS ---------------- */
 
 const share = ()=>{
 navigator.clipboard.writeText(window.location.href)
@@ -101,9 +66,7 @@ return
 
 await fetch("/api/follow",{
 method:"POST",
-headers:{
-"Content-Type":"application/json"
-},
+headers:{ "Content-Type":"application/json" },
 body:JSON.stringify({
 wallet:me,
 followed:address
@@ -111,18 +74,60 @@ followed:address
 })
 
 setFollowing(true)
-
 }
 
+/* ---------------- CALCULATIONS ---------------- */
+
+const totalWins =
+tokens?.reduce((a,t)=>a+(t?.wins||0),0) || 0
+
+const totalLoss =
+tokens?.reduce((a,t)=>a+(t?.losses||0),0) || 0
+
+const walletWinRate =
+(totalWins+totalLoss)>0
+? (totalWins/(totalWins+totalLoss))*100
+: 0
+
+const bestToken =
+tokens?.length
+? [...tokens].sort((a,b)=>
+(b?.winRate||0)-(a?.winRate||0)
+)[0]
+: null
+
+const pnl =
+tokens?.reduce(
+(a,t)=>a+(t?.volume||0)*(t?.winRate||0)/100,
+0
+) || 0
+
+/* ALERT */
+
+useEffect(()=>{
+
+if(walletWinRate > 70){
+setTimeout(()=>{
+alert("🔥 High win rate trader detected")
+},1200)
+}
+
+},[walletWinRate])
+
+/* ---------------- TAG ---------------- */
+
 const getTag = ()=>{
+
 if(!data) return ""
 
-if(data.tradingVolumeUSD > 100000) return "🐋 Whale"
-if(data.swapCount > 500) return "⚡ Active Trader"
-if(data.tradingDays > 30) return "🧠 Pro"
+if(data?.tradingVolumeUSD > 100000) return "🐋 Whale"
+if(data?.swapCount > 500) return "⚡ Active Trader"
+if(data?.tradingDays > 30) return "🧠 Pro"
 
 return "👤 Normal"
 }
+
+/* ---------------- UI ---------------- */
 
 if(!data){
 return <div style={{padding:20}}>Loading wallet...</div>
@@ -146,17 +151,9 @@ return(
 
 <div style={{display:"flex",gap:10,marginTop:10,flexWrap:"wrap"}}>
 
-<button onClick={share} style={shareBtn}>
-🔗 Share
-</button>
-
-<button onClick={copyWallet} style={copyBtn}>
-📋 Copy
-</button>
-
-<button onClick={copyTrade} style={copyTradeBtn}>
-🤖 Copy Trade
-</button>
+<button onClick={share} style={shareBtn}>🔗 Share</button>
+<button onClick={copyWallet} style={copyBtn}>📋 Copy</button>
+<button onClick={copyTrade} style={copyTradeBtn}>🤖 Copy Trade</button>
 
 <button onClick={follow} style={followBtn}>
 {following ? "⭐ Following" : "⭐ Follow"}
@@ -171,11 +168,11 @@ return(
 
 <h2>Wallet Performance</h2>
 
-<div>🏆 Rank: #{data.rank}</div>
-<div>⭐ Score: {Math.round(data.score)}</div>
-<div>🔁 Swaps: {data.swapCount}</div>
-<div>💰 Volume: ${Math.round(data.tradingVolumeUSD)}</div>
-<div>📅 Trading Days: {data.tradingDays}</div>
+<div>🏆 Rank: #{data?.rank || "-"}</div>
+<div>⭐ Score: {Math.round(data?.score || 0)}</div>
+<div>🔁 Swaps: {data?.swapCount || 0}</div>
+<div>💰 Volume: ${Math.round(data?.tradingVolumeUSD || 0)}</div>
+<div>📅 Trading Days: {data?.tradingDays || 0}</div>
 
 <hr style={divider}/>
 
@@ -185,39 +182,21 @@ return(
 
 </div>
 
-{/* activity */}
-<div style={card}>
-
-<h2>Activity</h2>
-
-<div style={label}>Swap activity</div>
-<div style={chart}>
-<div style={{...bar,width:`${Math.min(data.swapCount,100)}%`}}/>
-</div>
-
-<div style={label}>Volume activity</div>
-<div style={chart}>
-<div style={{...bar2,width:`${Math.min(data.tradingVolumeUSD/10,100)}%`}}/>
-</div>
-
-<div style={label}>Experience</div>
-<div style={chart}>
-<div style={{...bar3,width:`${Math.min(data.tradingDays*2,100)}%`}}/>
-</div>
-
-</div>
-
 {/* tokens */}
 <div style={card}>
 
 <h2>Top Tokens</h2>
 
-{tokens.map((t,i)=>{
+{tokens?.length === 0 && (
+<div style={{opacity:.6}}>No tokens</div>
+)}
+
+{tokens?.map((t,i)=>{
 
 const color =
-t.winRate > 60
+(t?.winRate||0) > 60
 ? "#22c55e"
-: t.winRate > 40
+: (t?.winRate||0) > 40
 ? "#facc15"
 : "#ef4444"
 
@@ -227,24 +206,22 @@ return(
 
 <div>
 <div style={{fontWeight:600}}>
-{t.symbol}
-{bestToken?.symbol===t.symbol && " 🥇"}
+{t?.symbol || "TOKEN"}
+{bestToken?.symbol===t?.symbol && " 🥇"}
 </div>
 
 <div style={sub}>
-Buys {t.buys} | Sells {t.sells}
+Buys {t?.buys||0} | Sells {t?.sells||0}
 </div>
 </div>
 
 <div style={{textAlign:"right"}}>
 
 <div style={{color,fontWeight:600}}>
-{t.winRate?.toFixed(0)}%
+{Math.round(t?.winRate || 0)}%
 </div>
 
-<div style={sub}>
-win rate
-</div>
+<div style={sub}>win rate</div>
 
 </div>
 
@@ -255,18 +232,13 @@ win rate
 
 </div>
 
-{/* COPY TRADE SIGNAL */}
+{/* copy trade */}
 <div style={card}>
 
 <h2>🤖 Copy Trade Signal</h2>
 
-<div>
-Best Token: {bestToken?.symbol || "-"}
-</div>
-
-<div>
-Win Rate: {walletWinRate.toFixed(1)}%
-</div>
+<div>Best Token: {bestToken?.symbol || "-"}</div>
+<div>Win Rate: {walletWinRate.toFixed(1)}%</div>
 
 <button style={copyTradeBtn}>
 Copy Next Trade
@@ -319,21 +291,6 @@ background:"#facc15",
 border:"none",
 cursor:"pointer"
 }
-
-const chart={
-height:8,
-background:"#111",
-borderRadius:20,
-overflow:"hidden",
-marginTop:6,
-marginBottom:12
-}
-
-const bar={height:"100%",background:"#22c55e"}
-const bar2={height:"100%",background:"#3b82f6"}
-const bar3={height:"100%",background:"#a855f7"}
-
-const label={fontSize:12,opacity:0.7}
 
 const tokenRow={
 display:"flex",
