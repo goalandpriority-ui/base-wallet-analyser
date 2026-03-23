@@ -95,8 +95,12 @@ const walletWinRate =
 ? (totalWins/(totalWins+totalLoss))*100
 : 0
 
+const safeTokens = [...tokens]
+
 const bestToken =
-tokens.sort((a,b)=>b.winRate-a.winRate)[0]
+safeTokens.length > 0
+? safeTokens.sort((a,b)=>(b.winRate||0)-(a.winRate||0))[0]
+: null
 
 const pnl =
 tokens.reduce((a,t)=>a+(t.volume||0)*(t.winRate||0)/100,0)
@@ -245,7 +249,7 @@ win rate
 <h2>🤖 Copy Trade Signal</h2>
 
 <div>
-Best Token: {bestToken?.symbol}
+Best Token: {bestToken?.symbol || "-"}
 </div>
 
 <div>
