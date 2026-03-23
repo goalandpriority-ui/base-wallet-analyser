@@ -9,22 +9,38 @@ const [data,setData]=useState<any[]>([])
 
 useEffect(()=>{
 
-fetch("/api/top-traders")
-.then(res=>res.json())
-.then(setData)
+const load = async()=>{
+
+try{
+
+const res = await fetch("/api/top-traders")
+const json = await res.json()
+
+if(Array.isArray(json)){
+setData(json)
+}else{
+setData(json?.data || [])
+}
+
+}catch{
+setData([])
+}
+
+}
+
+load()
 
 },[])
 
 const copy = (wallet:string)=>{
-navigator.clipboard.writeText(wallet)
-alert("Wallet copied")
+navigator.clipboard.writeText(wallet || "")
 }
 
 const getTag = (w:any)=>{
 
-if(w.volume > 100000) return "🐋 Whale"
-if(w.swaps > 500) return "⚡ High Trader"
-if(w.score > 5000) return "💎 Alpha"
+if((w?.volume||0) > 100000) return "🐋 Whale"
+if((w?.swaps||0) > 500) return "⚡ High Trader"
+if((w?.score||0) > 5000) return "💎 Alpha"
 
 return "📈 Trader"
 }
@@ -51,7 +67,15 @@ marginBottom:20
 Follow top wallets and copy their trades
 </div>
 
-{data.map((w,i)=>{
+{data.length === 0 && (
+<div style={{opacity:.6}}>
+No traders found
+</div>
+)}
+
+{data.map((w:any,i:number)=>{
+
+const wallet = w?.wallet || "unknown"
 
 return(
 
@@ -78,7 +102,7 @@ marginBottom:6
 </div>
 
 <div>
-Score: {Math.round(w.score)}
+Score: {Math.round(w?.score || 0)}
 </div>
 
 </div>
@@ -90,7 +114,7 @@ opacity:0.8,
 wordBreak:"break-all",
 marginBottom:8
 }}>
-{w.wallet}
+{wallet}
 </div>
 
 {/* stats */}
@@ -99,8 +123,8 @@ fontSize:12,
 opacity:0.7,
 marginBottom:10
 }}>
-Swaps: {w.swaps} |
-Volume: ${Math.round(w.volume)}
+Swaps: {w?.swaps || 0} |
+Volume: ${Math.round(w?.volume || 0)}
 </div>
 
 {/* buttons */}
@@ -110,13 +134,13 @@ gap:8
 }}>
 
 <button
-onClick={()=>copy(w.wallet)}
+onClick={()=>copy(wallet)}
 style={copyBtn}
 >
 Copy wallet
 </button>
 
-<Link href={`/wallet/${w.wallet}`} style={link}>
+<Link href={`/wallet/${wallet}`} style={link}>
 View profile
 </Link>
 
@@ -148,4 +172,4 @@ border:"1px solid #333",
 textDecoration:"none",
 color:"#00ff9c",
 fontSize:12
-}
+  }
