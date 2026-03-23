@@ -11,7 +11,21 @@ useEffect(()=>{
 
 fetch("/api/follower-leaderboard")
 .then(res=>res.json())
-.then(setData)
+.then(res=>{
+
+/* FIX FIELD NAMES */
+const mapped = (res || []).map((w:any)=>({
+...w,
+followers:
+w.followers ??
+w.followers_count ??
+w.count ??
+0
+}))
+
+setData(mapped)
+
+})
 
 },[])
 
