@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { useParams } from "next/navigation"
 
 export default function WalletProfile(){
@@ -31,6 +31,49 @@ body:JSON.stringify({wallet:address})
 .then(setTokens)
 
 },[address])
+
+/* ---------- CALCULATIONS (SAFE) ---------- */
+
+const totalWins = useMemo(
+()=>tokens.reduce((a,t)=>a+(t?.wins||0),0),
+[tokens]
+)
+
+const totalLoss = useMemo(
+()=>tokens.reduce((a,t)=>a+(t?.losses||0),0),
+[tokens]
+)
+
+const walletWinRate = useMemo(()=>{
+return (totalWins+totalLoss)>0
+? (totalWins/(totalWins+totalLoss))*100
+: 0
+},[totalWins,totalLoss])
+
+const bestToken = useMemo(()=>{
+if(!tokens?.length) return null
+return [...tokens].sort(
+(a,b)=>(b?.winRate||0)-(a?.winRate||0)
+)[0]
+},[tokens])
+
+const pnl = useMemo(()=>{
+return tokens.reduce(
+(a,t)=>a+(t?.volume||0)*(t?.winRate||0)/100,
+0
+)
+},[tokens])
+
+/* ALERT (SAFE) */
+useEffect(()=>{
+
+if(walletWinRate > 70){
+setTimeout(()=>{
+alert("🔥 High win rate trader detected")
+},1200)
+}
+
+},[walletWinRate])
 
 const share = ()=>{
 navigator.clipboard.writeText(window.location.href)
@@ -84,37 +127,6 @@ return "👤 Normal"
 if(!data){
 return <div style={{padding:20}}>Loading wallet...</div>
 }
-
-/* ---------- CALCULATIONS ---------- */
-
-const totalWins = tokens.reduce((a,t)=>a+(t.wins||0),0)
-const totalLoss = tokens.reduce((a,t)=>a+(t.losses||0),0)
-
-const walletWinRate =
-(totalWins+totalLoss)>0
-? (totalWins/(totalWins+totalLoss))*100
-: 0
-
-const safeTokens = [...tokens]
-
-const bestToken =
-safeTokens.length > 0
-? safeTokens.sort((a,b)=>(b.winRate||0)-(a.winRate||0))[0]
-: null
-
-const pnl =
-tokens.reduce((a,t)=>a+(t.volume||0)*(t.winRate||0)/100,0)
-
-/* ALERT */
-useEffect(()=>{
-
-if(walletWinRate > 70){
-setTimeout(()=>{
-alert("🔥 High win rate trader detected")
-},1500)
-}
-
-},[walletWinRate])
 
 return(
 <div style={{padding:20,maxWidth:900,margin:"auto"}}>
