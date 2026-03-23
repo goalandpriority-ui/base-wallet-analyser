@@ -10,6 +10,7 @@ const address = params.address as string
 
 const [data,setData]=useState<any>(null)
 const [tokens,setTokens]=useState<any[]>([])
+const [following,setFollowing]=useState(false)
 
 useEffect(()=>{
 
@@ -44,6 +45,30 @@ alert("Wallet copied")
 const copyTrade = ()=>{
 navigator.clipboard.writeText(address)
 alert("Wallet copied for copy trading")
+}
+
+const follow = async ()=>{
+
+const me = localStorage.getItem("lastWallet")
+
+if(!me){
+alert("Analyse wallet first")
+return
+}
+
+await fetch("/api/follow",{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+wallet:me,
+followed:address
+})
+})
+
+setFollowing(true)
+
 }
 
 const getTag = ()=>{
@@ -104,6 +129,10 @@ return(
 
 <button onClick={copyTrade} style={copyTradeBtn}>
 🤖 Copy Trade
+</button>
+
+<button onClick={follow} style={followBtn}>
+{following ? "⭐ Following" : "⭐ Follow"}
 </button>
 
 </div>
@@ -235,6 +264,14 @@ background:"#a855f7",
 border:"none",
 cursor:"pointer",
 color:"#fff"
+}
+
+const followBtn={
+padding:"6px 12px",
+borderRadius:8,
+background:"#facc15",
+border:"none",
+cursor:"pointer"
 }
 
 const chart={
