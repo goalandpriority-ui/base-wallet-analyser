@@ -62,7 +62,7 @@ const pay = async()=>{
 
 try{
 
-const tx = await sdk.actions.sendTransaction({
+const tx = await (sdk as any).wallet.sendTransaction({
 
 chainId:8453,
 to:process.env.NEXT_PUBLIC_PAY_TO!,
@@ -83,7 +83,7 @@ body:JSON.stringify({wallet})
 setPaid(true)
 
 /* AUTO CAST */
-await sdk.actions.composeCast({
+await (sdk as any).actions.composeCast({
 text:`🔥 Wallet analysed
 
 Address: ${wallet}
@@ -387,4 +387,4 @@ padding:"2px 8px",
 borderRadius:6,
 fontSize:10,
 fontWeight:700
-  }
+}
