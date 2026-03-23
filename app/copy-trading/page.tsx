@@ -66,15 +66,33 @@ Math.min((w?.score || 0) / 100,100)
 const volumeBar =
 Math.min((w?.volume || 0) / 1000,100)
 
+const isPaid = w?.paid
+
 return(
 
-<div key={i} style={card}>
+<div
+key={i}
+style={{
+...card,
+border:isPaid
+? "1px solid #22c55e"
+: "1px solid #0f172a",
+boxShadow:isPaid
+? "0 0 15px rgba(34,197,94,.4)"
+: "0 0 25px rgba(34,197,94,.15)"
+}}
+>
 
 {/* header */}
 <div style={rowTop}>
 
 <div>
 #{i+1} {getTag(w)}
+{isPaid && (
+<span style={proBadge}>
+PRO
+</span>
+)}
 </div>
 
 <div style={score}>
@@ -167,12 +185,10 @@ marginBottom:20
 
 const card={
 background:"rgba(2,6,23,.7)",
-border:"1px solid #0f172a",
 padding:16,
 borderRadius:16,
 marginBottom:14,
-backdropFilter:"blur(10px)",
-boxShadow:"0 0 25px rgba(34,197,94,.15)"
+backdropFilter:"blur(10px)"
 }
 
 const rowTop={
@@ -251,4 +267,14 @@ border:"1px solid #1f2937",
 textDecoration:"none",
 color:"#22c55e",
 fontSize:12
+}
+
+const proBadge={
+marginLeft:8,
+background:"#22c55e",
+color:"#020617",
+padding:"2px 6px",
+borderRadius:4,
+fontSize:9,
+fontWeight:700
 }
