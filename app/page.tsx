@@ -51,18 +51,70 @@ export default function Home() {
 
       {/* HEADER */}
       <div style={{
-        display:"flex",
-        justifyContent:"space-between",
-        alignItems:"center",
-        marginBottom:25
+        background:"linear-gradient(135deg,#020617,#020617,#001a1a)",
+        padding:24,
+        borderRadius:18,
+        marginBottom:25,
+        border:"1px solid rgba(34,197,94,0.2)",
+        boxShadow:"0 0 60px rgba(34,197,94,0.08)",
+        position:"relative",
+        overflow:"hidden"
       }}>
 
-        <h1 style={{
-          fontSize:28,
-          fontWeight:700
+        {/* glow */}
+        <div style={{
+          position:"absolute",
+          width:200,
+          height:200,
+          background:"radial-gradient(circle,#22c55e33,transparent)",
+          top:-60,
+          right:-60,
+          filter:"blur(40px)"
+        }}/>
+
+        <div style={{
+          display:"flex",
+          alignItems:"center",
+          gap:14
         }}>
-          🔥 Base Wallet Analyser (PRO)
-        </h1>
+
+          {/* icon */}
+          <div style={{
+            fontSize:34,
+            background:"linear-gradient(135deg,#60a5fa,#34d399)",
+            WebkitBackgroundClip:"text",
+            WebkitTextFillColor:"transparent"
+          }}>
+            ⚡
+          </div>
+
+          <div>
+
+            {/* animated gradient title */}
+            <h1 style={{
+              fontSize:28,
+              fontWeight:700,
+              margin:0,
+              background:"linear-gradient(90deg,#60a5fa,#34d399,#60a5fa)",
+              backgroundSize:"200% 100%",
+              WebkitBackgroundClip:"text",
+              WebkitTextFillColor:"transparent",
+              animation:"shine 6s linear infinite"
+            }}>
+              Base Wallet Analyser
+            </h1>
+
+            {/* subtitle */}
+            <div style={{
+              fontSize:13,
+              color:"#9ca3af",
+              marginTop:4
+            }}>
+              Analyse wallets on Base network
+            </div>
+
+          </div>
+        </div>
 
       </div>
 
@@ -72,11 +124,14 @@ export default function Home() {
         value={wallet}
         onChange={(e) => setWallet(e.target.value)}
         style={{
-          padding:12,
+          padding:14,
           width:"100%",
-          borderRadius:8,
-          border:"1px solid #ccc",
-          fontSize:14
+          borderRadius:12,
+          border:"1px solid #1f2937",
+          fontSize:14,
+          background:"#020617",
+          color:"#00ff9c",
+          boxShadow:"0 0 20px rgba(34,197,94,0.05)"
         }}
       />
 
@@ -85,11 +140,14 @@ export default function Home() {
       <button
         onClick={analyse}
         style={{
-          padding:"10px 20px",
-          borderRadius:8,
-          border:"1px solid #ccc",
-          background:"#fff",
-          cursor:"pointer"
+          padding:"12px 24px",
+          borderRadius:10,
+          border:"1px solid #22c55e",
+          background:"linear-gradient(90deg,#16a34a,#22c55e)",
+          color:"#022c22",
+          fontWeight:600,
+          cursor:"pointer",
+          boxShadow:"0 0 20px rgba(34,197,94,0.25)"
         }}
       >
         {loading ? "Analysing..." : "Analyse"}
@@ -99,11 +157,14 @@ export default function Home() {
 
       {data && !data.error && (
         <div style={{
-          background:"#0b0b0b",
+          background:"rgba(2,6,23,0.8)",
+          backdropFilter:"blur(10px)",
           color:"#00ff9c",
           padding:20,
           borderRadius:14,
-          marginTop:10
+          marginTop:10,
+          border:"1px solid rgba(34,197,94,0.15)",
+          boxShadow:"0 0 30px rgba(34,197,94,0.05)"
         }}>
 
           <p>📊 Transactions: {data.totalTxns || 0}</p>
@@ -137,11 +198,18 @@ export default function Home() {
         </p>
       )}
 
+      <style jsx global>{`
+        @keyframes shine {
+          0% { background-position: 0% }
+          100% { background-position: 200% }
+        }
+      `}</style>
+
     </main>
   )
 }
 
 const divider = {
   margin:"15px 0",
-  borderColor:"#222"
+  borderColor:"#0f172a"
 }
