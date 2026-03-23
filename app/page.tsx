@@ -29,77 +29,19 @@ if(userWallet){
 setWallet(userWallet)
 localStorage.setItem("lastWallet",userWallet)
 checkPaid(userWallet)
-setConnecting(false)
-return
 }
 
 }catch(e){
 console.log("farcaster not found")
 }
 
-connectBrowserWallet()
+setConnecting(false)
 
 }
 
 init()
 
 },[])
-
-/* AUTO CONNECT BROWSER WALLETS */
-const connectBrowserWallet = async()=>{
-
-try{
-
-const eth = (window as any).ethereum
-
-if(!eth){
-setConnecting(false)
-return
-}
-
-const accounts = await eth.request({
-method:"eth_accounts"
-})
-
-if(accounts?.[0]){
-setWallet(accounts[0])
-localStorage.setItem("lastWallet",accounts[0])
-checkPaid(accounts[0])
-}
-
-}catch{}
-
-setConnecting(false)
-
-}
-
-/* MANUAL CONNECT */
-const connectWallet = async()=>{
-
-try{
-
-const eth = (window as any).ethereum
-
-if(!eth){
-alert("Wallet not found")
-return
-}
-
-const accounts = await eth.request({
-method:"eth_requestAccounts"
-})
-
-const addr = accounts[0]
-
-setWallet(addr)
-localStorage.setItem("lastWallet",addr)
-checkPaid(addr)
-
-}catch{
-alert("Wallet connect failed")
-}
-
-}
 
 /* CHECK PAYMENT */
 const checkPaid = async (addr?:string)=>{
@@ -114,7 +56,7 @@ setPaid(json.paid)
 
 }
 
-/* PAY FUNCTION */
+/* PAY */
 const pay = async()=>{
 
 try{
@@ -156,9 +98,11 @@ blockExplorerUrls:["https://basescan.org"]
 try{
 
 tx = await (sdk as any).wallet.sendTransaction({
+
 chainId:8453,
 to:process.env.NEXT_PUBLIC_PAY_TO!,
-value:"0x5af3107a4000"
+value:"0x16bcc41e9000" // 0.000025 ETH
+
 })
 
 }catch{}
@@ -173,7 +117,7 @@ method:"eth_sendTransaction",
 params:[{
 from:wallet,
 to:process.env.NEXT_PUBLIC_PAY_TO!,
-value:"0x5af3107a4000",
+value:"0x16bcc41e9000",
 chainId:"0x2105"
 }]
 })
@@ -194,7 +138,6 @@ setPaid(true)
 
 /* AUTO CAST */
 try{
-
 await (sdk as any).actions.composeCast({
 text:`🔥 Wallet analysed
 
@@ -202,12 +145,11 @@ Address: ${wallet}
 
 Open miniapp to view full stats`
 })
-
 }catch{}
 
 }
 
-}catch{
+}catch(e){
 
 alert("Payment failed")
 
@@ -301,7 +243,7 @@ Analyse wallets on Base network
 
 </div>
 
-{/* WALLET CARD */}
+{/* wallet card */}
 <div style={card}>
 
 <div style={{fontSize:12,opacity:.6}}>
@@ -327,17 +269,11 @@ PRO
 </div>
 )}
 
-{!wallet && !connecting && (
-<button onClick={connectWallet} style={connectBtn}>
-Connect
-</button>
-)}
-
 </div>
 
 </div>
 
-{/* PAYMENT */}
+{/* payment */}
 {!paid && wallet && (
 
 <div style={payCard}>
@@ -357,7 +293,7 @@ Pay & Unlock
 
 )}
 
-{/* ANALYSE */}
+{/* analyse */}
 {paid && (
 
 <button
@@ -371,7 +307,7 @@ style={analyseBtn}
 
 <br/><br/>
 
-{/* RESULTS */}
+{/* results */}
 {data && !data.error && (
 
 <div style={result}>
@@ -407,8 +343,6 @@ style={analyseBtn}
 
 }
 
-/* styles */
-
 const header={
 background:"linear-gradient(135deg,#020617,#020617,#001a1a)",
 padding:24,
@@ -431,13 +365,20 @@ filter:"blur(40px)"
 }
 
 const icon={
-fontSize:34
+fontSize:34,
+background:"linear-gradient(135deg,#60a5fa,#34d399)",
+WebkitBackgroundClip:"text" as const,
+WebkitTextFillColor:"transparent"
 }
 
 const title={
 fontSize:28,
 fontWeight:700,
-margin:0
+margin:0,
+background:"linear-gradient(90deg,#60a5fa,#34d399,#60a5fa)",
+backgroundSize:"200% 100%",
+WebkitBackgroundClip:"text" as const,
+WebkitTextFillColor:"transparent"
 }
 
 const subtitle={
@@ -503,12 +444,3 @@ borderRadius:6,
 fontSize:10,
 fontWeight:700
 }
-
-const connectBtn={
-marginLeft:8,
-padding:"4px 10px",
-borderRadius:6,
-background:"#22c55e",
-border:"none",
-fontSize:11
-  }
