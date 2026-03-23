@@ -92,7 +92,7 @@ export default function Home() {
               background:"#0b0b0b",
               border:"1px solid #222",
               borderRadius:10,
-              width:200,
+              width:220,
               overflow:"hidden",
               boxShadow:"0 10px 30px rgba(0,0,0,0.5)"
             }}>
@@ -110,7 +110,12 @@ export default function Home() {
               </Link>
 
               <Link href="/highest-volume">
-                <div style={menuItemNoBorder}>💰 Highest Volume</div>
+                <div style={menuItem}>💰 Highest Volume</div>
+              </Link>
+
+              {/* NEW CREATOR PAGE */}
+              <Link href="/creator">
+                <div style={menuItemNoBorder}>👤 Creator Profile</div>
               </Link>
 
             </div>
