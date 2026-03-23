@@ -52,6 +52,16 @@ return(
 📋 Copy Trading
 </NavLink>
 
+{/* NEW */}
+<NavLink href="/follower-leaderboard" active={pathname==="/follower-leaderboard"}>
+👥 Followers
+</NavLink>
+
+{/* NEW */}
+<NavLink href="/following" active={pathname==="/following"}>
+⭐ Following
+</NavLink>
+
 <NavLink href="/creator" active={pathname==="/creator"}>
 👤 Creator
 </NavLink>
