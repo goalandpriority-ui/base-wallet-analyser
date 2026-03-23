@@ -52,6 +52,10 @@ return(
 Follow top wallets and auto copy trades
 </div>
 
+{data.length === 0 && (
+<div style={{opacity:.6}}>No traders found</div>
+)}
+
 {data.map((w,i)=>{
 
 const wallet = w?.wallet || "unknown"
@@ -152,7 +156,7 @@ fontSize:30,
 fontWeight:700,
 marginBottom:4,
 background:"linear-gradient(90deg,#22c55e,#4ade80)",
-WebkitBackgroundClip:"text",
+WebkitBackgroundClip:"text" as const,
 color:"transparent"
 }
 
@@ -180,7 +184,7 @@ marginBottom:6
 const walletStyle={
 fontSize:12,
 opacity:.8,
-wordBreak:"break-all",
+wordBreak:"break-all" as const,
 marginBottom:8
 }
 
