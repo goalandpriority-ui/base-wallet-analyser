@@ -123,24 +123,27 @@ wordBreak:"break-all"
 
 <div style={chart}>
 <div style={{
+...bar,
 width:`${Math.min(data.swapCount,100)}%`
-}} className="bar"/>
+}}/>
 </div>
 
 <div style={label}>Volume activity</div>
 
 <div style={chart}>
 <div style={{
+...bar2,
 width:`${Math.min(data.tradingVolumeUSD/10,100)}%`
-}} className="bar2"/>
+}}/>
 </div>
 
 <div style={label}>Experience</div>
 
 <div style={chart}>
 <div style={{
+...bar3,
 width:`${Math.min(data.tradingDays*2,100)}%`
-}} className="bar3"/>
+}}/>
 </div>
 
 </div>
@@ -156,7 +159,17 @@ No tokens found
 </div>
 )}
 
-{tokens.map((t,i)=>(
+{tokens.map((t,i)=>{
+
+const color =
+t.winRate > 60
+? "#22c55e"
+: t.winRate > 40
+? "#facc15"
+: "#ef4444"
+
+return(
+
 <div key={i} style={tokenRow}>
 
 <div>
@@ -171,18 +184,20 @@ Buys: {t.buys} | Sells: {t.sells}
 
 <div style={{textAlign:"right"}}>
 
-<div>
-{Math.round(t.volume)}
+<div style={{color,fontWeight:600}}>
+{t.winRate?.toFixed(0) || 0}%
 </div>
 
 <div style={sub}>
-volume
+win rate
 </div>
 
 </div>
 
 </div>
-))}
+
+)
+})}
 
 </div>
 
@@ -222,6 +237,21 @@ borderRadius:20,
 overflow:"hidden",
 marginTop:6,
 marginBottom:12
+}
+
+const bar={
+height:"100%",
+background:"#22c55e"
+}
+
+const bar2={
+height:"100%",
+background:"#3b82f6"
+}
+
+const bar3={
+height:"100%",
+background:"#a855f7"
 }
 
 const label={
