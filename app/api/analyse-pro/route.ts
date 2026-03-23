@@ -9,25 +9,10 @@ process.env.ALCHEMY_API_KEY,
 timeout:20000
 })
 
-/* stablecoins */
-const STABLES = [
-"usdc",
-"usdbc",
-"dai",
-"usdt"
-]
+const STABLES = ["usdc","usdbc","usdt","dai"]
 
-/* fetch ETH price */
-async function getEthPrice(){
-try{
-const r = await axios.get(
-"https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd"
-)
-return r.data.ethereum.usd
-}catch{
-return 3500
-}
-}
+const MAX_SWAP_USD = 50000
+const DEFAULT_SWAP_USD = 120
 
 export async function POST(req:NextRequest){
 
@@ -37,9 +22,6 @@ const supabase=getSupabase()
 const {wallet}=await req.json()
 const address=wallet.toLowerCase()
 
-const ETH_PRICE = await getEthPrice()
-
-/* transfers */
 const res=await rpc.post("/",{
 jsonrpc:"2.0",
 id:1,
@@ -72,19 +54,26 @@ if(seen.has(hash)) continue
 seen.add(hash)
 swaps++
 
-/* detect stablecoin */
-const symbol = (tx.asset || "").toLowerCase()
+const symbol=(tx.asset||"").toLowerCase()
 
+let usd = 0
+
+/* stablecoin real */
 if(STABLES.includes(symbol)){
 
-volume += Number(tx.value || 0)
+usd = Number(tx.value || 0)
+
+/* cap */
+if(usd > MAX_SWAP_USD)
+usd = MAX_SWAP_USD
 
 }else{
 
-/* estimate using ETH price */
-volume += Number(tx.value || 0) * ETH_PRICE
+usd = DEFAULT_SWAP_USD
 
 }
+
+volume += usd
 
 /* gas */
 try{
@@ -118,13 +107,11 @@ days.add(String(Math.floor(day/6500)))
 
 }
 
-/* score */
 const score =
 swaps*4 +
 volume/200 +
 gas*4000
 
-/* save */
 await supabase
 .from("leaderboard")
 .upsert({
