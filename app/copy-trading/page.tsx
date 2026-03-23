@@ -12,15 +12,11 @@ useEffect(()=>{
 const load = async()=>{
 
 try{
-
 const res = await fetch("/api/top-traders")
 const json = await res.json()
 
-if(Array.isArray(json)){
-setData(json)
-}else{
-setData(json?.data || [])
-}
+if(Array.isArray(json)) setData(json)
+else setData(json?.data || [])
 
 }catch{
 setData([])
@@ -39,105 +35,93 @@ navigator.clipboard.writeText(wallet || "")
 const getTag = (w:any)=>{
 
 if((w?.volume||0) > 100000) return "🐋 Whale"
-if((w?.swaps||0) > 500) return "⚡ High Trader"
+if((w?.swaps||0) > 500) return "⚡ Pro Trader"
 if((w?.score||0) > 5000) return "💎 Alpha"
 
 return "📈 Trader"
 }
 
 return(
-<div style={{
-padding:20,
-maxWidth:800,
-margin:"auto"
-}}>
+<div style={wrap}>
 
-<h1 style={{
-fontSize:30,
-fontWeight:700,
-marginBottom:15
-}}>
-📋 Copy Trading
+<h1 style={title}>
+🤖 Copy Trading PRO
 </h1>
 
-<div style={{
-opacity:0.7,
-marginBottom:20
-}}>
-Follow top wallets and copy their trades
+<div style={subtitle}>
+Follow top wallets and auto copy trades
 </div>
 
-{data.length === 0 && (
-<div style={{opacity:.6}}>
-No traders found
-</div>
-)}
-
-{data.map((w:any,i:number)=>{
+{data.map((w,i)=>{
 
 const wallet = w?.wallet || "unknown"
 
+const winRate =
+Math.min((w?.score || 0) / 100,100)
+
+const volumeBar =
+Math.min((w?.volume || 0) / 1000,100)
+
 return(
 
-<div
-key={i}
-style={{
-background:"#020617",
-border:"1px solid #0f172a",
-padding:16,
-borderRadius:14,
-marginBottom:12
-}}
->
+<div key={i} style={card}>
 
-{/* top row */}
-<div style={{
-display:"flex",
-justifyContent:"space-between",
-marginBottom:6
-}}>
+{/* header */}
+<div style={rowTop}>
 
 <div>
 #{i+1} {getTag(w)}
 </div>
 
-<div>
-Score: {Math.round(w?.score || 0)}
+<div style={score}>
+Score {Math.round(w?.score || 0)}
 </div>
 
 </div>
 
 {/* wallet */}
-<div style={{
-fontSize:13,
-opacity:0.8,
-wordBreak:"break-all",
-marginBottom:8
-}}>
+<div style={walletStyle}>
 {wallet}
 </div>
 
-{/* stats */}
+{/* win rate */}
+<div style={label}>Win Rate</div>
+<div style={bar}>
 <div style={{
-fontSize:12,
-opacity:0.7,
-marginBottom:10
-}}>
-Swaps: {w?.swaps || 0} |
+...barFill,
+width:`${winRate}%`,
+background:"linear-gradient(90deg,#22c55e,#4ade80)"
+}}/>
+</div>
+
+{/* volume */}
+<div style={label}>Volume</div>
+<div style={bar}>
+<div style={{
+...barFill,
+width:`${volumeBar}%`,
+background:"linear-gradient(90deg,#3b82f6,#60a5fa)"
+}}/>
+</div>
+
+{/* stats */}
+<div style={stats}>
+Swaps: {w?.swaps || 0} • 
 Volume: ${Math.round(w?.volume || 0)}
 </div>
 
 {/* buttons */}
-<div style={{
-display:"flex",
-gap:8
-}}>
+<div style={btnRow}>
 
 <button
 onClick={()=>copy(wallet)}
 style={copyBtn}
 >
 Copy wallet
+</button>
+
+<button style={tradeBtn}>
+🤖 Copy Trade
 </button>
 
 <Link href={`/wallet/${wallet}`} style={link}>
@@ -155,6 +139,87 @@ View profile
 )
 }
 
+/* styles */
+
+const wrap={
+padding:20,
+maxWidth:800,
+margin:"auto"
+}
+
+const title={
+fontSize:30,
+fontWeight:700,
+marginBottom:4,
+background:"linear-gradient(90deg,#22c55e,#4ade80)",
+WebkitBackgroundClip:"text",
+color:"transparent"
+}
+
+const subtitle={
+opacity:.6,
+marginBottom:20
+}
+
+const card={
+background:"rgba(2,6,23,.7)",
+border:"1px solid #0f172a",
+padding:16,
+borderRadius:16,
+marginBottom:14,
+backdropFilter:"blur(10px)",
+boxShadow:"0 0 25px rgba(34,197,94,.15)"
+}
+
+const rowTop={
+display:"flex",
+justifyContent:"space-between",
+marginBottom:6
+}
+
+const walletStyle={
+fontSize:12,
+opacity:.8,
+wordBreak:"break-all",
+marginBottom:8
+}
+
+const score={
+color:"#22c55e",
+fontWeight:600
+}
+
+const label={
+fontSize:11,
+opacity:.6,
+marginTop:6
+}
+
+const bar={
+height:6,
+background:"#111",
+borderRadius:20,
+overflow:"hidden",
+marginTop:4
+}
+
+const barFill={
+height:"100%",
+borderRadius:20
+}
+
+const stats={
+fontSize:11,
+opacity:.6,
+marginTop:8
+}
+
+const btnRow={
+display:"flex",
+gap:8,
+marginTop:10
+}
+
 const copyBtn={
 padding:"6px 12px",
 borderRadius:8,
@@ -164,12 +229,22 @@ cursor:"pointer",
 fontSize:12
 }
 
+const tradeBtn={
+padding:"6px 12px",
+borderRadius:8,
+background:"#a855f7",
+border:"none",
+cursor:"pointer",
+color:"#fff",
+fontSize:12
+}
+
 const link={
 padding:"6px 12px",
 borderRadius:8,
-background:"#111",
-border:"1px solid #333",
+background:"#020617",
+border:"1px solid #1f2937",
 textDecoration:"none",
-color:"#00ff9c",
+color:"#22c55e",
 fontSize:12
-  }
+}
