@@ -92,8 +92,6 @@ return ""
 return(
 <div style={{padding:20}}>
 
-<Link href="/">← Back to Home</Link>
-
 <h1 style={{fontSize:30,fontWeight:700}}>
 🏆 Leaderboard
 </h1>
@@ -184,15 +182,21 @@ w.wallet.toLowerCase() === wallet.toLowerCase()
 
 return(
 
-<div
+<Link
 key={i}
+href={`/wallet/${w.wallet}`}
+style={{textDecoration:"none"}}
+>
+
+<div
 style={{
 background: isYou ? "#06281c" : "#0b0b0b",
 color:"#00ff9c",
 padding:14,
 borderRadius:10,
 marginBottom:8,
-border: isYou ? "1px solid #00ff9c" : "1px solid #111"
+border: isYou ? "1px solid #00ff9c" : "1px solid #111",
+cursor:"pointer"
 }}
 >
 
@@ -229,6 +233,8 @@ Vol: ${Math.round(w.volume)}
 
 </div>
 
+</Link>
+
 )
 })}
 
@@ -256,4 +262,4 @@ Next
 
 </div>
 )
-}
+  } 
