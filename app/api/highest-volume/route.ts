@@ -3,33 +3,37 @@ import { getSupabase } from "@/lib/supabase"
 
 export async function GET(req:NextRequest){
 
-const supabase = getSupabase()
+const supabase=getSupabase()
 
 const { searchParams } = new URL(req.url)
 
-const page = Number(searchParams.get("page") || 1)
-const wallet = searchParams.get("wallet")
+const page=Number(searchParams.get("page")||1)
+const wallet=searchParams.get("wallet")
 
-const limit = 1000
-const offset = (page-1)*limit
+const limit=1000
+const from=(page-1)*limit
+const to=from+limit-1
 
 const { data } = await supabase
 .from("leaderboard")
 .select("*")
-.order("volume",{ascending:false})
-.range(offset, offset+limit-1)
+.order("tradingVolumeUSD",{ascending:false})
+.range(from,to)
 
-let yourRank = null
+let yourRank=null
 
 if(wallet){
 
-const { data: all } = await supabase
+const { data:all } = await supabase
 .from("leaderboard")
-.select("wallet")
-.order("volume",{ascending:false})
+.select("wallet,tradingVolumeUSD")
+.order("tradingVolumeUSD",{ascending:false})
 
-yourRank =
-all?.findIndex(w=>w.wallet===wallet)+1
+const i = all?.findIndex(
+w=>w.wallet.toLowerCase()===wallet.toLowerCase()
+)
+
+if(i!==-1) yourRank=i+1
 
 }
 
