@@ -15,8 +15,19 @@ try{
 const res = await fetch("/api/top-traders")
 const json = await res.json()
 
-if(Array.isArray(json)) setData(json)
-else setData(json?.data || [])
+let rows:any[] = []
+
+if(Array.isArray(json)) rows = json
+else rows = json?.data || []
+
+/* FIX FIELD NAMES */
+const mapped = rows.map((w:any)=>({
+...w,
+swaps: w.swapCount || 0,
+volume: w.tradingVolumeUSD || 0
+}))
+
+setData(mapped)
 
 }catch{
 setData([])
