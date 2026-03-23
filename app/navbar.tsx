@@ -2,17 +2,35 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useEffect, useState } from "react"
 
 export default function Navbar(){
 
 const pathname = usePathname()
+const [paid,setPaid] = useState(false)
+
+useEffect(()=>{
+
+const wallet = localStorage.getItem("lastWallet")
+
+if(!wallet) return
+
+fetch(`/api/check-paid?wallet=${wallet}`)
+.then(res=>res.json())
+.then(res=>{
+setPaid(res.paid)
+})
+
+},[])
 
 return(
 <div style={wrap}>
 
 <div style={nav}>
 
-<NavLink href="/" active={pathname==="/"}>🏠 Home</NavLink>
+<NavLink href="/" active={pathname==="/"}>
+🏠 Home {paid && <span style={badge}>PRO</span>}
+</NavLink>
 
 <NavLink href="/leaderboard" active={pathname==="/leaderboard"}>
 🏆 Leaderboard
@@ -30,7 +48,6 @@ return(
 💰 Volume
 </NavLink>
 
-{/* NEW COPY TRADING */}
 <NavLink href="/copy-trading" active={pathname==="/copy-trading"}>
 📋 Copy Trading
 </NavLink>
@@ -82,7 +99,10 @@ padding:"8px 14px",
 borderRadius:10,
 whiteSpace:"nowrap" as const,
 background:"rgba(15,23,42,0.5)",
-border:"1px solid #0f172a"
+border:"1px solid #0f172a",
+display:"flex",
+alignItems:"center",
+gap:6
 }
 
 const activeLink = {
@@ -90,4 +110,13 @@ background:"linear-gradient(90deg,#22c55e,#4ade80)",
 color:"#020617",
 fontWeight:700,
 boxShadow:"0 0 20px rgba(34,197,94,0.6)"
+}
+
+const badge = {
+background:"#22c55e",
+color:"#020617",
+padding:"2px 6px",
+borderRadius:6,
+fontSize:9,
+fontWeight:700
 }
