@@ -9,15 +9,8 @@ process.env.ALCHEMY_API_KEY,
 timeout:20000
 })
 
-const ETH_PRICE = 3500
-
-/* KNOWN DEX ROUTERS (BASE) */
-const ROUTERS = new Set([
-"0x1111111254eeb25477b68fb85ed929f73a960582", // 1inch
-"0xdef1c0ded9bec7f1a1670819833240f027b25eff", // 0x
-"0x327df1e6de05895d2ab08513aa.dd9313fe505d86", // aerodrome
-"0x4200000000000000000000000000000000000006", // weth
-])
+/* avg swap USD */
+const AVG_SWAP_USD = 150
 
 export async function POST(req:NextRequest){
 
@@ -44,11 +37,10 @@ maxCount:"0x3e8"
 const txs=res.data.result.transfers || []
 
 let swaps=0
-let volume=0
 let gas=0
 
 const days=new Set<string>()
-const swapHashes=new Set<string>()
+const seen=new Set<string>()
 
 for(const tx of txs){
 
@@ -56,22 +48,15 @@ const hash = tx.hash
 if(!hash) continue
 
 /* avoid duplicate */
-if(swapHashes.has(hash)) continue
+if(seen.has(hash)) continue
 
-/* detect token in/out */
+/* detect swap (token movement) */
 if(tx.category==="erc20"){
-
 swaps++
-swapHashes.add(hash)
-
-/* estimate volume */
-if(tx.value){
-volume += Number(tx.value)
+seen.add(hash)
 }
 
-}
-
-/* GAS */
+/* gas */
 try{
 
 const receipt=await rpc.post("/",{
@@ -92,7 +77,7 @@ parseInt(r.effectiveGasPrice,16))
 
 gas+=g
 
-/* active days */
+/* active day */
 if(r.blockNumber){
 const day=parseInt(r.blockNumber,16)
 days.add(String(Math.floor(day/6500)))
@@ -104,12 +89,13 @@ days.add(String(Math.floor(day/6500)))
 
 }
 
-/* USD */
-volume = volume * ETH_PRICE
+/* realistic volume */
+const volume = swaps * AVG_SWAP_USD
 
+/* score */
 const score=
-swaps*5+
-volume/50+
+swaps*3+
+volume/100+
 gas*4000
 
 /* SAVE */
