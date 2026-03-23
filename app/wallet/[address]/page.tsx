@@ -9,9 +9,11 @@ const params = useParams()
 const address = params.address as string
 
 const [data,setData]=useState<any>(null)
+const [tokens,setTokens]=useState<any[]>([])
 
 useEffect(()=>{
 
+// main stats
 fetch("/api/analyse-pro",{
 method:"POST",
 headers:{
@@ -21,6 +23,17 @@ body:JSON.stringify({wallet:address})
 })
 .then(res=>res.json())
 .then(setData)
+
+// token tracking
+fetch("/api/wallet-tokens",{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({wallet:address})
+})
+.then(res=>res.json())
+.then(setTokens)
 
 },[address])
 
@@ -54,7 +67,7 @@ Loading wallet...
 }
 
 return(
-<div style={{padding:20,maxWidth:800,margin:"auto"}}>
+<div style={{padding:20,maxWidth:900,margin:"auto"}}>
 
 {/* header */}
 <div style={card}>
@@ -132,6 +145,47 @@ width:`${Math.min(data.tradingDays*2,100)}%`
 
 </div>
 
+{/* token tracking */}
+<div style={card}>
+
+<h2>Top Tokens</h2>
+
+{tokens.length === 0 && (
+<div style={{opacity:0.6}}>
+No tokens found
+</div>
+)}
+
+{tokens.map((t,i)=>(
+<div key={i} style={tokenRow}>
+
+<div>
+<div style={{fontWeight:600}}>
+{t.symbol}
+</div>
+
+<div style={sub}>
+Buys: {t.buys} | Sells: {t.sells}
+</div>
+</div>
+
+<div style={{textAlign:"right"}}>
+
+<div>
+{Math.round(t.volume)}
+</div>
+
+<div style={sub}>
+volume
+</div>
+
+</div>
+
+</div>
+))}
+
+</div>
+
 </div>
 )
 }
@@ -173,4 +227,16 @@ marginBottom:12
 const label={
 fontSize:12,
 opacity:0.7
+}
+
+const tokenRow={
+display:"flex",
+justifyContent:"space-between",
+padding:"10px 0",
+borderBottom:"1px solid #111"
+}
+
+const sub={
+fontSize:11,
+opacity:0.6
 }
