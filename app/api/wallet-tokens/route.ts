@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     let all: any[] = []
     let pageKey: any = undefined
 
-    // FETCH ALL ERC20 TRANSFERS (BUY + SELL)
+    // fetch all erc20 transfers
     do {
 
       const res = await rpc.post("/", {
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
 
       const symbol =
         tx.asset ||
-        tx.rawContract?.address?.slice(0, 6) ||
+        tx.rawContract?.address?.slice(0,6) ||
         "UNKNOWN"
 
       const value = Number(tx.value || 0)
@@ -61,28 +61,52 @@ export async function POST(req: NextRequest) {
           volume: 0,
           buys: 0,
           sells: 0,
-          count: 0
+          wins: 0,
+          losses: 0,
+          lastBuy: 0
         }
       }
-
-      tokens[symbol].volume += value
-      tokens[symbol].count += 1
 
       const from = tx.from?.toLowerCase()
       const to = tx.to?.toLowerCase()
 
+      // BUY
       if (to === address) {
-        tokens[symbol].buys += 1
+        tokens[symbol].buys++
+        tokens[symbol].lastBuy = value
       }
 
+      // SELL
       if (from === address) {
-        tokens[symbol].sells += 1
+        tokens[symbol].sells++
+
+        if (value > tokens[symbol].lastBuy) {
+          tokens[symbol].wins++
+        } else {
+          tokens[symbol].losses++
+        }
       }
+
+      tokens[symbol].volume += value
     }
 
     const list = Object.values(tokens)
-      .sort((a: any, b: any) => b.volume - a.volume)
-      .slice(0, 25)
+      .map((t:any)=>{
+
+        const total = t.wins + t.losses
+
+        const winRate =
+          total > 0
+            ? (t.wins / total) * 100
+            : 0
+
+        return {
+          ...t,
+          winRate
+        }
+      })
+      .sort((a:any,b:any)=>b.volume-a.volume)
+      .slice(0,25)
 
     return NextResponse.json(list)
 
