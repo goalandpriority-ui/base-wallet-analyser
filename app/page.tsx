@@ -48,7 +48,6 @@ init()
 const checkPaid = async (addr?:string)=>{
 
 const w = addr || wallet
-
 if(!w) return
 
 const res = await fetch(`/api/check-paid?wallet=${w}`)
@@ -66,10 +65,8 @@ try{
 const tx = await sdk.actions.sendTransaction({
 
 chainId:8453,
-
 to:process.env.NEXT_PUBLIC_PAY_TO!,
-
-value:"0x5af3107a4000" // 0.000025 ETH
+value:"0x5af3107a4000"
 
 })
 
@@ -80,9 +77,7 @@ method:"POST",
 headers:{
 "Content-Type":"application/json"
 },
-body:JSON.stringify({
-wallet
-})
+body:JSON.stringify({wallet})
 })
 
 setPaid(true)
@@ -192,7 +187,7 @@ Analyse wallets on Base network
 
 </div>
 
-{/* WALLET CONNECT */}
+{/* wallet card */}
 <div style={card}>
 
 <div style={{fontSize:12,opacity:.6}}>
@@ -200,17 +195,29 @@ Connected Wallet
 </div>
 
 <div style={{
-wordBreak:"break-all",
+display:"flex",
+alignItems:"center",
+gap:8,
 marginTop:4
 }}>
+
+<div style={{wordBreak:"break-all"}}>
 {connecting
 ? "Connecting..."
 : wallet || "No wallet"}
 </div>
 
+{paid && (
+<div style={proBadge}>
+PRO
+</div>
+)}
+
 </div>
 
-{/* PAYMENT */}
+</div>
+
+{/* payment */}
 {!paid && wallet && (
 
 <div style={payCard}>
@@ -230,7 +237,7 @@ Pay & Unlock
 
 )}
 
-{/* ANALYSE BUTTON */}
+{/* analyse */}
 {paid && (
 
 <button
@@ -244,7 +251,7 @@ style={analyseBtn}
 
 <br/><br/>
 
-{/* RESULTS */}
+{/* results */}
 {data && !data.error && (
 
 <div style={result}>
@@ -275,21 +282,10 @@ style={analyseBtn}
 
 )}
 
-<style jsx global>{`
-@keyframes shine {
-0% { background-position:0% }
-100% { background-position:200% }
-}
-`}
-
-</style>
-
 </main>
 )
 
 }
-
-/* styles */
 
 const header={
 background:"linear-gradient(135deg,#020617,#020617,#001a1a)",
@@ -326,8 +322,7 @@ margin:0,
 background:"linear-gradient(90deg,#60a5fa,#34d399,#60a5fa)",
 backgroundSize:"200% 100%",
 WebkitBackgroundClip:"text" as const,
-WebkitTextFillColor:"transparent",
-animation:"shine 6s linear infinite"
+WebkitTextFillColor:"transparent"
 }
 
 const subtitle={
@@ -373,7 +368,6 @@ cursor:"pointer"
 
 const result={
 background:"rgba(2,6,23,0.8)",
-backdropFilter:"blur(10px)",
 color:"#00ff9c",
 padding:20,
 borderRadius:14,
@@ -384,4 +378,13 @@ border:"1px solid rgba(34,197,94,0.15)"
 const divider={
 margin:"15px 0",
 borderColor:"#0f172a"
-  }
+}
+
+const proBadge={
+background:"#22c55e",
+color:"#020617",
+padding:"2px 8px",
+borderRadius:6,
+fontSize:10,
+fontWeight:700
+}
