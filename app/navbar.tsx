@@ -13,11 +13,31 @@ return(
 <div style={nav}>
 
 <NavLink href="/" active={pathname==="/"}>🏠 Home</NavLink>
-<NavLink href="/leaderboard" active={pathname==="/leaderboard"}>🏆 Leaderboard</NavLink>
-<NavLink href="/top-wallets" active={pathname==="/top-wallets"}>👑 Wallets</NavLink>
-<NavLink href="/top-traders" active={pathname==="/top-traders"}>📈 Traders</NavLink>
-<NavLink href="/highest-volume" active={pathname==="/highest-volume"}>💰 Volume</NavLink>
-<NavLink href="/creator" active={pathname==="/creator"}>👤 Creator</NavLink>
+
+<NavLink href="/leaderboard" active={pathname==="/leaderboard"}>
+🏆 Leaderboard
+</NavLink>
+
+<NavLink href="/top-wallets" active={pathname==="/top-wallets"}>
+👑 Wallets
+</NavLink>
+
+<NavLink href="/top-traders" active={pathname==="/top-traders"}>
+📈 Traders
+</NavLink>
+
+<NavLink href="/highest-volume" active={pathname==="/highest-volume"}>
+💰 Volume
+</NavLink>
+
+{/* NEW COPY TRADING */}
+<NavLink href="/copy-trading" active={pathname==="/copy-trading"}>
+📋 Copy Trading
+</NavLink>
+
+<NavLink href="/creator" active={pathname==="/creator"}>
+👤 Creator
+</NavLink>
 
 </div>
 
