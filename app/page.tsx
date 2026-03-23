@@ -1,13 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
 
 export default function Home() {
   const [wallet, setWallet] = useState("")
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(false)
-  const [menu, setMenu] = useState(false)
 
   const analyse = async () => {
     setLoading(true)
@@ -65,62 +63,6 @@ export default function Home() {
         }}>
           🔥 Base Wallet Analyser (PRO)
         </h1>
-
-        {/* MENU BUTTON */}
-        <div style={{ position:"relative" }}>
-          <button
-            onClick={() => setMenu(!menu)}
-            style={{
-              background:"#0b0b0b",
-              color:"#00ff9c",
-              border:"1px solid #222",
-              padding:"8px 14px",
-              borderRadius:8,
-              fontSize:16,
-              cursor:"pointer"
-            }}
-          >
-            ☰
-          </button>
-
-          {/* DROPDOWN */}
-          {menu && (
-            <div style={{
-              position:"absolute",
-              right:0,
-              top:45,
-              background:"#0b0b0b",
-              border:"1px solid #222",
-              borderRadius:10,
-              width:220,
-              overflow:"hidden",
-              boxShadow:"0 10px 30px rgba(0,0,0,0.5)"
-            }}>
-
-              <Link href="/leaderboard">
-                <div style={menuItem}>🏆 Leaderboard</div>
-              </Link>
-
-              <Link href="/top-wallets">
-                <div style={menuItem}>👑 Top Wallets</div>
-              </Link>
-
-              <Link href="/top-traders">
-                <div style={menuItem}>📈 Top Traders</div>
-              </Link>
-
-              <Link href="/highest-volume">
-                <div style={menuItem}>💰 Highest Volume</div>
-              </Link>
-
-              {/* NEW CREATOR PAGE */}
-              <Link href="/creator">
-                <div style={menuItemNoBorder}>👤 Creator Profile</div>
-              </Link>
-
-            </div>
-          )}
-        </div>
 
       </div>
 
@@ -197,19 +139,6 @@ export default function Home() {
 
     </main>
   )
-}
-
-const menuItem = {
-  padding:"12px",
-  borderBottom:"1px solid #1a1a1a",
-  cursor:"pointer",
-  color:"#00ff9c"
-}
-
-const menuItemNoBorder = {
-  padding:"12px",
-  cursor:"pointer",
-  color:"#00ff9c"
 }
 
 const divider = {
