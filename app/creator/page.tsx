@@ -22,7 +22,6 @@ window.open(
 )
 }
 
-// mock donations (later real onchain)
 useEffect(()=>{
 
 setDonations([
@@ -141,7 +140,7 @@ Copy Address
 
 </div>
 
-{/* donations list */}
+{/* donations */}
 <div style={card}>
 
 <h3 style={{marginBottom:10}}>
@@ -163,10 +162,7 @@ borderBottom:"1px solid #13213d"
 }}>
 
 <div>{d.wallet}</div>
-
-<div>
-💰 {d.amount} ETH
-</div>
+<div>💰 {d.amount} ETH</div>
 
 </div>
 ))}
@@ -182,7 +178,7 @@ background:"#0b1a33",
 padding:20,
 borderRadius:16,
 marginBottom:20
-}
+} as const
 
 const btnPurple = {
 display:"block",
@@ -193,7 +189,7 @@ background:"linear-gradient(90deg,#9333ea,#6366f1)",
 textDecoration:"none",
 color:"white",
 textAlign:"center"
-}
+} as const
 
 const btnBlue = {
 display:"block",
@@ -204,7 +200,7 @@ background:"linear-gradient(90deg,#3b82f6,#22c55e)",
 textDecoration:"none",
 color:"white",
 textAlign:"center"
-}
+} as const
 
 const btnDark = {
 display:"block",
@@ -214,7 +210,7 @@ background:"#1f2937",
 textDecoration:"none",
 color:"white",
 textAlign:"center"
-}
+} as const
 
 const copyBtn = {
 marginTop:10,
@@ -224,7 +220,7 @@ background:"#1f2937",
 color:"white",
 border:"none",
 cursor:"pointer"
-}
+} as const
 
 const tipBtn = {
 marginTop:12,
@@ -235,4 +231,4 @@ background:"linear-gradient(90deg,#22c55e,#4ade80)",
 border:"none",
 fontWeight:600,
 cursor:"pointer"
-}
+} as const
