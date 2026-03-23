@@ -101,6 +101,17 @@ tokens.sort((a,b)=>b.winRate-a.winRate)[0]
 const pnl =
 tokens.reduce((a,t)=>a+(t.volume||0)*(t.winRate||0)/100,0)
 
+/* ALERT */
+useEffect(()=>{
+
+if(walletWinRate > 70){
+setTimeout(()=>{
+alert("🔥 High win rate trader detected")
+},1500)
+}
+
+},[walletWinRate])
+
 return(
 <div style={{padding:20,maxWidth:900,margin:"auto"}}>
 
@@ -225,6 +236,25 @@ win rate
 
 )
 })}
+
+</div>
+
+{/* COPY TRADE SIGNAL */}
+<div style={card}>
+
+<h2>🤖 Copy Trade Signal</h2>
+
+<div>
+Best Token: {bestToken?.symbol}
+</div>
+
+<div>
+Win Rate: {walletWinRate.toFixed(1)}%
+</div>
+
+<button style={copyTradeBtn}>
+Copy Next Trade
+</button>
 
 </div>
 
