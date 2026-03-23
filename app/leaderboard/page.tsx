@@ -27,17 +27,14 @@ setRank(res.yourRank)
 
 }
 
-// leaderboard refresh
 useEffect(()=>{
 
 load()
-
 const i=setInterval(load,5000)
 return ()=>clearInterval(i)
 
 },[page])
 
-// stats load
 useEffect(()=>{
 
 fetch("/api/stats")
@@ -96,7 +93,7 @@ return(
 🏆 Leaderboard
 </h1>
 
-{/* GLOBAL STATS + TRENDING */}
+{/* GLOBAL */}
 
 {stats && (
 
@@ -119,13 +116,17 @@ marginBottom:15
 <hr style={{margin:"10px 0",borderColor:"#222"}} />
 
 <div style={{fontWeight:700}}>
-⚡ Live Activity
+🔥 Trending Wallets
 </div>
 
 {stats.trending?.map((w:any,i:number)=>(
-<div key={i}>
+<Link
+key={i}
+href={`/wallet/${w.wallet}`}
+style={{display:"block",marginTop:4}}
+>
 #{i+1} {w.wallet}
-</div>
+</Link>
 ))}
 
 </div>
@@ -262,4 +263,4 @@ Next
 
 </div>
 )
-  } 
+}
