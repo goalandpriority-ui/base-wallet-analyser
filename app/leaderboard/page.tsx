@@ -177,9 +177,12 @@ Search
 {data.map((w,i)=>{
 
 const position = (page-1)*1000+i+1
+
 const isYou =
 wallet &&
 w.wallet.toLowerCase() === wallet.toLowerCase()
+
+const isPaid = w.paid
 
 return(
 
@@ -196,7 +199,14 @@ color:"#00ff9c",
 padding:14,
 borderRadius:10,
 marginBottom:8,
-border: isYou ? "1px solid #00ff9c" : "1px solid #111",
+border: isPaid
+? "1px solid #22c55e"
+: isYou
+? "1px solid #00ff9c"
+: "1px solid #111",
+boxShadow: isPaid
+? "0 0 10px rgba(34,197,94,0.4)"
+: "none",
 cursor:"pointer"
 }}
 >
@@ -208,6 +218,11 @@ justifyContent:"space-between"
 
 <div>
 {getBadge(position)} #{position}
+{isPaid && (
+<span style={proBadge}>
+PRO
+</span>
+)}
 </div>
 
 <div>
@@ -263,4 +278,14 @@ Next
 
 </div>
 )
+}
+
+const proBadge={
+marginLeft:8,
+background:"#22c55e",
+color:"#020617",
+padding:"2px 6px",
+borderRadius:4,
+fontSize:9,
+fontWeight:700
 }
