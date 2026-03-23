@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getSupabase } from "../../../lib/supabase"
+import { getSupabase } from "@/lib/supabase"
 
 export async function GET(req:NextRequest){
 
@@ -11,7 +11,8 @@ const page = Number(searchParams.get("page") || 1)
 const wallet = searchParams.get("wallet")
 
 const limit = 1000
-const offset = (page - 1) * limit
+const from = (page-1) * limit
+const to = from + limit - 1
 
 /* leaderboard page */
 
@@ -19,31 +20,29 @@ const { data } = await supabase
 .from("leaderboard")
 .select("*")
 .order("score",{ascending:false})
-.range(offset, offset + limit - 1)
+.range(from,to)
 
-/* your rank */
+/* rank */
 
 let yourRank = null
 
 if(wallet){
 
-const { data: better } = await supabase
+const { data:all } = await supabase
 .from("leaderboard")
-.select("score")
-.gt("score",
-supabase
-.from("leaderboard")
-.select("score")
-.eq("wallet",wallet)
+.select("wallet,score")
+.order("score",{ascending:false})
+
+const index = all?.findIndex(
+w=>w.wallet.toLowerCase() === wallet.toLowerCase()
 )
 
-yourRank = better?.length + 1
+if(index !== -1) yourRank = index + 1
 
 }
 
 return NextResponse.json({
 data,
-page,
 yourRank
 })
 
