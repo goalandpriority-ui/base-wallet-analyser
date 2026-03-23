@@ -14,17 +14,24 @@ const limit = 1000
 const from = (page-1) * limit
 const to = from + limit - 1
 
-/* leaderboard page */
-
 const { data } = await supabase
 .from("leaderboard")
 .select("*")
 .order("score",{ascending:false})
 .range(from,to)
 
+/* MAP FIELDS */
+const mapped = (data || []).map(w=>({
+wallet: w.wallet,
+score: w.score || 0,
+swaps: w.swapCount || 0,
+volume: w.tradingVolumeUSD || 0,
+paid: w.paid || false
+}))
+
 /* rank */
 
-let yourRank = null
+let yourRank=null
 
 if(wallet){
 
@@ -34,15 +41,15 @@ const { data:all } = await supabase
 .order("score",{ascending:false})
 
 const index = all?.findIndex(
-w=>w.wallet.toLowerCase() === wallet.toLowerCase()
+w=>w.wallet.toLowerCase()===wallet.toLowerCase()
 )
 
-if(index !== -1) yourRank = index + 1
+if(index!==-1) yourRank=index+1
 
 }
 
 return NextResponse.json({
-data,
+data:mapped,
 yourRank
 })
 
