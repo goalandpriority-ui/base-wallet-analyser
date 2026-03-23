@@ -23,39 +23,49 @@ await sdk.actions.ready()
 
 const context:any = await sdk.context
 
-const userWallet =
+const fcWallet =
 context?.user?.verifiedAddresses?.ethAddresses?.[0]
 
-if(userWallet){
-setWallet(userWallet)
-localStorage.setItem("lastWallet",userWallet)
-checkPaid(userWallet)
+if(fcWallet){
+setWallet(fcWallet)
+localStorage.setItem("lastWallet",fcWallet)
+checkPaid(fcWallet)
 setConnecting(false)
 return
 }
 
 }catch{}
 
-/* BROWSER WALLETS */
+/* INJECTED WALLET AUTO */
 try{
 
 const eth = (window as any).ethereum
 
 if(eth){
 
-const accounts = await eth.request({
+const acc = await eth.request({
 method:"eth_accounts"
 })
 
-if(accounts?.[0]){
-setWallet(accounts[0])
-localStorage.setItem("lastWallet",accounts[0])
-checkPaid(accounts[0])
+if(acc?.[0]){
+setWallet(acc[0])
+localStorage.setItem("lastWallet",acc[0])
+checkPaid(acc[0])
+setConnecting(false)
+return
 }
 
 }
 
 }catch{}
+
+/* CACHE */
+const cached = localStorage.getItem("lastWallet")
+
+if(cached){
+setWallet(cached)
+checkPaid(cached)
+}
 
 setConnecting(false)
 
@@ -73,7 +83,7 @@ try{
 const eth = (window as any).ethereum
 
 if(!eth){
-alert("Wallet not found")
+alert("No wallet found")
 return
 }
 
@@ -113,7 +123,7 @@ try{
 
 let tx:any = null
 
-/* FORCE BASE NETWORK */
+/* FORCE BASE */
 try{
 
 const eth = (window as any).ethereum
@@ -253,64 +263,39 @@ setLoading(false)
 }
 
 return(
-<main style={{
-padding:20,
-fontFamily:"system-ui",
-maxWidth:700,
-margin:"auto"
-}}>
+<main style={wrap}>
 
 {/* HEADER */}
 <div style={header}>
-
 <div style={glow}/>
-
-<div style={{
-display:"flex",
-alignItems:"center",
-gap:14
-}}>
-
+<div style={titleWrap}>
 <div style={icon}>⚡</div>
-
 <div>
 <h1 style={title}>Base Wallet Analyser</h1>
 <div style={subtitle}>
 Analyse wallets on Base network
 </div>
 </div>
-
 </div>
 </div>
 
 {/* WALLET */}
 <div style={card}>
 
-<div style={{fontSize:12,opacity:.6}}>
-Connected Wallet
-</div>
+<div style={small}>Connected Wallet</div>
 
-<div style={{
-display:"flex",
-alignItems:"center",
-gap:8,
-marginTop:4
-}}>
+<div style={walletRow}>
 
-<div style={{wordBreak:"break-all"}}>
+<div style={walletText}>
 {connecting
 ? "Connecting..."
 : wallet || "No wallet"}
 </div>
 
-{paid && (
-<div style={proBadge}>
-PRO
-</div>
-)}
+{paid && <div style={pro}>PRO</div>}
 
 {!wallet && !connecting && (
-<button onClick={connectWallet} style={connectBtn}>
+<button onClick={connectWallet} style={connect}>
 Connect
 </button>
 )}
@@ -319,7 +304,7 @@ Connect
 
 </div>
 
-{/* PAYMENT */}
+{/* PAY */}
 {!paid && wallet && (
 
 <div style={payCard}>
@@ -338,16 +323,14 @@ Pay & Unlock
 
 {/* ANALYSE */}
 {paid && (
-
 <button onClick={analyse} style={analyseBtn}>
 {loading ? "Analysing..." : "Analyse Wallet"}
 </button>
-
 )}
 
 <br/><br/>
 
-{/* RESULTS */}
+{/* RESULT */}
 {data && !data.error && (
 
 <div style={result}>
@@ -360,11 +343,8 @@ Pay & Unlock
 <hr style={divider}/>
 
 <p>🔁 Swaps: {data.swapCount || 0}</p>
-
 <p>💎 Trading Volume: ${data.tradingVolumeUSD ?? 0}</p>
-
 <p>📅 Trading Days: {data.tradingDays || 0}</p>
-
 <p>⛽ Trading Gas: {data.tradingGasETH || 0} ETH</p>
 
 <hr style={divider}/>
@@ -383,15 +363,14 @@ Pay & Unlock
 
 /* styles */
 
+const wrap={padding:20,maxWidth:700,margin:"auto"}
+
 const header={
-background:"linear-gradient(135deg,#020617,#020617,#001a1a)",
+background:"#020617",
 padding:24,
 borderRadius:18,
 marginBottom:25,
-border:"1px solid rgba(34,197,94,0.2)",
-boxShadow:"0 0 60px rgba(34,197,94,0.08)",
-position:"relative",
-overflow:"hidden"
+position:"relative"
 }
 
 const glow={
@@ -400,15 +379,20 @@ width:200,
 height:200,
 background:"radial-gradient(circle,#22c55e33,transparent)",
 top:-60,
-right:-60,
-filter:"blur(40px)"
+right:-60
+}
+
+const titleWrap={
+display:"flex",
+alignItems:"center",
+gap:14
 }
 
 const icon={fontSize:34}
 
 const title={fontSize:28,fontWeight:700,margin:0}
 
-const subtitle={fontSize:13,color:"#9ca3af",marginTop:4}
+const subtitle={fontSize:13,opacity:.7}
 
 const card={
 background:"#020617",
@@ -416,6 +400,35 @@ padding:14,
 borderRadius:10,
 border:"1px solid #111",
 marginBottom:10
+}
+
+const small={fontSize:12,opacity:.6}
+
+const walletRow={
+display:"flex",
+alignItems:"center",
+gap:8,
+marginTop:4
+}
+
+const walletText={
+wordBreak:"break-all"
+}
+
+const pro={
+background:"#22c55e",
+color:"#020617",
+padding:"2px 8px",
+borderRadius:6,
+fontSize:10,
+fontWeight:700
+}
+
+const connect={
+padding:"4px 10px",
+background:"#22c55e",
+border:"none",
+borderRadius:6
 }
 
 const payCard={
@@ -429,47 +442,27 @@ border:"1px solid #22c55e"
 const payBtn={
 marginTop:10,
 padding:"8px 16px",
-borderRadius:8,
 background:"#22c55e",
-border:"none"
+border:"none",
+borderRadius:8
 }
 
 const analyseBtn={
 padding:"12px 24px",
 borderRadius:10,
-border:"1px solid #22c55e",
-background:"linear-gradient(90deg,#16a34a,#22c55e)",
-color:"#022c22",
+background:"#22c55e",
+border:"none",
 fontWeight:600
 }
 
 const result={
-background:"rgba(2,6,23,0.8)",
+background:"#020617",
 color:"#00ff9c",
 padding:20,
-borderRadius:14,
-marginTop:10
+borderRadius:14
 }
 
 const divider={
 margin:"15px 0",
 borderColor:"#0f172a"
 }
-
-const proBadge={
-background:"#22c55e",
-color:"#020617",
-padding:"2px 8px",
-borderRadius:6,
-fontSize:10,
-fontWeight:700
-}
-
-const connectBtn={
-marginLeft:8,
-padding:"4px 10px",
-borderRadius:6,
-background:"#22c55e",
-border:"none",
-fontSize:11
-                               }
