@@ -20,6 +20,14 @@ const { data } = await supabase
 .order("tradingVolumeUSD",{ascending:false})
 .range(from,to)
 
+const mapped=(data||[]).map(w=>({
+wallet:w.wallet,
+score:w.score||0,
+swaps:w.swapCount||0,
+volume:w.tradingVolumeUSD||0,
+paid:w.paid||false
+}))
+
 let yourRank=null
 
 if(wallet){
@@ -29,7 +37,7 @@ const { data:all } = await supabase
 .select("wallet,tradingVolumeUSD")
 .order("tradingVolumeUSD",{ascending:false})
 
-const i = all?.findIndex(
+const i=all?.findIndex(
 w=>w.wallet.toLowerCase()===wallet.toLowerCase()
 )
 
@@ -38,7 +46,7 @@ if(i!==-1) yourRank=i+1
 }
 
 return NextResponse.json({
-data,
+data:mapped,
 yourRank
 })
 
