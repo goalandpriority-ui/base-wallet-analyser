@@ -19,8 +19,17 @@ useEffect(()=>{
 fetch(`/api/highest-volume?page=${page}&wallet=${wallet||""}`)
 .then(res=>res.json())
 .then(res=>{
-setData(res.data || [])
+
+/* FIX FIELD NAMES */
+const mapped = (res.data || []).map((w:any)=>({
+...w,
+volume: w.tradingVolumeUSD || 0,
+swaps: w.swapCount || 0
+}))
+
+setData(mapped)
 setRank(res.yourRank)
+
 })
 
 },[page])
