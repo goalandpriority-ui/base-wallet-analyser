@@ -105,7 +105,7 @@ const value = Number(t.value || 0)
 
 if (!value) continue
 
-// sent
+// SENT
 if (t.from?.toLowerCase() === address) {
 sent++
 
@@ -118,7 +118,7 @@ txVolume += value * ETH_PRICE
 }
 }
 
-// received
+// RECEIVED
 if (t.to?.toLowerCase() === address) {
 received++
 }
@@ -126,7 +126,7 @@ received++
 }
 
 // =============================
-// SWAP DETECT (FINAL)
+// SWAP DETECT
 // =============================
 if (sent > 0 && received > 0) {
 
@@ -151,8 +151,12 @@ tradingGas += 0.00012
 }
 
 return NextResponse.json({
-wallet,
-swaps,
+wallet: address,
+
+// 🔥 both keys for UI safety
+swaps: swaps,
+swapCount: swaps,
+
 tradingVolumeUSD: Number(volumeUSD.toFixed(2)),
 tradingDays: Object.keys(tradingDays).length,
 tradingGas: Number(tradingGas.toFixed(6))
@@ -163,6 +167,7 @@ console.error(err)
 
 return NextResponse.json({
 swaps:0,
+swapCount:0,
 tradingVolumeUSD:0,
 tradingDays:0,
 tradingGas:0
