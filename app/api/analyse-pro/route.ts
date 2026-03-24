@@ -1,92 +1,186 @@
 import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
 
-const RPC =
-process.env.BASE_RPC ||
-`https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
-
-const rpc = axios.create({
-baseURL: RPC,
-timeout: 20000
-})
-
-// DEX routers (Base)
-const DEX = [
-"0x1111111254eeb25477b68fb85ed929f73a960582", // 0x
-"0xdef1c0ded9bec7f1a1670819833240f027b25eff",
-"0x327df1e6de05895d2ab08513aaDD9313Fe505d86", // aerodrome
-"0x1b02da8cb0d097eb8d57a175b88c7d8b47997506", // uniswap
-"0x2626664c2603336e57b271c5c0b26f421741e481"  // baseswap
-].map(x=>x.toLowerCase())
-
-export async function POST(req: NextRequest){
-try{
+export async function POST(req: NextRequest) {
+try {
 
 const { wallet } = await req.json()
 
-// latest block
-const latest = await rpc.post("",{
-jsonrpc:"2.0",
-id:1,
-method:"eth_blockNumber",
-params:[]
+if (!wallet) {
+return NextResponse.json({ error: "Wallet required" })
+}
+
+const address = wallet.toLowerCase()
+
+let allTransfers: any[] = []
+let pageKey: string | undefined = undefined
+
+// =============================
+// ETH PRICE (live)
+// =============================
+let ETH_PRICE = 3000
+
+try{
+const price = await axios.get(
+"https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd"
+)
+ETH_PRICE = price.data.ethereum.usd || 3000
+}catch{}
+
+// =============================
+// FETCH TRANSFERS
+// =============================
+const fetchTransfers = async (type: "fromAddress" | "toAddress") => {
+
+pageKey = undefined
+
+do {
+
+const res = await axios.post(process.env.BASE_RPC!, {
+jsonrpc: "2.0",
+id: 1,
+method: "alchemy_getAssetTransfers",
+params: [
+{
+fromBlock: "0x0",
+toBlock: "latest",
+category: ["external", "erc20"],
+withMetadata: true,
+excludeZeroValue: true,
+maxCount: "0x3e8",
+pageKey,
+[type]: address,
+},
+],
 })
 
-const toBlock = parseInt(latest.data.result,16)
-const fromBlock = toBlock - 5000
+const result = res.data.result
 
-// get txs (alchemy method)
-const txs = await rpc.post("",{
-jsonrpc:"2.0",
-id:1,
-method:"alchemy_getAssetTransfers",
-params:[{
-fromBlock:"0x"+fromBlock.toString(16),
-toBlock:"latest",
-fromAddress:wallet,
-category:["external","erc20"]
-}]
-})
+if (result?.transfers) {
+allTransfers = allTransfers.concat(result.transfers)
+}
 
-let swaps = 0
-let volume = 0
-let gas = 0
-const days = new Set()
+pageKey = result.pageKey
 
-for(const tx of txs.data.result.transfers){
+if (allTransfers.length > 15000) break
 
-const to = tx.to?.toLowerCase()
+} while (pageKey)
+}
 
-if(!to) continue
+await fetchTransfers("fromAddress")
+await fetchTransfers("toAddress")
 
-if(DEX.includes(to)){
-swaps++
+// =============================
+// GROUP BY TX
+// =============================
+const txMap = new Map<string, any[]>()
 
-volume += 100
-gas += 0.0001
+for (const tx of allTransfers) {
+if (!txMap.has(tx.hash)) {
+txMap.set(tx.hash, [])
+}
+txMap.get(tx.hash)!.push(tx)
+}
 
-const day = Math.floor((tx.metadata.blockTimestamp
-? new Date(tx.metadata.blockTimestamp).getTime()/1000
-: Date.now()/1000)/86400)
+// =============================
+// ANALYSIS
+// =============================
+let swapCount = 0
+let volumeUSD = 0
+let tradingGasETH = 0
+const tradingDays: Record<string, boolean> = {}
 
-days.add(day)
+const STABLES = [
+"USDC",
+"USDT",
+"DAI",
+"USDbC"
+]
+
+for (const [hash, transfers] of txMap.entries()) {
+
+let sentAssets: string[] = []
+let receivedAssets: string[] = []
+
+let sentValueUSD = 0
+
+for (const t of transfers) {
+
+const asset = (t.asset || "").toUpperCase()
+const value = Number(t.value || 0)
+
+if (!value) continue
+
+// sent
+if (t.from?.toLowerCase() === address) {
+sentAssets.push(asset)
+
+if (STABLES.includes(asset)) {
+sentValueUSD += value
+}
+
+if (asset === "ETH" || asset === "WETH") {
+sentValueUSD += value * ETH_PRICE
+}
+}
+
+// received
+if (t.to?.toLowerCase() === address) {
+receivedAssets.push(asset)
+}
+
+}
+
+// remove duplicates
+const uniqueSent = Array.from(new Set(sentAssets))
+const uniqueReceived = Array.from(new Set(receivedAssets))
+
+// =============================
+// SWAP DETECT
+// =============================
+if (
+uniqueSent.length > 0 &&
+uniqueReceived.length > 0 &&
+JSON.stringify(uniqueSent) !== JSON.stringify(uniqueReceived)
+) {
+
+swapCount++
+
+volumeUSD += sentValueUSD
+
+// trading day
+const sample = transfers[0]
+
+if (sample.metadata?.blockTimestamp) {
+const day = new Date(sample.metadata.blockTimestamp)
+.toISOString()
+.split("T")[0]
+
+tradingDays[day] = true
+}
+
+// approx gas
+tradingGasETH += 0.00015
 }
 
 }
 
 return NextResponse.json({
-swaps,
-tradingVolume:volume,
-tradingGas:gas,
-tradingDays:days.size
+wallet,
+swaps: swapCount,
+tradingVolumeUSD: Number(volumeUSD.toFixed(2)),
+tradingDays: Object.keys(tradingDays).length,
+tradingGas: Number(tradingGasETH.toFixed(6))
 })
 
-}catch(e){
+} catch (err) {
+console.error(err)
+
 return NextResponse.json({
 swaps:0,
-tradingVolume:0,
-tradingGas:0,
-tradingDays:0
+tradingVolumeUSD:0,
+tradingDays:0,
+tradingGas:0
 })
 }
-}
+  }
