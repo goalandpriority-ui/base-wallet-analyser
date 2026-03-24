@@ -58,24 +58,15 @@ const symbol=(tx.asset||"").toLowerCase()
 
 let usd = 0
 
-/* stablecoin real */
 if(STABLES.includes(symbol)){
-
 usd = Number(tx.value || 0)
-
-/* cap */
-if(usd > MAX_SWAP_USD)
-usd = MAX_SWAP_USD
-
+if(usd > MAX_SWAP_USD) usd = MAX_SWAP_USD
 }else{
-
 usd = DEFAULT_SWAP_USD
-
 }
 
 volume += usd
 
-/* gas */
 try{
 
 const receipt=await rpc.post("/",{
@@ -116,11 +107,11 @@ await supabase
 .from("leaderboard")
 .upsert({
 wallet:address,
-score,
-swapCount:swaps,
-tradingVolumeUSD:volume,
-tradingDays:days.size,
-tradingGasETH:gas,
+score:score,
+swapcount:swaps,
+tradingvolumeusd:volume,
+tradingdays:days.size,
+tradinggaseth:gas,
 updated_at:new Date().toISOString()
 },{onConflict:"wallet"})
 
