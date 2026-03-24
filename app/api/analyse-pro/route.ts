@@ -20,6 +20,11 @@ try{
 
 const supabase=getSupabase()
 const {wallet}=await req.json()
+
+if(!wallet){
+return NextResponse.json({error:"no wallet"})
+}
+
 const address=wallet.toLowerCase()
 
 const res=await rpc.post("/",{
@@ -103,38 +108,32 @@ swaps*4 +
 volume/200 +
 gas*4000
 
+/* IMPORTANT FIX */
 await supabase
 .from("leaderboard")
 .upsert({
-wallet:address,
-score:score,
-swapcount:swaps,
-tradingvolumeusd:volume,
-tradingdays:days.size,
-tradinggaseth:gas,
-updated_at:new Date().toISOString()
-},{onConflict:"wallet"})
+wallet: address,
+score: Number(score),
+swapcount: Number(swaps),
+tradingvolumeusd: Number(volume),
+tradingdays: Number(days.size),
+tradinggaseth: Number(gas),
+updated_at: new Date().toISOString()
+})
 
 return NextResponse.json({
-wallet,
+wallet:address,
 swapCount:swaps,
 tradingVolumeUSD:Number(volume.toFixed(2)),
 tradingDays:days.size,
 tradingGasETH:Number(gas.toFixed(6)),
-score:Math.round(score),
-rank:1
+score:Math.round(score)
 })
 
-}catch{
+}catch(e){
 
 return NextResponse.json({
-wallet:"",
-swapCount:0,
-tradingVolumeUSD:0,
-tradingDays:0,
-tradingGasETH:0,
-score:0,
-rank:0
+error:"analyse failed"
 })
 
 }
