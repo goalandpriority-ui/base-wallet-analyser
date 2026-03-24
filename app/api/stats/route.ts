@@ -8,7 +8,6 @@ const supabase = getSupabase()
 const fiveMinAgo =
 new Date(Date.now() - 5 * 60 * 1000).toISOString()
 
-// global stats
 const { data } = await supabase
 .from("leaderboard")
 .select("*")
@@ -22,7 +21,6 @@ swaps += Number(w.swapcount || 0)
 volume += Number(w.tradingvolumeusd || 0)
 }
 
-// trending last 5 min
 const { data: trending } = await supabase
 .from("leaderboard")
 .select("*")
