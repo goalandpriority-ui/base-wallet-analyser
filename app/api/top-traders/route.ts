@@ -17,14 +17,14 @@ const to=from+limit-1
 const { data } = await supabase
 .from("leaderboard")
 .select("*")
-.order("swapCount",{ascending:false})
+.order("swapcount",{ascending:false})
 .range(from,to)
 
 const mapped=(data||[]).map(w=>({
 wallet:w.wallet,
-score:w.score||0,
-swaps:w.swapCount||0,
-volume:w.tradingVolumeUSD||0,
+score:Number(w.score||0),
+swaps:Number(w.swapcount||0),
+volume:Number(w.tradingvolumeusd||0),
 paid:w.paid||false
 }))
 
@@ -34,8 +34,8 @@ if(wallet){
 
 const { data:all } = await supabase
 .from("leaderboard")
-.select("wallet,swapCount")
-.order("swapCount",{ascending:false})
+.select("wallet,swapcount")
+.order("swapcount",{ascending:false})
 
 const i=all?.findIndex(
 w=>w.wallet.toLowerCase()===wallet.toLowerCase()
