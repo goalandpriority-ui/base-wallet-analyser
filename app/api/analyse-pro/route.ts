@@ -1,120 +1,183 @@
 import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
-
-const RPC =
-process.env.BASE_RPC ||
-`https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
+import { getSupabase } from "../../../lib/supabase"
 
 const rpc = axios.create({
-baseURL: RPC,
-timeout: 10000
+baseURL:
+"https://base-mainnet.g.alchemy.com/v2/" +
+process.env.ALCHEMY_API_KEY,
+timeout:20000
 })
 
-// known base DEX routers
-const DEX = [
-"0x327Df1E6de05895d2ab08513aaDD9313Fe505d86", // uniswap
-"0xcF77a3Ba9A5CA399B7c97c74d54e5b1F3F8c3F5e", // aerodrome
-"0x1111111254EEB25477B68fb85Ed929f73A960582", // 1inch
-"0xdef1c0ded9bec7f1a1670819833240f027b25eff", // 0x
-].map(x => x.toLowerCase())
+/* swap topic */
+const SWAP_TOPIC =
+"0xd78ad95fa46c994b6551d0da85fc275fe613caa5f7e3a0f7e2e7bc01db57a2c9"
 
-export async function POST(req: NextRequest) {
+/* stablecoins */
+const STABLES=["usdc","usdbc","usdt","dai"]
+
+const MAX_SWAP=15000
+
+export async function POST(req:NextRequest){
 
 try{
 
-const { wallet } = await req.json()
-const address = wallet.toLowerCase()
+const supabase=getSupabase()
+const {wallet}=await req.json()
 
-// latest block
-const latest = await rpc.post("",{
+const address=wallet.toLowerCase()
+
+/* transfers */
+const res=await rpc.post("/",{
 jsonrpc:"2.0",
-method:"eth_blockNumber",
-params:[],
-id:1
-})
-
-const latestBlock = parseInt(latest.data.result,16)
-
-const fromBlock = "0x" + (latestBlock - 50000).toString(16)
-
-const txs = await rpc.post("",{
-jsonrpc:"2.0",
-method:"eth_getLogs",
+id:1,
+method:"alchemy_getAssetTransfers",
 params:[{
-fromBlock,
+fromBlock:"0x0",
 toBlock:"latest",
-topics:[
-"0xddf252ad", // transfer
-null,
-"0x000000000000000000000000"+address.slice(2)
-]
-}],
-id:1
+fromAddress:address,
+category:["erc20"],
+withMetadata:true,
+maxCount:"0x3e8"
+}]
 })
 
-let swaps = 0
-let volume = 0
-let tradingGas = 0
-let days = new Set<string>()
+const txs=res.data.result.transfers || []
 
-for(const log of txs.data.result){
+let swaps=0
+let volume=0
+let gas=0
 
-const tx = await rpc.post("",{
+const seen=new Set<string>()
+const days=new Set<string>()
+
+for(const tx of txs){
+
+const hash=tx.hash
+if(!hash) continue
+if(seen.has(hash)) continue
+
+seen.add(hash)
+
+/* receipt */
+const receipt=await rpc.post("/",{
 jsonrpc:"2.0",
-method:"eth_getTransactionByHash",
-params:[log.transactionHash],
-id:1
+id:1,
+method:"eth_getTransactionReceipt",
+params:[hash]
 })
 
-const to = tx.data.result?.to?.toLowerCase()
+const r=receipt.data.result
+if(!r) continue
 
-if(!to) continue
+/* detect swap by topic */
+let isSwap=false
 
-// detect swap
-if(DEX.includes(to)){
+for(const log of r.logs || []){
+
+if(
+log.topics &&
+log.topics[0] &&
+log.topics[0].toLowerCase() === SWAP_TOPIC
+){
+isSwap=true
+break
+}
+
+}
+
+if(!isSwap) continue
+
+const symbol=(tx.asset || "").toLowerCase()
+const amount=Number(tx.value || 0)
+
+if(!amount) continue
+
+/* ignore dust */
+if(amount < 0.001) continue
+
+let usd=0
+
+if(STABLES.includes(symbol)){
+usd=amount
+}else{
+continue
+}
+
+/* cap */
+if(usd>MAX_SWAP) usd=MAX_SWAP
 
 swaps++
+volume+=usd
 
-const val = parseInt(tx.data.result.value || "0",16)/1e18
-volume += val
+/* gas */
+const g=
+(parseInt(r.gasUsed,16)*
+parseInt(r.effectiveGasPrice,16))
+/1e18
 
-const gas = parseInt(tx.data.result.gas || "0",16)
-const gasPrice = parseInt(tx.data.result.gasPrice || "0",16)
+gas+=g
 
-tradingGas += (gas * gasPrice)/1e18
-
-const block = await rpc.post("",{
-jsonrpc:"2.0",
-method:"eth_getBlockByNumber",
-params:[tx.data.result.blockNumber,false],
-id:1
-})
-
-const ts = parseInt(block.data.result.timestamp,16)*1000
-const d = new Date(ts).toDateString()
-
-days.add(d)
-
+/* days */
+if(r.blockNumber){
+const day=parseInt(r.blockNumber,16)
+days.add(String(Math.floor(day/6500)))
 }
 
 }
+
+const score =
+swaps*5 +
+volume/200 +
+gas*3000
+
+await supabase
+.from("leaderboard")
+.upsert({
+wallet:address,
+score,
+swapcount:swaps,
+tradingvolumeusd:volume,
+tradingdays:days.size,
+tradinggaseth:gas,
+updated_at:new Date().toISOString()
+},{onConflict:"wallet"})
+
+/* rank */
+const { data:all } = await supabase
+.from("leaderboard")
+.select("wallet,score")
+.order("score",{ascending:false})
+
+let rank=0
+
+const i=all?.findIndex(
+w=>w.wallet.toLowerCase()===address
+)
+
+if(i!==-1) rank=i+1
 
 return NextResponse.json({
-swaps,
-tradingVolume: volume,
-tradingGas,
-tradingDays: days.size
+wallet,
+swapCount:swaps,
+tradingVolumeUSD:Number(volume.toFixed(2)),
+tradingDays:days.size,
+tradingGasETH:Number(gas.toFixed(6)),
+score:Math.round(score),
+rank
 })
 
 }catch(e){
 
 return NextResponse.json({
-swaps:0,
-tradingVolume:0,
-tradingGas:0,
-tradingDays:0
+wallet:"",
+swapCount:0,
+tradingVolumeUSD:0,
+tradingDays:0,
+tradingGasETH:0,
+score:0,
+rank:0
 })
 
 }
-
 }
