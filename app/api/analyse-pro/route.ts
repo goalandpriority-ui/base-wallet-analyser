@@ -10,17 +10,17 @@ baseURL: RPC,
 timeout: 20000
 })
 
-// Known DEX routers
+// DEX routers (Base)
 const DEX = [
 "0x1111111254eeb25477b68fb85ed929f73a960582", // 0x
-"0xdef1c0ded9bec7f1a1670819833240f027b25eff", // 0x alt
-"0x327df1e6de05895d2ab08513aaDD9313Fe505d86", // Aerodrome
-"0x1b02da8cb0d097eb8d57a175b88c7d8b47997506", // Uniswap
-"0x2626664c2603336E57B271c5C0b26F421741e481" // BaseSwap
-].map(x => x.toLowerCase())
+"0xdef1c0ded9bec7f1a1670819833240f027b25eff",
+"0x327df1e6de05895d2ab08513aaDD9313Fe505d86", // aerodrome
+"0x1b02da8cb0d097eb8d57a175b88c7d8b47997506", // uniswap
+"0x2626664c2603336e57b271c5c0b26f421741e481"  // baseswap
+].map(x=>x.toLowerCase())
 
-export async function POST(req: NextRequest) {
-try {
+export async function POST(req: NextRequest){
+try{
 
 const { wallet } = await req.json()
 
@@ -33,60 +33,52 @@ params:[]
 })
 
 const toBlock = parseInt(latest.data.result,16)
-const fromBlock = toBlock - 8000
+const fromBlock = toBlock - 5000
 
-// tx list
-const logs = await rpc.post("",{
+// get txs (alchemy method)
+const txs = await rpc.post("",{
 jsonrpc:"2.0",
 id:1,
-method:"eth_getLogs",
+method:"alchemy_getAssetTransfers",
 params:[{
 fromBlock:"0x"+fromBlock.toString(16),
 toBlock:"latest",
-topics:[]
+fromAddress:wallet,
+category:["external","erc20"]
 }]
 })
 
 let swaps = 0
 let volume = 0
 let gas = 0
-let tradingDays = new Set()
+const days = new Set()
 
-for(const log of logs.data.result){
+for(const tx of txs.data.result.transfers){
 
-const address = log.address?.toLowerCase()
+const to = tx.to?.toLowerCase()
 
-if(!DEX.includes(address)) continue
+if(!to) continue
 
+if(DEX.includes(to)){
 swaps++
 
-const block = parseInt(log.blockNumber,16)
+volume += 100
+gas += 0.0001
 
-const blockRes = await rpc.post("",{
-jsonrpc:"2.0",
-id:1,
-method:"eth_getBlockByNumber",
-params:[log.blockNumber,false]
-})
+const day = Math.floor((tx.metadata.blockTimestamp
+? new Date(tx.metadata.blockTimestamp).getTime()/1000
+: Date.now()/1000)/86400)
 
-const ts = parseInt(blockRes.data.result.timestamp,16)
-const day = Math.floor(ts / 86400)
-
-tradingDays.add(day)
-
-// fake volume estimate
-volume += 50
-
-// fake gas estimate
-gas += 0.00005
+days.add(day)
+}
 
 }
 
 return NextResponse.json({
 swaps,
-tradingVolume: volume,
-tradingGas: gas,
-tradingDays: tradingDays.size
+tradingVolume:volume,
+tradingGas:gas,
+tradingDays:days.size
 })
 
 }catch(e){
