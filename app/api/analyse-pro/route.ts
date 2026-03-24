@@ -11,14 +11,10 @@ return NextResponse.json({ error: "Wallet required" })
 }
 
 const address = wallet.toLowerCase()
-const rpc = process.env.BASE_RPC!
 
 let allTransfers: any[] = []
 let pageKey: string | undefined = undefined
 
-// =============================
-// ETH PRICE
-// =============================
 let ETH_PRICE = 3000
 
 try{
@@ -28,16 +24,13 @@ const price = await axios.get(
 ETH_PRICE = price.data.ethereum.usd || 3000
 }catch{}
 
-// =============================
-// FETCH TRANSFERS
-// =============================
 const fetchTransfers = async (type: "fromAddress" | "toAddress") => {
 
 pageKey = undefined
 
 do {
 
-const res = await axios.post(rpc, {
+const res = await axios.post(process.env.BASE_RPC!, {
 jsonrpc: "2.0",
 id: 1,
 method: "alchemy_getAssetTransfers",
@@ -71,9 +64,6 @@ if (allTransfers.length > 15000) break
 await fetchTransfers("fromAddress")
 await fetchTransfers("toAddress")
 
-// =============================
-// GROUP BY TX
-// =============================
 const txMap = new Map<string, any[]>()
 
 for (const tx of allTransfers) {
@@ -83,9 +73,6 @@ txMap.set(tx.hash, [])
 txMap.get(tx.hash)!.push(tx)
 }
 
-// =============================
-// ANALYSIS
-// =============================
 let swaps = 0
 let volumeUSD = 0
 let tradingGas = 0
@@ -124,7 +111,6 @@ received++
 
 }
 
-// swap detect
 if (sent > 0 && received > 0) {
 
 swaps++
@@ -140,7 +126,6 @@ const day = new Date(sample.metadata.blockTimestamp)
 tradingDays[day] = true
 }
 
-// 🔥 GAS ESTIMATE (reliable)
 tradingGas += 0.00025
 
 }
@@ -149,11 +134,15 @@ tradingGas += 0.00025
 
 return NextResponse.json({
 wallet: address,
+
 swaps,
 swapCount: swaps,
+
 tradingVolumeUSD: Number(volumeUSD.toFixed(2)),
 tradingDays: Object.keys(tradingDays).length,
-tradingGas: Number(tradingGas.toFixed(6))
+
+tradingGas,
+tradingGasETH: tradingGas
 })
 
 } catch (err) {
@@ -163,7 +152,8 @@ swaps:0,
 swapCount:0,
 tradingVolumeUSD:0,
 tradingDays:0,
-tradingGas:0
+tradingGas:0,
+tradingGasETH:0
 })
 
 }
