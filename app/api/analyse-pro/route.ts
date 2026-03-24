@@ -15,6 +15,9 @@ const address = wallet.toLowerCase()
 let allTransfers: any[] = []
 let pageKey: string | undefined = undefined
 
+// =============================
+// ETH PRICE
+// =============================
 let ETH_PRICE = 3000
 
 try{
@@ -24,6 +27,9 @@ const price = await axios.get(
 ETH_PRICE = price.data.ethereum.usd || 3000
 }catch{}
 
+// =============================
+// FETCH TRANSFERS
+// =============================
 const fetchTransfers = async (type: "fromAddress" | "toAddress") => {
 
 pageKey = undefined
@@ -64,6 +70,9 @@ if (allTransfers.length > 15000) break
 await fetchTransfers("fromAddress")
 await fetchTransfers("toAddress")
 
+// =============================
+// GROUP BY TX
+// =============================
 const txMap = new Map<string, any[]>()
 
 for (const tx of allTransfers) {
@@ -73,6 +82,9 @@ txMap.set(tx.hash, [])
 txMap.get(tx.hash)!.push(tx)
 }
 
+// =============================
+// ANALYSIS
+// =============================
 let swaps = 0
 let volumeUSD = 0
 let tradingGas = 0
@@ -93,6 +105,7 @@ const value = Number(t.value || 0)
 
 if (!value) continue
 
+// SENT
 if (t.from?.toLowerCase() === address) {
 sent++
 
@@ -105,12 +118,14 @@ txVolume += value * ETH_PRICE
 }
 }
 
+// RECEIVED
 if (t.to?.toLowerCase() === address) {
 received++
 }
 
 }
 
+// SWAP DETECT
 if (sent > 0 && received > 0) {
 
 swaps++
@@ -126,11 +141,32 @@ const day = new Date(sample.metadata.blockTimestamp)
 tradingDays[day] = true
 }
 
+// gas estimate
 tradingGas += 0.00025
 
 }
 
 }
+
+// =============================
+// SCORE
+// =============================
+const score =
+(swaps * 2) +
+(Object.keys(tradingDays).length * 1.5) +
+(volumeUSD / 100) +
+(tradingGas * 500)
+
+// =============================
+// RANK
+// =============================
+let rank = "#-"
+
+if (score > 200) rank = "#1"
+else if (score > 150) rank = "#2"
+else if (score > 100) rank = "#3"
+else if (score > 70) rank = "#4"
+else if (score > 40) rank = "#5"
 
 return NextResponse.json({
 wallet: address,
@@ -141,8 +177,11 @@ swapCount: swaps,
 tradingVolumeUSD: Number(volumeUSD.toFixed(2)),
 tradingDays: Object.keys(tradingDays).length,
 
-tradingGas,
-tradingGasETH: tradingGas
+tradingGas: Number(tradingGas.toFixed(6)),
+tradingGasETH: Number(tradingGas.toFixed(6)),
+
+score: Math.floor(score),
+rank
 })
 
 } catch (err) {
@@ -153,7 +192,9 @@ swapCount:0,
 tradingVolumeUSD:0,
 tradingDays:0,
 tradingGas:0,
-tradingGasETH:0
+tradingGasETH:0,
+score:0,
+rank:"#-"
 })
 
 }
