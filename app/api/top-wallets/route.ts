@@ -22,9 +22,9 @@ const { data } = await supabase
 
 const mapped=(data||[]).map(w=>({
 wallet:w.wallet,
-score:w.score||0,
-swaps:w.swapCount||0,
-volume:w.tradingVolumeUSD||0,
+score:Number(w.score||0),
+swaps:Number(w.swapcount||0),
+volume:Number(w.tradingvolumeusd||0),
 paid:w.paid||false
 }))
 
