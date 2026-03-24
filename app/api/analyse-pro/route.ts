@@ -94,7 +94,7 @@ const STABLES = [
 "USDC",
 "USDT",
 "DAI",
-"USDbC"
+"USDBC"
 ]
 
 for (const [hash, transfers] of txMap.entries()) {
@@ -111,7 +111,7 @@ const value = Number(t.value || 0)
 
 if (!value) continue
 
-// sent
+// SENT
 if (t.from?.toLowerCase() === address) {
 sentAssets.push(asset)
 
@@ -124,25 +124,28 @@ sentValueUSD += value * ETH_PRICE
 }
 }
 
-// received
+// RECEIVED
 if (t.to?.toLowerCase() === address) {
 receivedAssets.push(asset)
 }
 
 }
 
-// remove duplicates
 const uniqueSent = Array.from(new Set(sentAssets))
 const uniqueReceived = Array.from(new Set(receivedAssets))
 
 // =============================
-// SWAP DETECT
+// SWAP DETECT (FIXED)
 // =============================
-if (
+const isSwap =
 uniqueSent.length > 0 &&
 uniqueReceived.length > 0 &&
-JSON.stringify(uniqueSent) !== JSON.stringify(uniqueReceived)
-) {
+(
+uniqueSent.some(a => !uniqueReceived.includes(a)) ||
+uniqueReceived.some(a => !uniqueSent.includes(a))
+)
+
+if (isSwap) {
 
 swapCount++
 
@@ -159,8 +162,9 @@ const day = new Date(sample.metadata.blockTimestamp)
 tradingDays[day] = true
 }
 
-// approx gas
+// gas estimate
 tradingGasETH += 0.00015
+
 }
 
 }
@@ -183,4 +187,4 @@ tradingDays:0,
 tradingGas:0
 })
 }
-  }
+}
