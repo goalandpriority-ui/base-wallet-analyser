@@ -20,12 +20,13 @@ const { data } = await supabase
 .order("score",{ascending:false})
 .range(from,to)
 
-/* MAP FIELDS */
 const mapped = (data || []).map(w=>({
 wallet: w.wallet,
-score: w.score || 0,
-swaps: w.swapcount || 0,
-volume: w.tradingvolumeusd || 0,
+score: Number(w.score || 0),
+swaps: Number(w.swapcount || 0),
+volume: Number(w.tradingvolumeusd || 0),
+days: Number(w.tradingdays || 0),
+gas: Number(w.tradinggaseth || 0),
 paid: w.paid || false
 }))
 
