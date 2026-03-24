@@ -23,8 +23,8 @@ fetch(`/api/top-traders?page=${page}&wallet=${wallet||""}`)
 /* FIX FIELD NAMES */
 const mapped = (res.data || []).map((w:any)=>({
 ...w,
-swaps: w.swapCount || 0,
-volume: w.tradingVolumeUSD || 0
+swaps: w.swapcount ?? w.swaps ?? w.swapCount ?? 0,
+volume: w.tradingvolumeusd ?? w.volume ?? w.tradingVolumeUSD ?? 0
 }))
 
 setData(mapped)
@@ -126,8 +126,6 @@ Volume: ${Math.round(w.volume)}
 
 )
 })}
-
-{/* pagination */}
 
 <div style={{
 marginTop:20,
