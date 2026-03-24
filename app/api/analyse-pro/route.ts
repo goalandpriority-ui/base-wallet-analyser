@@ -11,8 +11,15 @@ timeout:20000
 
 const STABLES = ["usdc","usdbc","usdt","dai"]
 
-const MAX_SWAP_USD = 50000
-const DEFAULT_SWAP_USD = 120
+/* BASE DEX ROUTERS */
+const DEX = [
+"0x327df1e6de05895d2ab08513aa-dd9313fe505d86", // aerodrome
+"0x1111111254eeb25477b68fb85ed929f73a960582", // 0x
+"0xdef1c0ded9bec7f1a1670819833240f027b25eff", // matcha
+"0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad", // uniswap
+"0x5e325eda8064b456f4781070c0738d849c824258", // baseswap
+"0x8cfe327cec66d1c090dd72bd0ff11d690c33a2eb"  // sushi
+].map(a=>a.toLowerCase())
 
 export async function POST(req:NextRequest){
 
@@ -22,6 +29,7 @@ const supabase=getSupabase()
 const {wallet}=await req.json()
 const address=wallet.toLowerCase()
 
+/* transfers */
 const res=await rpc.post("/",{
 jsonrpc:"2.0",
 id:1,
@@ -52,23 +60,8 @@ if(!hash) continue
 if(seen.has(hash)) continue
 
 seen.add(hash)
-swaps++
 
-const symbol=(tx.asset||"").toLowerCase()
-
-let usd = 0
-
-if(STABLES.includes(symbol)){
-usd = Number(tx.value || 0)
-if(usd > MAX_SWAP_USD) usd = MAX_SWAP_USD
-}else{
-usd = DEFAULT_SWAP_USD
-}
-
-volume += usd
-
-try{
-
+/* check receipt */
 const receipt=await rpc.post("/",{
 jsonrpc:"2.0",
 id:1,
@@ -77,9 +70,33 @@ params:[hash]
 })
 
 const r=receipt.data.result
+if(!r) continue
 
-if(r){
+const to = (r.to || "").toLowerCase()
 
+/* ONLY DEX swaps */
+if(!DEX.includes(to)) continue
+
+const symbol=(tx.asset||"").toLowerCase()
+const amount = Number(tx.value || 0)
+
+if(!amount) continue
+
+let usd = 0
+
+if(STABLES.includes(symbol)){
+usd = amount
+}else{
+continue
+}
+
+/* cap whales */
+if(usd > 20000) usd = 20000
+
+swaps++
+volume += usd
+
+/* gas */
 const g=
 (parseInt(r.gasUsed,16)*
 parseInt(r.effectiveGasPrice,16))
@@ -94,14 +111,11 @@ days.add(String(Math.floor(day/6500)))
 
 }
 
-}catch{}
-
-}
-
+/* score */
 const score =
-swaps*4 +
-volume/200 +
-gas*4000
+swaps*5 +
+volume/150 +
+gas*3000
 
 await supabase
 .from("leaderboard")
@@ -115,20 +129,19 @@ tradinggaseth:gas,
 updated_at:new Date().toISOString()
 },{onConflict:"wallet"})
 
-/* GET REAL RANK */
-
-const { data: all } = await supabase
+/* calculate rank */
+const { data:all } = await supabase
 .from("leaderboard")
 .select("wallet,score")
 .order("score",{ascending:false})
 
-let rank = 0
+let rank=1
 
-const index = all?.findIndex(
-w=>w.wallet.toLowerCase() === address.toLowerCase()
+const i=all?.findIndex(
+w=>w.wallet.toLowerCase()===address
 )
 
-if(index !== -1) rank = index + 1
+if(i!==-1) rank=i+1
 
 return NextResponse.json({
 wallet,
@@ -153,5 +166,4 @@ rank:0
 })
 
 }
-
 }
