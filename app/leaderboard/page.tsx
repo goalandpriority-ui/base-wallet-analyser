@@ -25,9 +25,9 @@ fetch(`/api/leaderboard?page=${page}&wallet=${wallet||""}`)
 /* FIX FIELD NAMES */
 const mapped = (res.data || []).map((w:any)=>({
 ...w,
-swaps: w.swapCount || 0,
-volume: w.tradingVolumeUSD || 0,
-days: w.tradingDays || 0
+swaps: w.swapcount ?? w.swaps ?? w.swapCount ?? 0,
+volume: w.tradingvolumeusd ?? w.volume ?? w.tradingVolumeUSD ?? 0,
+days: w.tradingdays ?? w.days ?? w.tradingDays ?? 0
 }))
 
 setData(mapped)
