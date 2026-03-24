@@ -18,8 +18,8 @@ let swaps = 0
 let volume = 0
 
 for(const w of data || []){
-swaps += w.swaps || 0
-volume += w.volume || 0
+swaps += Number(w.swapcount || 0)
+volume += Number(w.tradingvolumeusd || 0)
 }
 
 // trending last 5 min
