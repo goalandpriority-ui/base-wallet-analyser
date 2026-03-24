@@ -24,12 +24,10 @@ const { data } = await supabase
 const mapped = (data || []).map(w=>({
 wallet: w.wallet,
 score: w.score || 0,
-swaps: w.swapCount || 0,
-volume: w.tradingVolumeUSD || 0,
+swaps: w.swapcount || 0,
+volume: w.tradingvolumeusd || 0,
 paid: w.paid || false
 }))
-
-/* rank */
 
 let yourRank=null
 
