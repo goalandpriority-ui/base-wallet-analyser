@@ -23,8 +23,8 @@ fetch(`/api/highest-volume?page=${page}&wallet=${wallet||""}`)
 /* FIX FIELD NAMES */
 const mapped = (res.data || []).map((w:any)=>({
 ...w,
-volume: w.tradingVolumeUSD || 0,
-swaps: w.swapCount || 0
+volume: w.tradingvolumeusd ?? w.volume ?? w.tradingVolumeUSD ?? 0,
+swaps: w.swapcount ?? w.swaps ?? w.swapCount ?? 0
 }))
 
 setData(mapped)
@@ -126,8 +126,6 @@ Swaps: {w.swaps}
 
 )
 })}
-
-{/* pagination */}
 
 <div style={{
 marginTop:20,
