@@ -103,7 +103,6 @@ swaps*4 +
 volume/200 +
 gas*4000
 
-/* IMPORTANT — lowercase DB columns */
 await supabase
 .from("leaderboard")
 .upsert({
@@ -116,6 +115,21 @@ tradinggaseth:gas,
 updated_at:new Date().toISOString()
 },{onConflict:"wallet"})
 
+/* GET REAL RANK */
+
+const { data: all } = await supabase
+.from("leaderboard")
+.select("wallet,score")
+.order("score",{ascending:false})
+
+let rank = 0
+
+const index = all?.findIndex(
+w=>w.wallet.toLowerCase() === address.toLowerCase()
+)
+
+if(index !== -1) rank = index + 1
+
 return NextResponse.json({
 wallet,
 swapCount:swaps,
@@ -123,10 +137,10 @@ tradingVolumeUSD:Number(volume.toFixed(2)),
 tradingDays:days.size,
 tradingGasETH:Number(gas.toFixed(6)),
 score:Math.round(score),
-rank:1
+rank
 })
 
-}catch(e){
+}catch{
 
 return NextResponse.json({
 wallet:"",
@@ -139,4 +153,4 @@ rank:0
 })
 
 }
-}
+}}
