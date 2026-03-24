@@ -8,7 +8,6 @@ const supabase = getSupabase()
 const { searchParams } = new URL(req.url)
 
 const page = Number(searchParams.get("page") || 1)
-const wallet = searchParams.get("wallet")
 
 const limit = 1000
 const from = (page-1) * limit
@@ -20,36 +19,26 @@ const { data } = await supabase
 .order("score",{ascending:false})
 .range(from,to)
 
-const mapped = (data || []).map(w=>({
+const mapped = (data || []).map((w,i)=>({
+
+rank: i+1,
 wallet: w.wallet,
+
 score: Number(w.score || 0),
+
+/* IMPORTANT */
 swaps: Number(w.swapcount || 0),
 volume: Number(w.tradingvolumeusd || 0),
+
 days: Number(w.tradingdays || 0),
 gas: Number(w.tradinggaseth || 0),
+
 paid: w.paid || false
+
 }))
 
-let yourRank=null
-
-if(wallet){
-
-const { data:all } = await supabase
-.from("leaderboard")
-.select("wallet,score")
-.order("score",{ascending:false})
-
-const index = all?.findIndex(
-w=>w.wallet.toLowerCase()===wallet.toLowerCase()
-)
-
-if(index!==-1) yourRank=index+1
-
-}
-
 return NextResponse.json({
-data:mapped,
-yourRank
+data:mapped
 })
 
 }
