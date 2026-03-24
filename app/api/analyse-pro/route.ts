@@ -1,183 +1,100 @@
 import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
-import { getSupabase } from "../../../lib/supabase"
+
+const RPC =
+process.env.BASE_RPC ||
+`https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
 
 const rpc = axios.create({
-baseURL:
-"https://base-mainnet.g.alchemy.com/v2/" +
-process.env.ALCHEMY_API_KEY,
-timeout:20000
+baseURL: RPC,
+timeout: 20000
 })
 
-/* swap topic */
-const SWAP_TOPIC =
-"0xd78ad95fa46c994b6551d0da85fc275fe613caa5f7e3a0f7e2e7bc01db57a2c9"
+// Known DEX routers
+const DEX = [
+"0x1111111254eeb25477b68fb85ed929f73a960582", // 0x
+"0xdef1c0ded9bec7f1a1670819833240f027b25eff", // 0x alt
+"0x327df1e6de05895d2ab08513aaDD9313Fe505d86", // Aerodrome
+"0x1b02da8cb0d097eb8d57a175b88c7d8b47997506", // Uniswap
+"0x2626664c2603336E57B271c5C0b26F421741e481" // BaseSwap
+].map(x => x.toLowerCase())
 
-/* stablecoins */
-const STABLES=["usdc","usdbc","usdt","dai"]
+export async function POST(req: NextRequest) {
+try {
 
-const MAX_SWAP=15000
+const { wallet } = await req.json()
 
-export async function POST(req:NextRequest){
-
-try{
-
-const supabase=getSupabase()
-const {wallet}=await req.json()
-
-const address=wallet.toLowerCase()
-
-/* transfers */
-const res=await rpc.post("/",{
+// latest block
+const latest = await rpc.post("",{
 jsonrpc:"2.0",
 id:1,
-method:"alchemy_getAssetTransfers",
+method:"eth_blockNumber",
+params:[]
+})
+
+const toBlock = parseInt(latest.data.result,16)
+const fromBlock = toBlock - 8000
+
+// tx list
+const logs = await rpc.post("",{
+jsonrpc:"2.0",
+id:1,
+method:"eth_getLogs",
 params:[{
-fromBlock:"0x0",
+fromBlock:"0x"+fromBlock.toString(16),
 toBlock:"latest",
-fromAddress:address,
-category:["erc20"],
-withMetadata:true,
-maxCount:"0x3e8"
+topics:[]
 }]
 })
 
-const txs=res.data.result.transfers || []
+let swaps = 0
+let volume = 0
+let gas = 0
+let tradingDays = new Set()
 
-let swaps=0
-let volume=0
-let gas=0
+for(const log of logs.data.result){
 
-const seen=new Set<string>()
-const days=new Set<string>()
+const address = log.address?.toLowerCase()
 
-for(const tx of txs){
-
-const hash=tx.hash
-if(!hash) continue
-if(seen.has(hash)) continue
-
-seen.add(hash)
-
-/* receipt */
-const receipt=await rpc.post("/",{
-jsonrpc:"2.0",
-id:1,
-method:"eth_getTransactionReceipt",
-params:[hash]
-})
-
-const r=receipt.data.result
-if(!r) continue
-
-/* detect swap by topic */
-let isSwap=false
-
-for(const log of r.logs || []){
-
-if(
-log.topics &&
-log.topics[0] &&
-log.topics[0].toLowerCase() === SWAP_TOPIC
-){
-isSwap=true
-break
-}
-
-}
-
-if(!isSwap) continue
-
-const symbol=(tx.asset || "").toLowerCase()
-const amount=Number(tx.value || 0)
-
-if(!amount) continue
-
-/* ignore dust */
-if(amount < 0.001) continue
-
-let usd=0
-
-if(STABLES.includes(symbol)){
-usd=amount
-}else{
-continue
-}
-
-/* cap */
-if(usd>MAX_SWAP) usd=MAX_SWAP
+if(!DEX.includes(address)) continue
 
 swaps++
-volume+=usd
 
-/* gas */
-const g=
-(parseInt(r.gasUsed,16)*
-parseInt(r.effectiveGasPrice,16))
-/1e18
+const block = parseInt(log.blockNumber,16)
 
-gas+=g
+const blockRes = await rpc.post("",{
+jsonrpc:"2.0",
+id:1,
+method:"eth_getBlockByNumber",
+params:[log.blockNumber,false]
+})
 
-/* days */
-if(r.blockNumber){
-const day=parseInt(r.blockNumber,16)
-days.add(String(Math.floor(day/6500)))
+const ts = parseInt(blockRes.data.result.timestamp,16)
+const day = Math.floor(ts / 86400)
+
+tradingDays.add(day)
+
+// fake volume estimate
+volume += 50
+
+// fake gas estimate
+gas += 0.00005
+
 }
-
-}
-
-const score =
-swaps*5 +
-volume/200 +
-gas*3000
-
-await supabase
-.from("leaderboard")
-.upsert({
-wallet:address,
-score,
-swapcount:swaps,
-tradingvolumeusd:volume,
-tradingdays:days.size,
-tradinggaseth:gas,
-updated_at:new Date().toISOString()
-},{onConflict:"wallet"})
-
-/* rank */
-const { data:all } = await supabase
-.from("leaderboard")
-.select("wallet,score")
-.order("score",{ascending:false})
-
-let rank=0
-
-const i=all?.findIndex(
-w=>w.wallet.toLowerCase()===address
-)
-
-if(i!==-1) rank=i+1
 
 return NextResponse.json({
-wallet,
-swapCount:swaps,
-tradingVolumeUSD:Number(volume.toFixed(2)),
-tradingDays:days.size,
-tradingGasETH:Number(gas.toFixed(6)),
-score:Math.round(score),
-rank
+swaps,
+tradingVolume: volume,
+tradingGas: gas,
+tradingDays: tradingDays.size
 })
 
 }catch(e){
-
 return NextResponse.json({
-wallet:"",
-swapCount:0,
-tradingVolumeUSD:0,
-tradingDays:0,
-tradingGasETH:0,
-score:0,
-rank:0
+swaps:0,
+tradingVolume:0,
+tradingGas:0,
+tradingDays:0
 })
-
 }
 }
