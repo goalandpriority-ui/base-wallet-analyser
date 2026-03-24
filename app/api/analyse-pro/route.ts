@@ -15,6 +15,9 @@ const address = wallet.toLowerCase()
 let allTransfers: any[] = []
 let pageKey: string | undefined = undefined
 
+// RPC
+const rpc = process.env.BASE_RPC!
+
 // =============================
 // ETH PRICE
 // =============================
@@ -36,7 +39,7 @@ pageKey = undefined
 
 do {
 
-const res = await axios.post(process.env.BASE_RPC!, {
+const res = await axios.post(rpc, {
 jsonrpc: "2.0",
 id: 1,
 method: "alchemy_getAssetTransfers",
@@ -144,7 +147,33 @@ const day = new Date(sample.metadata.blockTimestamp)
 tradingDays[day] = true
 }
 
-tradingGas += 0.00012
+// =============================
+// 🔥 REAL GAS FETCH
+// =============================
+try {
+
+const receipt = await axios.post(rpc,{
+jsonrpc:"2.0",
+id:1,
+method:"eth_getTransactionReceipt",
+params:[hash]
+})
+
+const gasUsed = parseInt(
+receipt.data.result.gasUsed || "0x0",
+16
+)
+
+const gasPrice = parseInt(
+receipt.data.result.effectiveGasPrice || "0x0",
+16
+)
+
+const gasETH = (gasUsed * gasPrice) / 1e18
+
+tradingGas += gasETH
+
+}catch{}
 
 }
 
@@ -152,11 +181,8 @@ tradingGas += 0.00012
 
 return NextResponse.json({
 wallet: address,
-
-// 🔥 both keys for UI safety
-swaps: swaps,
+swaps,
 swapCount: swaps,
-
 tradingVolumeUSD: Number(volumeUSD.toFixed(2)),
 tradingDays: Object.keys(tradingDays).length,
 tradingGas: Number(tradingGas.toFixed(6))
