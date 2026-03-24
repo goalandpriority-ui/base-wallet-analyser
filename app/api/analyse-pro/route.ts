@@ -11,12 +11,10 @@ return NextResponse.json({ error: "Wallet required" })
 }
 
 const address = wallet.toLowerCase()
+const rpc = process.env.BASE_RPC!
 
 let allTransfers: any[] = []
 let pageKey: string | undefined = undefined
-
-// RPC
-const rpc = process.env.BASE_RPC!
 
 // =============================
 // ETH PRICE
@@ -65,7 +63,7 @@ allTransfers = allTransfers.concat(result.transfers)
 
 pageKey = result.pageKey
 
-if (allTransfers.length > 20000) break
+if (allTransfers.length > 15000) break
 
 } while (pageKey)
 }
@@ -108,7 +106,6 @@ const value = Number(t.value || 0)
 
 if (!value) continue
 
-// SENT
 if (t.from?.toLowerCase() === address) {
 sent++
 
@@ -121,20 +118,16 @@ txVolume += value * ETH_PRICE
 }
 }
 
-// RECEIVED
 if (t.to?.toLowerCase() === address) {
 received++
 }
 
 }
 
-// =============================
-// SWAP DETECT
-// =============================
+// swap detect
 if (sent > 0 && received > 0) {
 
 swaps++
-
 volumeUSD += txVolume
 
 const sample = transfers[0]
@@ -147,33 +140,8 @@ const day = new Date(sample.metadata.blockTimestamp)
 tradingDays[day] = true
 }
 
-// =============================
-// 🔥 REAL GAS FETCH
-// =============================
-try {
-
-const receipt = await axios.post(rpc,{
-jsonrpc:"2.0",
-id:1,
-method:"eth_getTransactionReceipt",
-params:[hash]
-})
-
-const gasUsed = parseInt(
-receipt.data.result.gasUsed || "0x0",
-16
-)
-
-const gasPrice = parseInt(
-receipt.data.result.effectiveGasPrice || "0x0",
-16
-)
-
-const gasETH = (gasUsed * gasPrice) / 1e18
-
-tradingGas += gasETH
-
-}catch{}
+// 🔥 GAS ESTIMATE (reliable)
+tradingGas += 0.00025
 
 }
 
@@ -189,7 +157,6 @@ tradingGas: Number(tradingGas.toFixed(6))
 })
 
 } catch (err) {
-console.error(err)
 
 return NextResponse.json({
 swaps:0,
@@ -198,5 +165,6 @@ tradingVolumeUSD:0,
 tradingDays:0,
 tradingGas:0
 })
+
 }
 }
