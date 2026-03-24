@@ -11,6 +11,7 @@ return NextResponse.json({ error: "Wallet required" })
 }
 
 const address = wallet.toLowerCase()
+const rpc = process.env.BASE_RPC!
 
 let allTransfers: any[] = []
 let pageKey: string | undefined = undefined
@@ -20,12 +21,12 @@ let pageKey: string | undefined = undefined
 // =============================
 let ETH_PRICE = 3000
 
-try{
+try {
 const price = await axios.get(
 "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd"
 )
-ETH_PRICE = price.data.ethereum.usd || 3000
-}catch{}
+ETH_PRICE = price.data.ethereum.usd
+} catch {}
 
 // =============================
 // FETCH TRANSFERS
@@ -36,35 +37,36 @@ pageKey = undefined
 
 do {
 
-const res = await axios.post(process.env.BASE_RPC!, {
-jsonrpc: "2.0",
-id: 1,
-method: "alchemy_getAssetTransfers",
-params: [
+const res = await axios.post(rpc,{
+jsonrpc:"2.0",
+id:1,
+method:"alchemy_getAssetTransfers",
+params:[
 {
-fromBlock: "0x0",
-toBlock: "latest",
-category: ["external", "erc20"],
-withMetadata: true,
-excludeZeroValue: true,
-maxCount: "0x3e8",
+fromBlock:"0x0",
+toBlock:"latest",
+category:["external","erc20"],
+withMetadata:true,
+excludeZeroValue:true,
+maxCount:"0x3e8",
 pageKey,
-[type]: address,
-},
-],
+[type]:address
+}
+]
 })
 
 const result = res.data.result
 
-if (result?.transfers) {
+if(result?.transfers){
 allTransfers = allTransfers.concat(result.transfers)
 }
 
 pageKey = result.pageKey
 
-if (allTransfers.length > 15000) break
+if(allTransfers.length > 10000) break
 
-} while (pageKey)
+} while(pageKey)
+
 }
 
 await fetchTransfers("fromAddress")
@@ -75,9 +77,9 @@ await fetchTransfers("toAddress")
 // =============================
 const txMap = new Map<string, any[]>()
 
-for (const tx of allTransfers) {
-if (!txMap.has(tx.hash)) {
-txMap.set(tx.hash, [])
+for(const tx of allTransfers){
+if(!txMap.has(tx.hash)){
+txMap.set(tx.hash,[])
 }
 txMap.get(tx.hash)!.push(tx)
 }
@@ -88,52 +90,52 @@ txMap.get(tx.hash)!.push(tx)
 let swaps = 0
 let volumeUSD = 0
 let tradingGas = 0
-const tradingDays: Record<string, boolean> = {}
+const tradingDays: Record<string,boolean> = {}
 
 const STABLES = ["USDC","USDT","DAI","USDBC"]
 
-for (const [hash, transfers] of txMap.entries()) {
+for(const [hash, transfers] of txMap.entries()){
 
-let sent = 0
-let received = 0
+let sent = false
+let received = false
 let txVolume = 0
 
-for (const t of transfers) {
+for(const t of transfers){
 
 const asset = (t.asset || "").toUpperCase()
 const value = Number(t.value || 0)
 
-if (!value) continue
+if(!value) continue
 
-// SENT
-if (t.from?.toLowerCase() === address) {
-sent++
+// sent
+if(t.from?.toLowerCase() === address){
+sent = true
 
-if (STABLES.includes(asset)) {
+if(STABLES.includes(asset)){
 txVolume += value
 }
 
-if (asset === "ETH" || asset === "WETH") {
+if(asset === "ETH" || asset === "WETH"){
 txVolume += value * ETH_PRICE
 }
 }
 
-// RECEIVED
-if (t.to?.toLowerCase() === address) {
-received++
+// received
+if(t.to?.toLowerCase() === address){
+received = true
 }
 
 }
 
-// SWAP DETECT
-if (sent > 0 && received > 0) {
+// REAL SWAP DETECT
+if(sent && received && txVolume > 1){
 
 swaps++
 volumeUSD += txVolume
 
 const sample = transfers[0]
 
-if (sample.metadata?.blockTimestamp) {
+if(sample.metadata?.blockTimestamp){
 const day = new Date(sample.metadata.blockTimestamp)
 .toISOString()
 .split("T")[0]
@@ -141,8 +143,33 @@ const day = new Date(sample.metadata.blockTimestamp)
 tradingDays[day] = true
 }
 
-// gas estimate
-tradingGas += 0.00025
+// =============================
+// REAL GAS
+// =============================
+try{
+
+const receipt = await axios.post(rpc,{
+jsonrpc:"2.0",
+id:1,
+method:"eth_getTransactionReceipt",
+params:[hash]
+})
+
+const gasUsed = parseInt(
+receipt.data.result.gasUsed,
+16
+)
+
+const gasPrice = parseInt(
+receipt.data.result.effectiveGasPrice,
+16
+)
+
+const gasETH = (gasUsed * gasPrice) / 1e18
+
+tradingGas += gasETH
+
+}catch{}
 
 }
 
@@ -152,39 +179,35 @@ tradingGas += 0.00025
 // SCORE
 // =============================
 const score =
-(swaps * 2) +
-(Object.keys(tradingDays).length * 1.5) +
-(volumeUSD / 100) +
-(tradingGas * 500)
+(swaps * 3) +
+(Object.keys(tradingDays).length * 2) +
+(volumeUSD / 50) +
+(tradingGas * 800)
 
 // =============================
 // RANK
 // =============================
 let rank = "#-"
 
-if (score > 200) rank = "#1"
-else if (score > 150) rank = "#2"
-else if (score > 100) rank = "#3"
-else if (score > 70) rank = "#4"
-else if (score > 40) rank = "#5"
+if(score > 1000) rank = "#1"
+else if(score > 500) rank = "#2"
+else if(score > 200) rank = "#3"
+else if(score > 100) rank = "#4"
+else if(score > 50) rank = "#5"
 
 return NextResponse.json({
-wallet: address,
-
+wallet:address,
 swaps,
-swapCount: swaps,
-
-tradingVolumeUSD: Number(volumeUSD.toFixed(2)),
-tradingDays: Object.keys(tradingDays).length,
-
-tradingGas: Number(tradingGas.toFixed(6)),
-tradingGasETH: Number(tradingGas.toFixed(6)),
-
-score: Math.floor(score),
+swapCount:swaps,
+tradingVolumeUSD:Number(volumeUSD.toFixed(2)),
+tradingDays:Object.keys(tradingDays).length,
+tradingGas:Number(tradingGas.toFixed(6)),
+tradingGasETH:Number(tradingGas.toFixed(6)),
+score:Math.floor(score),
 rank
 })
 
-} catch (err) {
+}catch(e){
 
 return NextResponse.json({
 swaps:0,
