@@ -16,7 +16,7 @@ let allTransfers: any[] = []
 let pageKey: string | undefined = undefined
 
 // =============================
-// ETH PRICE (live)
+// ETH PRICE
 // =============================
 let ETH_PRICE = 3000
 
@@ -62,7 +62,7 @@ allTransfers = allTransfers.concat(result.transfers)
 
 pageKey = result.pageKey
 
-if (allTransfers.length > 15000) break
+if (allTransfers.length > 20000) break
 
 } while (pageKey)
 }
@@ -85,24 +85,18 @@ txMap.get(tx.hash)!.push(tx)
 // =============================
 // ANALYSIS
 // =============================
-let swapCount = 0
+let swaps = 0
 let volumeUSD = 0
-let tradingGasETH = 0
+let tradingGas = 0
 const tradingDays: Record<string, boolean> = {}
 
-const STABLES = [
-"USDC",
-"USDT",
-"DAI",
-"USDBC"
-]
+const STABLES = ["USDC","USDT","DAI","USDBC"]
 
 for (const [hash, transfers] of txMap.entries()) {
 
-let sentAssets: string[] = []
-let receivedAssets: string[] = []
-
-let sentValueUSD = 0
+let sent = 0
+let received = 0
+let txVolume = 0
 
 for (const t of transfers) {
 
@@ -111,47 +105,35 @@ const value = Number(t.value || 0)
 
 if (!value) continue
 
-// SENT
+// sent
 if (t.from?.toLowerCase() === address) {
-sentAssets.push(asset)
+sent++
 
 if (STABLES.includes(asset)) {
-sentValueUSD += value
+txVolume += value
 }
 
 if (asset === "ETH" || asset === "WETH") {
-sentValueUSD += value * ETH_PRICE
+txVolume += value * ETH_PRICE
 }
 }
 
-// RECEIVED
+// received
 if (t.to?.toLowerCase() === address) {
-receivedAssets.push(asset)
+received++
 }
 
 }
 
-const uniqueSent = Array.from(new Set(sentAssets))
-const uniqueReceived = Array.from(new Set(receivedAssets))
-
 // =============================
-// SWAP DETECT (FIXED)
+// SWAP DETECT (FINAL)
 // =============================
-const isSwap =
-uniqueSent.length > 0 &&
-uniqueReceived.length > 0 &&
-(
-uniqueSent.some(a => !uniqueReceived.includes(a)) ||
-uniqueReceived.some(a => !uniqueSent.includes(a))
-)
+if (sent > 0 && received > 0) {
 
-if (isSwap) {
+swaps++
 
-swapCount++
+volumeUSD += txVolume
 
-volumeUSD += sentValueUSD
-
-// trading day
 const sample = transfers[0]
 
 if (sample.metadata?.blockTimestamp) {
@@ -162,8 +144,7 @@ const day = new Date(sample.metadata.blockTimestamp)
 tradingDays[day] = true
 }
 
-// gas estimate
-tradingGasETH += 0.00015
+tradingGas += 0.00012
 
 }
 
@@ -171,10 +152,10 @@ tradingGasETH += 0.00015
 
 return NextResponse.json({
 wallet,
-swaps: swapCount,
+swaps,
 tradingVolumeUSD: Number(volumeUSD.toFixed(2)),
 tradingDays: Object.keys(tradingDays).length,
-tradingGas: Number(tradingGasETH.toFixed(6))
+tradingGas: Number(tradingGas.toFixed(6))
 })
 
 } catch (err) {
