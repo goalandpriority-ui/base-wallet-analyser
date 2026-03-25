@@ -7,10 +7,9 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const wallet = body.wallet
-    const txHash = body.txHash
 
     if (!wallet) {
-      return NextResponse.json({ ok:false, error:"no wallet" })
+      return NextResponse.json({ ok:false })
     }
 
     const supabase = getSupabase()
@@ -19,19 +18,14 @@ export async function POST(req: NextRequest) {
       .from("paid_users")
       .upsert([
         {
-          wallet: wallet.toLowerCase(),
-          tx_hash: txHash || null,
-          paid: true
+          wallet: wallet.toLowerCase()
         }
       ])
       .select()
 
     if (error) {
       console.log("SUPABASE ERROR:", error)
-      return NextResponse.json({
-        ok:false,
-        error:error.message
-      })
+      return NextResponse.json({ ok:false })
     }
 
     return NextResponse.json({
@@ -42,8 +36,7 @@ export async function POST(req: NextRequest) {
   } catch (e:any) {
     console.log("MARK PAID CRASH:", e)
     return NextResponse.json({
-      ok:false,
-      error:e.message
+      ok:false
     })
   }
 }
