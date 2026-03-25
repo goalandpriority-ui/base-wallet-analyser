@@ -1,37 +1,48 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { getSupabase } from "@/lib/supabase"
 
-export async function GET(req: Request) {
-  try {
+export async function GET(req: NextRequest) {
+  return handle(req)
+}
 
-    const { searchParams } = new URL(req.url)
-    const wallet = searchParams.get("wallet")
+export async function POST(req: NextRequest) {
+  return handle(req)
+}
+
+async function handle(req: NextRequest) {
+  try {
+    let wallet: string | null = null
+
+    // GET
+    if (req.method === "GET") {
+      const { searchParams } = new URL(req.url)
+      wallet = searchParams.get("wallet")
+    }
+
+    // POST
+    if (req.method === "POST") {
+      const body = await req.json()
+      wallet = body.wallet
+    }
 
     if (!wallet) {
       return NextResponse.json({ paid: false })
     }
 
     const address = wallet.trim().toLowerCase()
-
     const supabase = getSupabase()
 
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("paid_users")
       .select("wallet")
       .eq("wallet", address)
       .maybeSingle()
 
-    if (error) {
-      console.error("check-paid error", error)
-      return NextResponse.json({ paid: false })
-    }
-
     return NextResponse.json({
       paid: !!data
     })
 
-  } catch (err) {
-    console.error(err)
+  } catch {
     return NextResponse.json({ paid: false })
   }
 }
