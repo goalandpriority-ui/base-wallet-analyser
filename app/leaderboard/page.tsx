@@ -9,7 +9,13 @@ const [data,setData]=useState<any[]>([])
 const [page,setPage]=useState(1)
 const [rank,setRank]=useState<number|null>(null)
 const [search,setSearch]=useState("")
-const [stats,setStats]=useState<any>(null)
+
+const [stats,setStats]=useState<any>({
+wallets:0,
+swaps:0,
+volume:0,
+trending:[]
+})
 
 const wallet =
 typeof window !== "undefined"
@@ -22,12 +28,11 @@ fetch(`/api/leaderboard?page=${page}&wallet=${wallet||""}`)
 .then(res=>res.json())
 .then(res=>{
 
-/* FIX FIELD NAMES */
 const mapped = (res.data || []).map((w:any)=>({
 ...w,
-swaps: w.swapcount ?? w.swaps ?? w.swapCount ?? 0,
-volume: w.tradingvolumeusd ?? w.volume ?? w.tradingVolumeUSD ?? 0,
-days: w.tradingdays ?? w.days ?? w.tradingDays ?? 0
+swaps: w.swapcount ?? w.swaps ?? 0,
+volume: w.tradingvolumeusd ?? w.volume ?? 0,
+days: w.tradingdays ?? w.days ?? 0
 }))
 
 setData(mapped)
@@ -38,31 +43,35 @@ setRank(res.yourRank)
 }
 
 useEffect(()=>{
-
 load()
 const i=setInterval(load,5000)
 return ()=>clearInterval(i)
-
 },[page])
 
 useEffect(()=>{
 
 fetch("/api/stats")
 .then(res=>res.json())
-.then(setStats)
+.then(res=>{
+
+setStats({
+wallets: res.wallets || 0,
+swaps: res.swaps || 0,
+volume: res.volume || 0,
+trending: res.trending || []
+})
+
+})
 
 },[])
 
 const jumpToRank = ()=>{
-
 if(!rank) return
 const targetPage = Math.ceil(rank / 1000)
 setPage(targetPage)
-
 }
 
 const searchWallet = ()=>{
-
 if(!search) return
 
 fetch(`/api/leaderboard?wallet=${search}`)
@@ -73,26 +82,21 @@ const p = Math.ceil(res.yourRank / 1000)
 setPage(p)
 }
 })
-
 }
 
 const getBadge = (position:number)=>{
-
 if(position===1) return "🥇"
 if(position===2) return "🥈"
 if(position===3) return "🥉"
 if(position<=100) return "🏅"
 if(position<=1000) return "⭐"
-
 return ""
 }
 
 const getTag = (w:any)=>{
-
 if(w.volume > 100000) return "🐋 Whale"
 if(w.swaps > 500) return "⚡ Trader"
 if(w.days > 30) return "🧠 Pro"
-
 return ""
 }
 
@@ -103,9 +107,7 @@ return(
 🏆 Leaderboard
 </h1>
 
-{/* GLOBAL */}
-
-{stats && (
+{/* GLOBAL STATS */}
 
 <div style={{
 background:"#000",
@@ -140,8 +142,6 @@ style={{display:"block",marginTop:4}}
 ))}
 
 </div>
-
-)}
 
 {/* your rank */}
 
@@ -192,8 +192,6 @@ const isYou =
 wallet &&
 w.wallet.toLowerCase() === wallet.toLowerCase()
 
-const isPaid = w.paid
-
 return(
 
 <Link
@@ -209,14 +207,7 @@ color:"#00ff9c",
 padding:14,
 borderRadius:10,
 marginBottom:8,
-border: isPaid
-? "1px solid #22c55e"
-: isYou
-? "1px solid #00ff9c"
-: "1px solid #111",
-boxShadow: isPaid
-? "0 0 10px rgba(34,197,94,0.4)"
-: "none",
+border:"1px solid #111",
 cursor:"pointer"
 }}
 >
@@ -228,11 +219,6 @@ justifyContent:"space-between"
 
 <div>
 {getBadge(position)} #{position}
-{isPaid && (
-<span style={proBadge}>
-PRO
-</span>
-)}
 </div>
 
 <div>
@@ -288,14 +274,4 @@ Next
 
 </div>
 )
-}
-
-const proBadge={
-marginLeft:8,
-background:"#22c55e",
-color:"#020617",
-padding:"2px 6px",
-borderRadius:4,
-fontSize:9,
-fontWeight:700
-}
+  }
