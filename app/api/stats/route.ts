@@ -20,7 +20,6 @@ let volume = 0
 
 for(const w of data || []){
 
-// support OLD + NEW columns
 swaps += Number(
 w.swaps ??
 w.swapcount ??
