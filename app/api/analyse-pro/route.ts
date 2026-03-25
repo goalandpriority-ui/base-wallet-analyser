@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
-import { createClient } from "@supabase/supabase-js"
+import { getSupabase } from "@/lib/supabase"
 
 export async function POST(req: NextRequest) {
   try {
 
-    // ✅ create supabase at runtime only
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+    const supabase = getSupabase()
 
     const { wallet } = await req.json()
 
@@ -22,9 +18,6 @@ export async function POST(req: NextRequest) {
     let allTransfers: any[] = []
     let pageKey: string | undefined = undefined
 
-    // =========================================
-    // 🔥 FETCH TRANSFERS (OUT + IN)
-    // =========================================
     const fetchTransfers = async (type: "fromAddress" | "toAddress") => {
       pageKey = undefined
 
@@ -62,9 +55,6 @@ export async function POST(req: NextRequest) {
     await fetchTransfers("fromAddress")
     await fetchTransfers("toAddress")
 
-    // =========================================
-    // 🔥 GROUP BY TX
-    // =========================================
     const txMap = new Map<string, any[]>()
 
     for (const tx of allTransfers) {
@@ -74,9 +64,6 @@ export async function POST(req: NextRequest) {
       txMap.get(tx.hash)!.push(tx)
     }
 
-    // =========================================
-    // 🔥 SWAP + VOLUME + GAS
-    // =========================================
     let swapCount = 0
     let volumeUSD = 0
     let tradingGas = 0
@@ -114,9 +101,6 @@ export async function POST(req: NextRequest) {
 
       swapCount++
 
-      // =====================================
-      // 🔥 VOLUME
-      // =====================================
       for (const t of transfers) {
         const value = Number(t.value || 0)
         const asset = (t.asset || "").toUpperCase()
@@ -135,9 +119,6 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // =====================================
-      // 🔥 GAS
-      // =====================================
       try {
         const receipt = await axios.post(process.env.BASE_RPC!, {
           jsonrpc: "2.0",
@@ -160,9 +141,6 @@ export async function POST(req: NextRequest) {
 
       } catch {}
 
-      // =====================================
-      // 🔥 DAYS
-      // =====================================
       const sample = transfers[0]
 
       if (sample.metadata?.blockTimestamp) {
@@ -176,17 +154,11 @@ export async function POST(req: NextRequest) {
 
     const tradingDaysCount = Object.keys(tradingDays).length
 
-    // =====================================
-    // 🔥 SCORE
-    // =====================================
     const score =
       swapCount * 3 +
       volumeUSD * 0.01 +
       tradingDaysCount * 5
 
-    // =====================================
-    // 🔥 SAVE
-    // =====================================
     await supabase
       .from("leaderboard")
       .upsert({
@@ -198,9 +170,6 @@ export async function POST(req: NextRequest) {
         gas: tradingGas
       })
 
-    // =====================================
-    // 🔥 RANK
-    // =====================================
     const { data: better } = await supabase
       .from("leaderboard")
       .select("wallet")
