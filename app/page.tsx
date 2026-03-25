@@ -75,7 +75,7 @@ init()
 
 },[])
 
-/* MANUAL CONNECT */
+/* CONNECT BUTTON */
 const connectWallet = async()=>{
 
 try{
@@ -103,7 +103,7 @@ alert("Wallet connect failed")
 
 }
 
-/* CHECK PAYMENT */
+/* CHECK PAID */
 const checkPaid = async (addr?:string)=>{
 
 const w = addr || wallet
@@ -184,7 +184,7 @@ chainId:"0x2105"
 
 if(tx){
 
-await fetch("/api/mark-paid",{
+const res = await fetch("/api/mark-paid",{
 method:"POST",
 headers:{
 "Content-Type":"application/json"
@@ -192,7 +192,14 @@ headers:{
 body:JSON.stringify({wallet})
 })
 
+const json = await res.json()
+
+if(json.ok){
 setPaid(true)
+}else{
+alert("Payment save failed")
+return
+}
 
 /* CAST */
 try{
@@ -460,4 +467,4 @@ borderRadius:14
 const divider:CSSProperties={
 margin:"15px 0",
 borderColor:"#0f172a"
-  }
+}
