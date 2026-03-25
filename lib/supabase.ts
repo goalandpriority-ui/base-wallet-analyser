@@ -3,20 +3,24 @@ import { createClient } from "@supabase/supabase-js"
 export const getSupabase = () => {
 
   const supabaseUrl =
-    process.env.SUPABASE_URL ||
-    process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    "https://ytvjjvqxsuljnkxveukh.supabase.co"
+    process.env.SUPABASE_URL ??
+    process.env.NEXT_PUBLIC_SUPABASE_URL
 
   const supabaseKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ??
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-  if (!supabaseUrl) {
-    throw new Error("Missing SUPABASE URL")
-  }
+  // 🔥 Don't crash during build
+  if (!supabaseUrl || !supabaseKey) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("Supabase env missing")
+    }
 
-  if (!supabaseKey) {
-    throw new Error("Missing SUPABASE SERVICE ROLE KEY")
+    // build time fallback (won't be used)
+    return createClient(
+      "https://placeholder.supabase.co",
+      "placeholder"
+    )
   }
 
   return createClient(supabaseUrl, supabaseKey)
