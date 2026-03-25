@@ -112,10 +112,15 @@ setPaid(json.paid)
 
 }
 
-/* PAY (FIXED) */
+/* PAY */
 const pay = async()=>{
 
 try{
+
+if(!wallet){
+alert("Connect wallet first")
+return
+}
 
 const eth = (window as any).ethereum
 
@@ -141,6 +146,9 @@ return
 
 const txHash = typeof tx === "string" ? tx : tx.hash
 
+// wait rpc propagation
+await new Promise(r=>setTimeout(r,2000))
+
 const save = await fetch("/api/mark-paid",{
 method:"POST",
 headers:{
@@ -159,9 +167,13 @@ alert("Payment save failed")
 return
 }
 
+// refresh paid status
+await checkPaid(wallet)
+
 setPaid(true)
 
-}catch{
+}catch(e){
+console.log(e)
 alert("Payment failed")
 }
 
