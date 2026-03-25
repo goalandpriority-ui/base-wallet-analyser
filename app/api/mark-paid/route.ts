@@ -19,9 +19,9 @@ export async function POST(req: NextRequest) {
 
     const { error } = await supabase
       .from("paid_users")
-      .insert([
+      .upsert([
         {
-          wallet: wallet.toLowerCase(),
+          wallet: wallet.trim().toLowerCase(),
           paid: true
         }
       ])
