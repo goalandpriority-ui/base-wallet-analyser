@@ -16,11 +16,9 @@ useEffect(()=>{
 
 const init = async()=>{
 
-/* FARCASTER */
 try{
 
 await sdk.actions.ready()
-
 const context:any = await sdk.context
 
 const fcWallet =
@@ -36,7 +34,6 @@ return
 
 }catch{}
 
-/* INJECTED WALLET AUTO */
 try{
 
 const eth = (window as any).ethereum
@@ -59,7 +56,6 @@ return
 
 }catch{}
 
-/* CACHE */
 const cached = localStorage.getItem("lastWallet")
 
 if(cached){
@@ -116,14 +112,9 @@ setPaid(json.paid)
 
 }
 
-/* PAY */
+/* PAY (FIXED) */
 const pay = async()=>{
 
-try{
-
-let tx:any = null
-
-/* FORCE BASE */
 try{
 
 const eth = (window as any).ethereum
@@ -131,46 +122,9 @@ const eth = (window as any).ethereum
 await eth.request({
 method:"wallet_switchEthereumChain",
 params:[{ chainId:"0x2105" }]
-})
+}).catch(()=>{})
 
-}catch{
-
-const eth = (window as any).ethereum
-
-await eth.request({
-method:"wallet_addEthereumChain",
-params:[{
-chainId:"0x2105",
-chainName:"Base",
-nativeCurrency:{
-name:"ETH",
-symbol:"ETH",
-decimals:18
-},
-rpcUrls:["https://mainnet.base.org"],
-blockExplorerUrls:["https://basescan.org"]
-}]
-})
-
-}
-
-/* FARCASTER TX */
-try{
-
-tx = await (sdk as any).wallet.sendTransaction({
-chainId:8453,
-to:process.env.NEXT_PUBLIC_PAY_TO!,
-value:"0x16bcc41e9000"
-})
-
-}catch{}
-
-/* BROWSER TX */
-if(!tx){
-
-const eth = (window as any).ethereum
-
-tx = await eth.request({
+const tx = await eth.request({
 method:"eth_sendTransaction",
 params:[{
 from:wallet,
@@ -180,44 +134,35 @@ chainId:"0x2105"
 }]
 })
 
+if(!tx){
+alert("Payment failed")
+return
 }
 
-if(tx){
+const txHash = typeof tx === "string" ? tx : tx.hash
 
-const res = await fetch("/api/mark-paid",{
+const save = await fetch("/api/mark-paid",{
 method:"POST",
 headers:{
 "Content-Type":"application/json"
 },
-body:JSON.stringify({wallet})
+body:JSON.stringify({
+wallet,
+txHash
+})
 })
 
-const json = await res.json()
+const json = await save.json()
 
-if(json.ok){
-setPaid(true)
-}else{
+if(!json.ok){
 alert("Payment save failed")
 return
 }
 
-/* CAST */
-try{
-await (sdk as any).actions.composeCast({
-text:`🔥 Wallet analysed
-
-Address: ${wallet}
-
-Open miniapp to view full stats`
-})
-}catch{}
-
-}
+setPaid(true)
 
 }catch{
-
 alert("Payment failed")
-
 }
 
 }
