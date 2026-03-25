@@ -1,15 +1,18 @@
 export const dynamic = "force-dynamic"
 
 import { NextResponse } from "next/server"
-import { getSupabase } from "@/lib/supabase"
+import { createClient } from "@supabase/supabase-js"
 
 export async function GET(){
 
-const supabase = getSupabase()
+const supabase = createClient(
+process.env.NEXT_PUBLIC_SUPABASE_URL!,
+process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 const { data } = await supabase
 .from("leaderboard")
-.select("wallet,score,swapcount,tradingvolumeusd,swaps,volume")
+.select("*")
 
 let wallets = data?.length || 0
 let swaps = 0
@@ -18,14 +21,14 @@ let volume = 0
 for(const w of data || []){
 
 swaps += Number(
-w.swapcount ??
 w.swaps ??
+w.swapcount ??
 0
 )
 
 volume += Number(
-w.tradingvolumeusd ??
 w.volume ??
+w.tradingvolumeusd ??
 0
 )
 
