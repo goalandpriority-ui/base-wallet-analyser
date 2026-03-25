@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
-import { getSupabase } from "@/lib/supabase"
 
 const RPC =
   process.env.BASE_RPC ||
@@ -14,8 +13,6 @@ const rpc = axios.create({
 export async function POST(req: NextRequest) {
   try {
 
-    const supabase = getSupabase()
-
     const { wallet } = await req.json()
 
     if (!wallet) {
@@ -27,196 +24,86 @@ export async function POST(req: NextRequest) {
     let allTransfers: any[] = []
     let pageKey: string | undefined = undefined
 
-    const fetchTransfers = async (type: "fromAddress" | "toAddress") => {
-      pageKey = undefined
-
-      do {
-        const res = await rpc.post("", {
-          jsonrpc: "2.0",
-          id: 1,
-          method: "alchemy_getAssetTransfers",
-          params: [
-            {
-              fromBlock: "0x0",
-              toBlock: "latest",
-              category: ["external", "erc20"],
-              withMetadata: true,
-              excludeZeroValue: true,
-              maxCount: "0x3e8",
-              pageKey,
-              [type]: address,
-            },
-          ],
-        })
-
-        const result = res.data.result
-
-        if (result?.transfers) {
-          allTransfers = allTransfers.concat(result.transfers)
-        }
-
-        pageKey = result.pageKey
-
-        if (allTransfers.length > 12000) break
-
-      } while (pageKey)
-    }
-
-    await fetchTransfers("fromAddress")
-    await fetchTransfers("toAddress")
-
-    const txMap = new Map<string, any[]>()
-
-    for (const tx of allTransfers) {
-      if (!txMap.has(tx.hash)) {
-        txMap.set(tx.hash, [])
-      }
-      txMap.get(tx.hash)!.push(tx)
-    }
-
-    let swapCount = 0
-    let volumeUSD = 0
-    let tradingGas = 0
-
-    const tradingDays: Record<string, boolean> = {}
-
-    const STABLES = ["USDC", "USDT"]
-
-    const gasPromises: Promise<any>[] = []
-
-    for (const [hash, transfers] of Array.from(txMap.entries())) {
-
-      let sentAssets: string[] = []
-      let receivedAssets: string[] = []
-
-      for (const t of transfers) {
-        const asset = (t.asset || "").toUpperCase()
-
-        if (t.from?.toLowerCase() === address) {
-          sentAssets.push(asset)
-        }
-
-        if (t.to?.toLowerCase() === address) {
-          receivedAssets.push(asset)
-        }
-      }
-
-      const uniqueSent = Array.from(new Set(sentAssets))
-      const uniqueReceived = Array.from(new Set(receivedAssets))
-
-      const isSwap =
-        uniqueSent.length > 0 &&
-        uniqueReceived.length > 0 &&
-        JSON.stringify(uniqueSent) !== JSON.stringify(uniqueReceived)
-
-      if (!isSwap) continue
-
-      swapCount++
-
-      for (const t of transfers) {
-        const value = Number(t.value || 0)
-        const asset = (t.asset || "").toUpperCase()
-
-        if (!value || !asset) continue
-
-        if (t.from?.toLowerCase() === address) {
-
-          if (STABLES.includes(asset)) {
-            volumeUSD += value
-          }
-
-          if (asset === "ETH" || asset === "WETH") {
-            volumeUSD += value * 3000
-          }
-        }
-      }
-
-      const gasPromise = rpc.post("", {
+    // FETCH FULL HISTORY
+    do {
+      const res = await rpc.post("", {
         jsonrpc: "2.0",
         id: 1,
-        method: "eth_getTransactionReceipt",
-        params: [hash]
-      }).then((receipt:any)=>{
+        method: "alchemy_getAssetTransfers",
+        params: [
+          {
+            fromBlock: "0x0",
+            toBlock: "latest",
+            fromAddress: address,
+            category: ["external", "erc20"],
+            withMetadata: true,
+            maxCount: "0x3e8",
+            pageKey,
+          },
+        ],
+      })
 
-        if (receipt.data?.result) {
+      const result = res.data.result
 
-          const gasUsed = parseInt(
-            receipt.data.result.gasUsed,
-            16
-          )
+      if (result?.transfers) {
+        allTransfers = allTransfers.concat(result.transfers)
+      }
 
-          const gasPrice = parseInt(
-            receipt.data.result.effectiveGasPrice,
-            16
-          )
+      pageKey = result.pageKey
 
-          tradingGas += (gasUsed * gasPrice) / 1e18
+      if (allTransfers.length > 8000) break
+
+    } while (pageKey)
+
+    let totalTxns = allTransfers.length
+    let totalVolumeETH = 0
+    let totalGasETH = 0
+
+    const days = new Set<string>()
+
+    for (const tx of allTransfers) {
+
+      const value = Number(tx.value || 0)
+      const asset = (tx.asset || "").toUpperCase()
+
+      if (value && asset) {
+
+        if (asset === "ETH" || asset === "WETH") {
+          totalVolumeETH += value
         }
 
-      }).catch(()=>{})
+        if (asset === "USDC" || asset === "USDT") {
+          totalVolumeETH += value / 3000
+        }
+      }
 
-      gasPromises.push(gasPromise)
+      totalGasETH += 0.0000025
 
-      const sample = transfers[0]
-
-      if (sample.metadata?.blockTimestamp) {
-        const day = new Date(sample.metadata.blockTimestamp)
+      if (tx.metadata?.blockTimestamp) {
+        const d = new Date(tx.metadata.blockTimestamp)
           .toISOString()
           .split("T")[0]
 
-        tradingDays[day] = true
+        days.add(d)
       }
     }
 
-    await Promise.all(gasPromises)
-
-    const tradingDaysCount = Object.keys(tradingDays).length
-
-    const score =
-      swapCount * 3 +
-      volumeUSD * 0.01 +
-      tradingDaysCount * 5
-
-    await supabase
-      .from("leaderboard")
-      .upsert({
-        wallet: address,
-        score,
-        swapcount: swapCount,
-        tradingvolumeusd: volumeUSD,
-        tradingdays: tradingDaysCount,
-        tradinggaseth: tradingGas,
-        updated_at: new Date()
-      })
-
-    const { data: better } = await supabase
-      .from("leaderboard")
-      .select("wallet")
-      .gt("score", score)
-
-    const rank = (better?.length || 0) + 1
-
     return NextResponse.json({
       wallet,
-      swapCount,
-      tradingVolumeUSD: Number(volumeUSD.toFixed(2)),
-      tradingDays: tradingDaysCount,
-      tradingGas: Number(tradingGas.toFixed(6)),
-      tradingGasETH: Number(tradingGas.toFixed(6)),
-      score: Math.round(score),
-      rank
+      totalTxns,
+      totalVolumeETH: Number(totalVolumeETH.toFixed(4)),
+      totalGasETH: Number(totalGasETH.toFixed(6)),
+      activeDays: days.size
     })
 
   } catch (err) {
     console.error(err)
+
     return NextResponse.json({
-      swapCount: 0,
-      tradingVolumeUSD: 0,
-      tradingDays: 0,
-      tradingGas: 0,
-      tradingGasETH: 0,
-      score: 0,
-      rank: "-"
+      totalTxns: 0,
+      totalVolumeETH: 0,
+      totalGasETH: 0,
+      activeDays: 0
     })
   }
 }
