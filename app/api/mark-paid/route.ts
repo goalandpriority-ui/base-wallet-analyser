@@ -7,34 +7,33 @@ import { createClient } from "@supabase/supabase-js"
 export async function POST(req: NextRequest) {
   try {
 
-    const { wallet } = await req.json()
+    const body = await req.json()
+    const wallet = body.wallet
 
     if (!wallet) {
-      return NextResponse.json({ ok: false })
+      return NextResponse.json({ ok:false, error:"no wallet" })
     }
 
     const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+      process.env.SUPABASE_SERVICE_ROLE_KEY as string
     )
-
-    const address = wallet.toLowerCase()
 
     const { error } = await supabase
       .from("paid_users")
       .upsert({
-        wallet: address
+        wallet: wallet.toLowerCase()
       })
 
     if (error) {
-      console.error(error)
-      return NextResponse.json({ ok: false })
+      console.log("SUPABASE ERROR:", error)
+      return NextResponse.json({ ok:false, error })
     }
 
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok:true })
 
-  } catch (err) {
-    console.error(err)
-    return NextResponse.json({ ok: false })
+  } catch (e:any) {
+    console.log("SERVER ERROR:", e)
+    return NextResponse.json({ ok:false, error:e?.message })
   }
 }
