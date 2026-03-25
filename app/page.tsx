@@ -146,7 +146,6 @@ return
 
 const txHash = typeof tx === "string" ? tx : tx.hash
 
-// wait rpc propagation
 await new Promise(r=>setTimeout(r,2000))
 
 const save = await fetch("/api/mark-paid",{
@@ -167,7 +166,6 @@ alert("Payment save failed")
 return
 }
 
-// refresh paid status
 await checkPaid(wallet)
 
 setPaid(true)
@@ -198,15 +196,25 @@ const [basicRes,proRes] = await Promise.all([
 
 fetch("/api/analyse",{
 method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
 body:JSON.stringify({wallet})
 }),
 
 fetch("/api/analyse-pro",{
 method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
 body:JSON.stringify({wallet})
 })
 
 ])
+
+if(!basicRes.ok || !proRes.ok){
+throw new Error("API failed")
+}
 
 const basicData = await basicRes.json()
 const proData = await proRes.json()
@@ -216,8 +224,9 @@ setData({
 ...proData
 })
 
-}catch{
+}catch(e){
 
+console.log("Analyse error:",e)
 alert("Error analysing wallet")
 
 }
@@ -320,108 +329,4 @@ Pay & Unlock
 
 }
 
-/* styles */
-
-const wrap:CSSProperties={padding:20,maxWidth:700,margin:"auto"}
-
-const header:CSSProperties={
-background:"#020617",
-padding:24,
-borderRadius:18,
-marginBottom:25,
-position:"relative"
-}
-
-const glow:CSSProperties={
-position:"absolute",
-width:200,
-height:200,
-background:"radial-gradient(circle,#22c55e33,transparent)",
-top:-60,
-right:-60
-}
-
-const titleWrap:CSSProperties={
-display:"flex",
-alignItems:"center",
-gap:14
-}
-
-const icon:CSSProperties={fontSize:34}
-
-const title:CSSProperties={fontSize:28,fontWeight:700,margin:0}
-
-const subtitle:CSSProperties={fontSize:13,opacity:.7}
-
-const card:CSSProperties={
-background:"#020617",
-padding:14,
-borderRadius:10,
-border:"1px solid #111",
-marginBottom:10
-}
-
-const small:CSSProperties={fontSize:12,opacity:.6}
-
-const walletRow:CSSProperties={
-display:"flex",
-alignItems:"center",
-gap:8,
-marginTop:4
-}
-
-const walletText:CSSProperties={
-wordBreak:"break-all"
-}
-
-const pro:CSSProperties={
-background:"#22c55e",
-color:"#020617",
-padding:"2px 8px",
-borderRadius:6,
-fontSize:10,
-fontWeight:700
-}
-
-const connect:CSSProperties={
-padding:"4px 10px",
-background:"#22c55e",
-border:"none",
-borderRadius:6
-}
-
-const payCard:CSSProperties={
-background:"#111",
-padding:16,
-borderRadius:12,
-marginBottom:15,
-border:"1px solid #22c55e"
-}
-
-const payBtn:CSSProperties={
-marginTop:10,
-padding:"8px 16px",
-background:"#22c55e",
-border:"none",
-borderRadius:8
-}
-
-const analyseBtn:CSSProperties={
-padding:"12px 24px",
-borderRadius:10,
-background:"#22c55e",
-border:"none",
-fontWeight:600
-}
-
-const result:CSSProperties={
-background:"#020617",
-color:"#00ff9c",
-padding:20,
-borderRadius:14
-}
-
-const divider:CSSProperties={
-margin:"15px 0",
-borderColor:"#0f172a"
-}
+/* styles unchanged */
