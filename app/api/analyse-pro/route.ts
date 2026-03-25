@@ -1,6 +1,3 @@
-export const dynamic = "force-dynamic"
-export const runtime = "nodejs"
-
 import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
 import { createClient } from "@supabase/supabase-js"
