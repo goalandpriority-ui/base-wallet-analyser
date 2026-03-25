@@ -44,7 +44,7 @@ const { data: trending } = await supabase
 return NextResponse.json({
 wallets,
 swaps,
-volume: Number(volume.toFixed(2)),
+volume,
 trending
 })
 
