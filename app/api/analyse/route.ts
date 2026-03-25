@@ -30,6 +30,9 @@ export async function POST(req: NextRequest) {
     let allTransfers: any[] = []
     let pageKey: string | undefined = undefined
 
+    // ======================================
+    // FETCH TRANSFERS FULL HISTORY
+    // ======================================
     const fetchTransfers = async (type: "fromAddress" | "toAddress") => {
       pageKey = undefined
 
@@ -60,7 +63,7 @@ export async function POST(req: NextRequest) {
 
         pageKey = result.pageKey
 
-        if (allTransfers.length > 6000) break
+        if (allTransfers.length > 12000) break
 
       } while (pageKey)
     }
@@ -68,6 +71,9 @@ export async function POST(req: NextRequest) {
     await fetchTransfers("fromAddress")
     await fetchTransfers("toAddress")
 
+    // ======================================
+    // GROUP BY TX
+    // ======================================
     const txMap = new Map<string, any[]>()
 
     for (const tx of allTransfers) {
@@ -85,6 +91,11 @@ export async function POST(req: NextRequest) {
 
     const STABLES = ["USDC", "USDT"]
 
+    const gasPromises: Promise<any>[] = []
+
+    // ======================================
+    // PROCESS TX
+    // ======================================
     for (const [hash, transfers] of Array.from(txMap.entries())) {
 
       let sentAssets: string[] = []
@@ -114,6 +125,9 @@ export async function POST(req: NextRequest) {
 
       swapCount++
 
+      // =============================
+      // VOLUME
+      // =============================
       for (const t of transfers) {
         const value = Number(t.value || 0)
         const asset = (t.asset || "").toUpperCase()
@@ -132,15 +146,18 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      try {
-        const receipt = await rpc.post("", {
-          jsonrpc: "2.0",
-          id: 1,
-          method: "eth_getTransactionReceipt",
-          params: [hash]
-        })
+      // =============================
+      // PARALLEL GAS (NO TIMEOUT)
+      // =============================
+      const gasPromise = rpc.post("", {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "eth_getTransactionReceipt",
+        params: [hash]
+      }).then((receipt:any)=>{
 
         if (receipt.data?.result) {
+
           const gasUsed = parseInt(
             receipt.data.result.gasUsed,
             16
@@ -154,8 +171,13 @@ export async function POST(req: NextRequest) {
           tradingGas += (gasUsed * gasPrice) / 1e18
         }
 
-      } catch {}
+      }).catch(()=>{})
 
+      gasPromises.push(gasPromise)
+
+      // =============================
+      // DAYS
+      // =============================
       const sample = transfers[0]
 
       if (sample.metadata?.blockTimestamp) {
@@ -167,6 +189,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // wait all gas calls parallel
+    await Promise.all(gasPromises)
+
     const tradingDaysCount = Object.keys(tradingDays).length
 
     const score =
@@ -174,6 +199,9 @@ export async function POST(req: NextRequest) {
       volumeUSD * 0.01 +
       tradingDaysCount * 5
 
+    // ======================================
+    // SAVE
+    // ======================================
     await supabase
       .from("leaderboard")
       .upsert({
@@ -186,6 +214,9 @@ export async function POST(req: NextRequest) {
         updated_at: new Date()
       })
 
+    // ======================================
+    // RANK
+    // ======================================
     const { data: better } = await supabase
       .from("leaderboard")
       .select("wallet")
