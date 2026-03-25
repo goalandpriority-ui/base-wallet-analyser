@@ -1,36 +1,25 @@
 import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
 
-// ============================
-// SWAP EVENTS (ALL DEX)
-// ============================
-const SWAP_TOPICS = [
-"0xd78ad95fa46c994b6551d0da85fc275fe613d6e",
-"0x414bf3895f4f3a8c4a7a0b9afd1cdccb9d2635ee",
-"0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67",
-"0x1c411e9a96e2f57c6b3b5b0b5f9e3cd9089eba9b"
-]
+// real swap events
+const SWAP_TOPIC =
+"0xd78ad95fa46c994b6551d0da85fc275fe613d6e000000000000000000000000"
 
-// ============================
-// PRICE CACHE
-// ============================
 const priceCache:Record<string,number>={}
 
-async function getTokenPrice(contract:string){
+async function getPrice(token:string){
 
-if(priceCache[contract]) return priceCache[contract]
+if(priceCache[token]) return priceCache[token]
 
 try{
-
-const res = await axios.get(
-`https://coins.llama.fi/prices/current/base:${contract}`
+const res=await axios.get(
+`https://coins.llama.fi/prices/current/base:${token}`
 )
 
-const price =
-res.data.coins[`base:${contract}`]?.price || 0
+const price=
+res.data.coins[`base:${token}`]?.price || 0
 
-priceCache[contract]=price
-
+priceCache[token]=price
 return price
 
 }catch{
@@ -39,27 +28,21 @@ return 0
 
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(req:NextRequest){
 
 try{
 
-const { wallet } = await req.json()
-const address = wallet.toLowerCase()
-const rpc = process.env.BASE_RPC!
+const {wallet}=await req.json()
+const address=wallet.toLowerCase()
+const rpc=process.env.BASE_RPC!
 
-// ============================
-// FETCH TRANSFERS
-// ============================
+// fetch tx list
 let transfers:any[]=[]
 let pageKey:string|undefined
 
-const fetch = async(type:"fromAddress"|"toAddress") => {
-
-pageKey=undefined
-
 do{
 
-const res = await axios.post(rpc,{
+const res=await axios.post(rpc,{
 jsonrpc:"2.0",
 id:1,
 method:"alchemy_getAssetTransfers",
@@ -68,96 +51,60 @@ fromBlock:"0x0",
 toBlock:"latest",
 category:["external","erc20"],
 withMetadata:true,
-excludeZeroValue:true,
 maxCount:"0x3e8",
 pageKey,
-[type]:address
+fromAddress:address
 }]
 })
 
-transfers = transfers.concat(res.data.result.transfers)
-pageKey = res.data.result.pageKey
+transfers=transfers.concat(res.data.result.transfers)
+pageKey=res.data.result.pageKey
 
-if(transfers.length>8000) break
+if(transfers.length>3000) break
 
 }while(pageKey)
 
-}
+const hashes=[...new Set(transfers.map(t=>t.hash))]
 
-await fetch("fromAddress")
-await fetch("toAddress")
-
-// ============================
-// GROUP BY TX
-// ============================
-const txMap = new Map<string,any[]>()
-
-for(const t of transfers){
-
-if(!txMap.has(t.hash)) txMap.set(t.hash,[])
-txMap.get(t.hash)!.push(t)
-
-}
-
-// ============================
-// ANALYSIS
-// ============================
 let swaps=0
 let volumeUSD=0
 let gas=0
 const days:Record<string,boolean>={}
 
-for(const [hash,txTransfers] of txMap){
+for(const hash of hashes){
 
 try{
 
-const receipt = await axios.post(rpc,{
+const receipt=await axios.post(rpc,{
 jsonrpc:"2.0",
 id:1,
 method:"eth_getTransactionReceipt",
 params:[hash]
 })
 
-const logs = receipt.data.result.logs || []
+const logs=receipt.data.result.logs||[]
 
-// ============================
-// SWAP DETECT
-// ============================
-const isSwap = logs.some((l:any)=>
-SWAP_TOPICS.includes(l.topics?.[0]?.toLowerCase())
+const swapLogs=logs.filter((l:any)=>
+l.topics?.[0]?.toLowerCase().startsWith("0xd78ad95f")
 )
 
-if(!isSwap) continue
-
-// ============================
-// REAL TOKEN USD VOLUME
-// ============================
-let txVolume=0
-
-for(const t of txTransfers){
-
-const value = Number(t.value || 0)
-if(!value) continue
-
-const contract = t.rawContract?.address
-if(!contract) continue
-
-const price = await getTokenPrice(contract)
-
-if(!price) continue
-
-txVolume += value * price
-
-}
-
-if(txVolume===0) continue
+if(!swapLogs.length) continue
 
 swaps++
-volumeUSD += txVolume
 
-// ============================
-// GAS
-// ============================
+for(const log of swapLogs){
+
+const token0=log.address
+const amountHex=log.data.slice(2,66)
+
+const amount=parseInt(amountHex,16)/1e18
+
+const price=await getPrice(token0)
+
+volumeUSD+=amount*price
+}
+
+// gas
 const gasUsed=parseInt(
 receipt.data.result.gasUsed,
 16
@@ -168,12 +115,10 @@ receipt.data.result.effectiveGasPrice,
 16
 )
 
-gas += (gasUsed*gasPrice)/1e18
+gas+=(gasUsed*gasPrice)/1e18
 
-// ============================
-// DAY
-// ============================
-const block = await axios.post(rpc,{
+// day
+const block=await axios.post(rpc,{
 jsonrpc:"2.0",
 id:1,
 method:"eth_getBlockByNumber",
@@ -198,18 +143,13 @@ days[day]=true
 
 }
 
-// ============================
-// SCORE
-// ============================
-const score =
-(swaps*5)+
-(Object.keys(days).length*3)+
-(volumeUSD/20)+
-(gas*1500)
+// score real
+const score=
+(swaps*10)+
+(Object.keys(days).length*5)+
+(volumeUSD/10)+
+(gas*2000)
 
-// ============================
-// RANK
-// ============================
 let rank="#-"
 
 if(score>4000) rank="##1"
@@ -220,11 +160,9 @@ else if(score>100) rank="##5"
 
 return NextResponse.json({
 swaps,
-swapCount:swaps,
 tradingVolumeUSD:Number(volumeUSD.toFixed(2)),
 tradingDays:Object.keys(days).length,
 tradingGas:Number(gas.toFixed(6)),
-tradingGasETH:Number(gas.toFixed(6)),
 score:Math.floor(score),
 rank
 })
@@ -233,11 +171,9 @@ rank
 
 return NextResponse.json({
 swaps:0,
-swapCount:0,
 tradingVolumeUSD:0,
 tradingDays:0,
 tradingGas:0,
-tradingGasETH:0,
 score:0,
 rank:"#-"
 })
