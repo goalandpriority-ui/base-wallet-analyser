@@ -127,15 +127,8 @@ export async function POST(req: NextRequest) {
           params: [hash]
         })
 
-        const gasUsed = parseInt(
-          receipt.data.result.gasUsed,
-          16
-        )
-
-        const gasPrice = parseInt(
-          receipt.data.result.effectiveGasPrice,
-          16
-        )
+        const gasUsed = parseInt(receipt.data.result.gasUsed, 16)
+        const gasPrice = parseInt(receipt.data.result.effectiveGasPrice, 16)
 
         tradingGas += (gasUsed * gasPrice) / 1e18
 
@@ -167,7 +160,8 @@ export async function POST(req: NextRequest) {
         swaps: swapCount,
         volume: volumeUSD,
         days: tradingDaysCount,
-        gas: tradingGas
+        gas: tradingGas,
+        updated_at: new Date().toISOString()
       })
 
     const { data: better } = await supabase
