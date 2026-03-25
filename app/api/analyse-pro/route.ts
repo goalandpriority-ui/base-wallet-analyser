@@ -1,240 +1,184 @@
 import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
 
-// ============================
-// PRICE CACHE
-// ============================
-const priceCache: Record<string, number> = {}
-
-async function getTokenPrice(contract: string) {
-if (priceCache[contract]) return priceCache[contract]
-
-try {
-const res = await axios.get(
-`https://coins.llama.fi/prices/current/base:${contract}`
-)
-
-const price =
-res.data.coins[`base:${contract}`]?.price || 0
-
-priceCache[contract] = price
-return price
-
-} catch {
-return 0
-}
-}
-
 export async function POST(req: NextRequest) {
+  try {
+    const { wallet } = await req.json()
 
-try {
+    if (!wallet) {
+      return NextResponse.json({ error: "Wallet required" })
+    }
 
-const { wallet } = await req.json()
-const address = wallet.toLowerCase()
-const rpc = process.env.BASE_RPC!
+    const address = wallet.toLowerCase()
 
-// ============================
-// FETCH TRANSFERS
-// ============================
-let transfers: any[] = []
-let pageKey: string | undefined
+    let allTransfers: any[] = []
+    let pageKey: string | undefined = undefined
 
-const fetch = async (type: "fromAddress" | "toAddress") => {
+    // =========================================
+    // 🔥 FETCH TRANSFERS (OUT + IN)
+    // =========================================
+    const fetchTransfers = async (type: "fromAddress" | "toAddress") => {
+      pageKey = undefined
 
-pageKey = undefined
+      do {
+        const res = await axios.post(process.env.BASE_RPC!, {
+          jsonrpc: "2.0",
+          id: 1,
+          method: "alchemy_getAssetTransfers",
+          params: [
+            {
+              fromBlock: "0x0",
+              toBlock: "latest",
+              category: ["external", "erc20"],
+              withMetadata: true,
+              excludeZeroValue: true,
+              maxCount: "0x3e8",
+              pageKey,
+              [type]: address,
+            },
+          ],
+        })
 
-do {
+        const result = res.data.result
 
-const res = await axios.post(rpc, {
-jsonrpc: "2.0",
-id: 1,
-method: "alchemy_getAssetTransfers",
-params: [{
-fromBlock: "0x0",
-toBlock: "latest",
-category: ["external", "erc20"],
-withMetadata: true,
-excludeZeroValue: true,
-maxCount: "0x3e8",
-pageKey,
-[type]: address
-}]
-})
+        if (result?.transfers) {
+          allTransfers = allTransfers.concat(result.transfers)
+        }
 
-transfers = transfers.concat(res.data.result.transfers)
-pageKey = res.data.result.pageKey
+        pageKey = result.pageKey
+        if (allTransfers.length > 10000) break
 
-if (transfers.length > 8000) break
+      } while (pageKey)
+    }
 
-} while (pageKey)
-}
+    await fetchTransfers("fromAddress")
+    await fetchTransfers("toAddress")
 
-await fetch("fromAddress")
-await fetch("toAddress")
+    // =========================================
+    // 🔥 GROUP BY TX
+    // =========================================
+    const txMap = new Map<string, any[]>()
 
-// ============================
-// GROUP BY TX
-// ============================
-const txMap = new Map<string, any[]>()
+    for (const tx of allTransfers) {
+      if (!txMap.has(tx.hash)) {
+        txMap.set(tx.hash, [])
+      }
+      txMap.get(tx.hash)!.push(tx)
+    }
 
-for (const t of transfers) {
+    // =========================================
+    // 🔥 SWAP + VOLUME + GAS
+    // =========================================
+    let swapCount = 0
+    let volumeUSD = 0
+    let tradingGas = 0
 
-if (!txMap.has(t.hash)) txMap.set(t.hash, [])
-txMap.get(t.hash)!.push(t)
+    const tradingDays: Record<string, boolean> = {}
 
-}
+    const STABLES = ["USDC", "USDT"]
 
-// ============================
-// ANALYSIS
-// ============================
-let swaps = 0
-let volumeUSD = 0
-let gas = 0
-const days: Record<string, boolean> = {}
+    for (const [hash, transfers] of Array.from(txMap.entries())) {
 
-for (const [hash, txTransfers] of txMap) {
+      let sentAssets: string[] = []
+      let receivedAssets: string[] = []
 
-try {
+      for (const t of transfers) {
+        const asset = (t.asset || "").toUpperCase()
 
-// ============================
-// DETECT SWAP (REAL)
-// ============================
-let sent: any[] = []
-let received: any[] = []
+        if (t.from?.toLowerCase() === address) {
+          sentAssets.push(asset)
+        }
 
-for (const t of txTransfers) {
+        if (t.to?.toLowerCase() === address) {
+          receivedAssets.push(asset)
+        }
+      }
 
-const value = Number(t.value || 0)
-if (!value) continue
+      const uniqueSent = Array.from(new Set(sentAssets))
+      const uniqueReceived = Array.from(new Set(receivedAssets))
 
-if (t.from?.toLowerCase() === address)
-sent.push(t)
+      const isSwap =
+        uniqueSent.length > 0 &&
+        uniqueReceived.length > 0 &&
+        JSON.stringify(uniqueSent) !== JSON.stringify(uniqueReceived)
 
-if (t.to?.toLowerCase() === address)
-received.push(t)
+      if (!isSwap) continue
 
-}
+      swapCount++
 
-if (sent.length === 0 || received.length === 0) continue
+      // =====================================
+      // 🔥 VOLUME
+      // =====================================
+      for (const t of transfers) {
+        const value = Number(t.value || 0)
+        const asset = (t.asset || "").toUpperCase()
 
-swaps++
+        if (!value || !asset) continue
 
-// ============================
-// REAL USD VOLUME
-// ============================
-let txVolume = 0
+        if (t.from?.toLowerCase() === address) {
 
-for (const t of [...sent, ...received]) {
+          if (STABLES.includes(asset)) {
+            volumeUSD += value
+          }
 
-const value = Number(t.value || 0)
-if (!value) continue
+          if (asset === "ETH" || asset === "WETH") {
+            volumeUSD += value * 3000
+          }
+        }
+      }
 
-const contract = t.rawContract?.address
-if (!contract) continue
+      // =====================================
+      // 🔥 TRADING GAS (REAL)
+      // =====================================
+      try {
 
-const price = await getTokenPrice(contract)
+        const receipt = await axios.post(process.env.BASE_RPC!, {
+          jsonrpc: "2.0",
+          id: 1,
+          method: "eth_getTransactionReceipt",
+          params: [hash]
+        })
 
-if (!price) continue
+        const gasUsed = parseInt(
+          receipt.data.result.gasUsed,
+          16
+        )
 
-txVolume += value * price
+        const gasPrice = parseInt(
+          receipt.data.result.effectiveGasPrice,
+          16
+        )
 
-}
+        tradingGas += (gasUsed * gasPrice) / 1e18
 
-volumeUSD += txVolume
+      } catch {}
 
-// ============================
-// GAS
-// ============================
-const receipt = await axios.post(rpc, {
-jsonrpc: "2.0",
-id: 1,
-method: "eth_getTransactionReceipt",
-params: [hash]
-})
+      // =====================================
+      // 🔥 ACTIVE DAY
+      // =====================================
+      const sample = transfers[0]
 
-const gasUsed = parseInt(
-receipt.data.result.gasUsed,
-16
-)
+      if (sample.metadata?.blockTimestamp) {
+        const day = new Date(sample.metadata.blockTimestamp)
+          .toISOString()
+          .split("T")[0]
 
-const gasPrice = parseInt(
-receipt.data.result.effectiveGasPrice,
-16
-)
+        tradingDays[day] = true
+      }
+    }
 
-gas += (gasUsed * gasPrice) / 1e18
+    return NextResponse.json({
+      wallet,
+      swapCount,
+      swaps: swapCount,
+      tradingVolumeUSD: Number(volumeUSD.toFixed(2)),
+      tradingDays: Object.keys(tradingDays).length,
+      tradingGas: Number(tradingGas.toFixed(6)),
+      tradingGasETH: Number(tradingGas.toFixed(6))
+    })
 
-// ============================
-// DAY
-// ============================
-const block = await axios.post(rpc, {
-jsonrpc: "2.0",
-id: 1,
-method: "eth_getBlockByNumber",
-params: [
-receipt.data.result.blockNumber,
-false
-]
-})
-
-const ts = parseInt(
-block.data.result.timestamp,
-16
-)
-
-const day = new Date(ts * 1000)
-.toISOString()
-.split("T")[0]
-
-days[day] = true
-
-} catch { }
-
-}
-
-// ============================
-// SCORE (REAL)
-// ============================
-const score =
-(swaps * 8) +
-(Object.keys(days).length * 4) +
-(volumeUSD / 20) +
-(gas * 2000)
-
-// ============================
-// RANK
-// ============================
-let rank = "#-"
-
-if (score > 4000) rank = "##1"
-else if (score > 2000) rank = "##2"
-else if (score > 1000) rank = "##3"
-else if (score > 500) rank = "##4"
-else if (score > 100) rank = "##5"
-
-return NextResponse.json({
-swaps,
-swapCount: swaps,
-tradingVolumeUSD: Number(volumeUSD.toFixed(2)),
-tradingDays: Object.keys(days).length,
-tradingGas: Number(gas.toFixed(6)),
-tradingGasETH: Number(gas.toFixed(6)),
-score: Math.floor(score),
-rank
-})
-
-} catch {
-
-return NextResponse.json({
-swaps: 0,
-swapCount: 0,
-tradingVolumeUSD: 0,
-tradingDays: 0,
-tradingGas: 0,
-tradingGasETH: 0,
-score: 0,
-rank: "#-"
-})
-
-}
+  } catch (err) {
+    console.error(err)
+    return NextResponse.json({ error: "Analysis failed" })
+  }
 }
