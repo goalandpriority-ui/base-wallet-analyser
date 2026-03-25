@@ -1,181 +1,239 @@
 import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
 
-// real swap events
-const SWAP_TOPIC =
-"0xd78ad95fa46c994b6551d0da85fc275fe613d6e000000000000000000000000"
+// ============================
+// PRICE CACHE
+// ============================
+const priceCache: Record<string, number> = {}
 
-const priceCache:Record<string,number>={}
+async function getTokenPrice(contract: string) {
+if (priceCache[contract]) return priceCache[contract]
 
-async function getPrice(token:string){
-
-if(priceCache[token]) return priceCache[token]
-
-try{
-const res=await axios.get(
-`https://coins.llama.fi/prices/current/base:${token}`
+try {
+const res = await axios.get(
+`https://coins.llama.fi/prices/current/base:${contract}`
 )
 
-const price=
-res.data.coins[`base:${token}`]?.price || 0
+const price =
+res.data.coins[`base:${contract}`]?.price || 0
 
-priceCache[token]=price
+priceCache[contract] = price
 return price
 
-}catch{
+} catch {
 return 0
 }
-
 }
 
-export async function POST(req:NextRequest){
+export async function POST(req: NextRequest) {
 
-try{
+try {
 
-const {wallet}=await req.json()
-const address=wallet.toLowerCase()
-const rpc=process.env.BASE_RPC!
+const { wallet } = await req.json()
+const address = wallet.toLowerCase()
+const rpc = process.env.BASE_RPC!
 
-// fetch tx list
-let transfers:any[]=[]
-let pageKey:string|undefined
+// ============================
+// FETCH TRANSFERS
+// ============================
+let transfers: any[] = []
+let pageKey: string | undefined
 
-do{
+const fetch = async (type: "fromAddress" | "toAddress") => {
 
-const res=await axios.post(rpc,{
-jsonrpc:"2.0",
-id:1,
-method:"alchemy_getAssetTransfers",
-params:[{
-fromBlock:"0x0",
-toBlock:"latest",
-category:["external","erc20"],
-withMetadata:true,
-maxCount:"0x3e8",
+pageKey = undefined
+
+do {
+
+const res = await axios.post(rpc, {
+jsonrpc: "2.0",
+id: 1,
+method: "alchemy_getAssetTransfers",
+params: [{
+fromBlock: "0x0",
+toBlock: "latest",
+category: ["external", "erc20"],
+withMetadata: true,
+excludeZeroValue: true,
+maxCount: "0x3e8",
 pageKey,
-fromAddress:address
+[type]: address
 }]
 })
 
-transfers=transfers.concat(res.data.result.transfers)
-pageKey=res.data.result.pageKey
+transfers = transfers.concat(res.data.result.transfers)
+pageKey = res.data.result.pageKey
 
-if(transfers.length>3000) break
+if (transfers.length > 8000) break
 
-}while(pageKey)
+} while (pageKey)
+}
 
-const hashes=[...new Set(transfers.map(t=>t.hash))]
+await fetch("fromAddress")
+await fetch("toAddress")
 
-let swaps=0
-let volumeUSD=0
-let gas=0
-const days:Record<string,boolean>={}
+// ============================
+// GROUP BY TX
+// ============================
+const txMap = new Map<string, any[]>()
 
-for(const hash of hashes){
+for (const t of transfers) {
 
-try{
+if (!txMap.has(t.hash)) txMap.set(t.hash, [])
+txMap.get(t.hash)!.push(t)
 
-const receipt=await axios.post(rpc,{
-jsonrpc:"2.0",
-id:1,
-method:"eth_getTransactionReceipt",
-params:[hash]
-})
+}
 
-const logs=receipt.data.result.logs||[]
+// ============================
+// ANALYSIS
+// ============================
+let swaps = 0
+let volumeUSD = 0
+let gas = 0
+const days: Record<string, boolean> = {}
 
-const swapLogs=logs.filter((l:any)=>
-l.topics?.[0]?.toLowerCase().startsWith("0xd78ad95f")
-)
+for (const [hash, txTransfers] of txMap) {
 
-if(!swapLogs.length) continue
+try {
+
+// ============================
+// DETECT SWAP (REAL)
+// ============================
+let sent: any[] = []
+let received: any[] = []
+
+for (const t of txTransfers) {
+
+const value = Number(t.value || 0)
+if (!value) continue
+
+if (t.from?.toLowerCase() === address)
+sent.push(t)
+
+if (t.to?.toLowerCase() === address)
+received.push(t)
+
+}
+
+if (sent.length === 0 || received.length === 0) continue
 
 swaps++
 
-for(const log of swapLogs){
+// ============================
+// REAL USD VOLUME
+// ============================
+let txVolume = 0
 
-const token0=log.address
-const amountHex=log.data.slice(2,66)
+for (const t of [...sent, ...received]) {
 
-const amount=parseInt(amountHex,16)/1e18
+const value = Number(t.value || 0)
+if (!value) continue
 
-const price=await getPrice(token0)
+const contract = t.rawContract?.address
+if (!contract) continue
 
-volumeUSD+=amount*price
+const price = await getTokenPrice(contract)
+
+if (!price) continue
+
+txVolume += value * price
+
 }
 
-// gas
-const gasUsed=parseInt(
+volumeUSD += txVolume
+
+// ============================
+// GAS
+// ============================
+const receipt = await axios.post(rpc, {
+jsonrpc: "2.0",
+id: 1,
+method: "eth_getTransactionReceipt",
+params: [hash]
+})
+
+const gasUsed = parseInt(
 receipt.data.result.gasUsed,
 16
 )
 
-const gasPrice=parseInt(
+const gasPrice = parseInt(
 receipt.data.result.effectiveGasPrice,
 16
 )
 
-gas+=(gasUsed*gasPrice)/1e18
+gas += (gasUsed * gasPrice) / 1e18
 
-// day
-const block=await axios.post(rpc,{
-jsonrpc:"2.0",
-id:1,
-method:"eth_getBlockByNumber",
-params:[
+// ============================
+// DAY
+// ============================
+const block = await axios.post(rpc, {
+jsonrpc: "2.0",
+id: 1,
+method: "eth_getBlockByNumber",
+params: [
 receipt.data.result.blockNumber,
 false
 ]
 })
 
-const ts=parseInt(
+const ts = parseInt(
 block.data.result.timestamp,
 16
 )
 
-const day=new Date(ts*1000)
+const day = new Date(ts * 1000)
 .toISOString()
 .split("T")[0]
 
-days[day]=true
+days[day] = true
 
-}catch{}
+} catch { }
 
 }
 
-// score real
-const score=
-(swaps*10)+
-(Object.keys(days).length*5)+
-(volumeUSD/10)+
-(gas*2000)
+// ============================
+// SCORE (REAL)
+// ============================
+const score =
+(swaps * 8) +
+(Object.keys(days).length * 4) +
+(volumeUSD / 20) +
+(gas * 2000)
 
-let rank="#-"
+// ============================
+// RANK
+// ============================
+let rank = "#-"
 
-if(score>4000) rank="##1"
-else if(score>2000) rank="##2"
-else if(score>1000) rank="##3"
-else if(score>500) rank="##4"
-else if(score>100) rank="##5"
+if (score > 4000) rank = "##1"
+else if (score > 2000) rank = "##2"
+else if (score > 1000) rank = "##3"
+else if (score > 500) rank = "##4"
+else if (score > 100) rank = "##5"
 
 return NextResponse.json({
 swaps,
-tradingVolumeUSD:Number(volumeUSD.toFixed(2)),
-tradingDays:Object.keys(days).length,
-tradingGas:Number(gas.toFixed(6)),
-score:Math.floor(score),
+swapCount: swaps,
+tradingVolumeUSD: Number(volumeUSD.toFixed(2)),
+tradingDays: Object.keys(days).length,
+tradingGas: Number(gas.toFixed(6)),
+tradingGasETH: Number(gas.toFixed(6)),
+score: Math.floor(score),
 rank
 })
 
-}catch{
+} catch {
 
 return NextResponse.json({
-swaps:0,
-tradingVolumeUSD:0,
-tradingDays:0,
-tradingGas:0,
-score:0,
-rank:"#-"
+swaps: 0,
+swapCount: 0,
+tradingVolumeUSD: 0,
+tradingDays: 0,
+tradingGas: 0,
+tradingGasETH: 0,
+score: 0,
+rank: "#-"
 })
 
 }
