@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
 import { createClient } from "@supabase/supabase-js"
 
+const RPC =
+  process.env.BASE_RPC ||
+  `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
+
 const rpc = axios.create({
-  baseURL: process.env.BASE_RPC,
+  baseURL: RPC,
   timeout: 10000
 })
 
@@ -128,7 +132,6 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // SAFE GAS (no freeze)
       try {
         const receipt = await rpc.post("", {
           jsonrpc: "2.0",
