@@ -1,23 +1,40 @@
-import { NextResponse } from "next/server"
-import { getSupabase } from "@/lib/supabase"
+export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
 
-export async function POST(req:Request){
+import { NextRequest, NextResponse } from "next/server"
+import { createClient } from "@supabase/supabase-js"
 
-const { wallet } = await req.json()
+export async function POST(req: NextRequest) {
+  try {
 
-if(!wallet){
-return NextResponse.json({ok:false})
-}
+    const { wallet } = await req.json()
 
-const supabase = getSupabase()
+    if (!wallet) {
+      return NextResponse.json({ ok: false })
+    }
 
-await supabase
-.from("paid_users")
-.upsert({
-wallet: wallet.toLowerCase(),
-paid: true
-})
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
 
-return NextResponse.json({ok:true})
+    const address = wallet.toLowerCase()
 
+    const { error } = await supabase
+      .from("paid_users")
+      .upsert({
+        wallet: address
+      })
+
+    if (error) {
+      console.error(error)
+      return NextResponse.json({ ok: false })
+    }
+
+    return NextResponse.json({ ok: true })
+
+  } catch (err) {
+    console.error(err)
+    return NextResponse.json({ ok: false })
+  }
 }
