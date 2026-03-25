@@ -7,11 +7,10 @@ import { createClient } from "@supabase/supabase-js"
 export async function POST(req: NextRequest) {
   try {
 
-    const body = await req.json()
-    const wallet = body.wallet
+    const { wallet } = await req.json()
 
     if (!wallet) {
-      return NextResponse.json({ ok:false, error:"no wallet" })
+      return NextResponse.json({ ok: false })
     }
 
     const supabase = createClient(
@@ -26,14 +25,14 @@ export async function POST(req: NextRequest) {
       })
 
     if (error) {
-      console.log("SUPABASE ERROR:", error)
-      return NextResponse.json({ ok:false, error })
+      console.log("SUPABASE ERROR", error)
+      return NextResponse.json({ ok:false })
     }
 
     return NextResponse.json({ ok:true })
 
-  } catch (e:any) {
-    console.log("SERVER ERROR:", e)
-    return NextResponse.json({ ok:false, error:e?.message })
+  } catch (err) {
+    console.log("MARK PAID ERROR", err)
+    return NextResponse.json({ ok:false })
   }
 }
