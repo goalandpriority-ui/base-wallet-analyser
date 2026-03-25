@@ -1,14 +1,19 @@
+export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
+
 import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
 import { createClient } from "@supabase/supabase-js"
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
 export async function POST(req: NextRequest) {
   try {
+
+    // ✅ create supabase at runtime only
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
     const { wallet } = await req.json()
 
     if (!wallet) {
@@ -113,7 +118,7 @@ export async function POST(req: NextRequest) {
       swapCount++
 
       // =====================================
-      // 🔥 VOLUME (UNCHANGED)
+      // 🔥 VOLUME
       // =====================================
       for (const t of transfers) {
         const value = Number(t.value || 0)
@@ -134,10 +139,9 @@ export async function POST(req: NextRequest) {
       }
 
       // =====================================
-      // 🔥 TRADING GAS
+      // 🔥 GAS
       // =====================================
       try {
-
         const receipt = await axios.post(process.env.BASE_RPC!, {
           jsonrpc: "2.0",
           id: 1,
@@ -160,7 +164,7 @@ export async function POST(req: NextRequest) {
       } catch {}
 
       // =====================================
-      // 🔥 ACTIVE DAY
+      // 🔥 DAYS
       // =====================================
       const sample = transfers[0]
 
@@ -173,19 +177,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // =========================================
-    // 🔥 SCORE
-    // =========================================
     const tradingDaysCount = Object.keys(tradingDays).length
 
+    // =====================================
+    // 🔥 SCORE
+    // =====================================
     const score =
       swapCount * 3 +
       volumeUSD * 0.01 +
       tradingDaysCount * 5
 
-    // =========================================
-    // 🔥 SAVE TO LEADERBOARD
-    // =========================================
+    // =====================================
+    // 🔥 SAVE
+    // =====================================
     await supabase
       .from("leaderboard")
       .upsert({
@@ -197,9 +201,9 @@ export async function POST(req: NextRequest) {
         gas: tradingGas
       })
 
-    // =========================================
-    // 🔥 GET RANK
-    // =========================================
+    // =====================================
+    // 🔥 RANK
+    // =====================================
     const { data: better } = await supabase
       .from("leaderboard")
       .select("wallet")
