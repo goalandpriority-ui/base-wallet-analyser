@@ -19,8 +19,20 @@ let swaps = 0
 let volume = 0
 
 for(const w of data || []){
-swaps += Number(w.swapcount || 0)
-volume += Number(w.tradingvolumeusd || 0)
+
+// support OLD + NEW columns
+swaps += Number(
+w.swaps ??
+w.swapcount ??
+0
+)
+
+volume += Number(
+w.volume ??
+w.tradingvolumeusd ??
+0
+)
+
 }
 
 const { data: trending } = await supabase
@@ -33,7 +45,7 @@ const { data: trending } = await supabase
 return NextResponse.json({
 wallets,
 swaps,
-volume,
+volume: Number(volume.toFixed(2)),
 trending
 })
 
