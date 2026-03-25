@@ -23,11 +23,38 @@ const { data } = await supabase
 .range(from,to)
 
 const mapped = (data || []).map(w=>({
+
 wallet: w.wallet,
+
 score: Number(w.score || 0),
-swaps: Number(w.swapcount || 0),
-volume: Number(w.tradingvolumeusd || 0),
+
+// support OLD + NEW columns
+swaps: Number(
+w.swaps ??
+w.swapcount ??
+0
+),
+
+volume: Number(
+w.volume ??
+w.tradingvolumeusd ??
+0
+),
+
+days: Number(
+w.days ??
+w.tradingdays ??
+0
+),
+
+gas: Number(
+w.gas ??
+w.tradinggaseth ??
+0
+),
+
 paid: w.paid || false
+
 }))
 
 let yourRank=null
