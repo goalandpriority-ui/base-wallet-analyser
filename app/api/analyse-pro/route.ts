@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
+import { getSupabase } from "@/lib/supabase"
 
 export async function POST(req: NextRequest) {
   try {
@@ -107,7 +108,7 @@ export async function POST(req: NextRequest) {
       swapCount++
 
       // =====================================
-      // 🔥 VOLUME
+      // 🔥 VOLUME (UNCHANGED)
       // =====================================
       for (const t of transfers) {
         const value = Number(t.value || 0)
@@ -128,7 +129,7 @@ export async function POST(req: NextRequest) {
       }
 
       // =====================================
-      // 🔥 TRADING GAS (REAL)
+      // 🔥 TRADING GAS
       // =====================================
       try {
 
@@ -167,6 +168,46 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // =====================================
+    // 🔥 SCORE
+    // =====================================
+    const score =
+      (swapCount * 5) +
+      (volumeUSD * 0.5) +
+      (Object.keys(tradingDays).length * 3) +
+      (tradingGas * 20000)
+
+    // =====================================
+    // 🔥 SAVE TO SUPABASE
+    // =====================================
+    const supabase = getSupabase()
+
+    await supabase
+      .from("leaderboard")
+      .upsert({
+        wallet: address,
+        score,
+        swaps: swapCount,
+        volume: volumeUSD,
+        days: Object.keys(tradingDays).length,
+        gas: tradingGas,
+        updated_at: new Date().toISOString()
+      })
+
+    // =====================================
+    // 🔥 GET GLOBAL RANK
+    // =====================================
+    const { data } = await supabase
+      .from("leaderboard")
+      .select("wallet,score")
+      .order("score", { ascending: false })
+
+    const rank =
+      "#" +
+      (data?.findIndex(
+        (w: any) => w.wallet === address
+      ) + 1)
+
     return NextResponse.json({
       wallet,
       swapCount,
@@ -174,7 +215,9 @@ export async function POST(req: NextRequest) {
       tradingVolumeUSD: Number(volumeUSD.toFixed(2)),
       tradingDays: Object.keys(tradingDays).length,
       tradingGas: Number(tradingGas.toFixed(6)),
-      tradingGasETH: Number(tradingGas.toFixed(6))
+      tradingGasETH: Number(tradingGas.toFixed(6)),
+      score: Math.floor(score),
+      rank
     })
 
   } catch (err) {
