@@ -13,47 +13,57 @@ const rpc = process.env.BASE_RPC!
 // ============================
 let ETH_PRICE = 3000
 
-try{
+try {
 const price = await axios.get(
 "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd"
 )
 ETH_PRICE = price.data.ethereum.usd
-}catch{}
+} catch {}
 
 // ============================
-// GET TRANSFERS
+// FETCH TRANSFERS (IN + OUT)
 // ============================
 let transfers:any[]=[]
 let pageKey:string|undefined
 
+const fetch = async(type:"fromAddress"|"toAddress") => {
+
+pageKey = undefined
+
 do{
 
-const res=await axios.post(rpc,{
+const res = await axios.post(rpc,{
 jsonrpc:"2.0",
 id:1,
 method:"alchemy_getAssetTransfers",
 params:[{
 fromBlock:"0x0",
 toBlock:"latest",
-fromAddress:address,
 category:["external","erc20"],
 withMetadata:true,
+excludeZeroValue:true,
 maxCount:"0x3e8",
-pageKey
+pageKey,
+[type]:address
 }]
 })
 
-transfers=transfers.concat(res.data.result.transfers)
-pageKey=res.data.result.pageKey
+transfers = transfers.concat(res.data.result.transfers)
+pageKey = res.data.result.pageKey
 
-if(transfers.length>3000) break
+if(transfers.length>6000) break
 
 }while(pageKey)
+
+}
+
+await fetch("fromAddress")
+await fetch("toAddress")
 
 // ============================
 // GROUP BY TX
 // ============================
-const txMap=new Map<string,any[]>()
+const txMap = new Map<string,any[]>()
 
 for(const t of transfers){
 if(!txMap.has(t.hash)) txMap.set(t.hash,[])
@@ -73,24 +83,24 @@ for(const [hash,txTransfers] of txMap){
 try{
 
 // receipt
-const receipt=await axios.post(rpc,{
+const receipt = await axios.post(rpc,{
 jsonrpc:"2.0",
 id:1,
 method:"eth_getTransactionReceipt",
 params:[hash]
 })
 
-const logs=receipt.data.result.logs||[]
+const logs = receipt.data.result.logs || []
 
-// swap topic detect
-const isSwap=logs.some((l:any)=>
+// detect swap topic
+const isSwap = logs.some((l:any)=>
 l.topics?.[0]?.toLowerCase().startsWith("0xd78ad95f")
 )
 
 if(!isSwap) continue
 
 // ============================
-// REAL VOLUME DETECT
+// REAL VOLUME
 // ============================
 let sentUSD=0
 let receivedUSD=0
@@ -125,32 +135,32 @@ receivedUSD+=value*ETH_PRICE
 }
 
 // must have both
-if(sentUSD===0||receivedUSD===0) continue
+if(sentUSD===0 || receivedUSD===0) continue
 
 swaps++
 
-const txVolume=Math.min(sentUSD,receivedUSD)
-volumeUSD+=txVolume
+const txVolume = Math.min(sentUSD,receivedUSD)
+volumeUSD += txVolume
 
 // ============================
 // GAS
 // ============================
-const gasUsed=parseInt(
+const gasUsed = parseInt(
 receipt.data.result.gasUsed,
 16
 )
 
-const gasPrice=parseInt(
+const gasPrice = parseInt(
 receipt.data.result.effectiveGasPrice,
 16
 )
 
-gas+=(gasUsed*gasPrice)/1e18
+gas += (gasUsed * gasPrice)/1e18
 
 // ============================
 // DAY
 // ============================
-const block=await axios.post(rpc,{
+const block = await axios.post(rpc,{
 jsonrpc:"2.0",
 id:1,
 method:"eth_getBlockByNumber",
@@ -160,13 +170,13 @@ false
 ]
 })
 
-const ts=parseInt(block.data.result.timestamp,16)
+const ts = parseInt(block.data.result.timestamp,16)
 
-const day=new Date(ts*1000)
+const day = new Date(ts*1000)
 .toISOString()
 .split("T")[0]
 
-days[day]=true
+days[day] = true
 
 }catch{}
 
@@ -175,7 +185,7 @@ days[day]=true
 // ============================
 // SCORE
 // ============================
-const score=
+const score =
 (swaps*4)+
 (Object.keys(days).length*2)+
 (volumeUSD/50)+
@@ -193,6 +203,7 @@ else if(score>200) rank="##4"
 else if(score>100) rank="##5"
 
 return NextResponse.json({
+wallet:address,
 swaps,
 swapCount:swaps,
 tradingVolumeUSD:Number(volumeUSD.toFixed(2)),
