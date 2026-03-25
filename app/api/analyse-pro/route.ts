@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
-import { getSupabase } from "@/lib/supabase"
+import { createClient } from "@supabase/supabase-js"
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 export async function POST(req: NextRequest) {
   try {
@@ -168,20 +173,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // =====================================
+    // =========================================
     // 🔥 SCORE
-    // =====================================
+    // =========================================
+    const tradingDaysCount = Object.keys(tradingDays).length
+
     const score =
-      (swapCount * 5) +
-      (volumeUSD * 0.5) +
-      (Object.keys(tradingDays).length * 3) +
-      (tradingGas * 20000)
+      swapCount * 3 +
+      volumeUSD * 0.01 +
+      tradingDaysCount * 5
 
-    // =====================================
-    // 🔥 SAVE TO SUPABASE
-    // =====================================
-    const supabase = getSupabase()
-
+    // =========================================
+    // 🔥 SAVE TO LEADERBOARD
+    // =========================================
     await supabase
       .from("leaderboard")
       .upsert({
@@ -189,34 +193,29 @@ export async function POST(req: NextRequest) {
         score,
         swaps: swapCount,
         volume: volumeUSD,
-        days: Object.keys(tradingDays).length,
-        gas: tradingGas,
-        updated_at: new Date().toISOString()
+        days: tradingDaysCount,
+        gas: tradingGas
       })
 
-    // =====================================
-    // 🔥 GET GLOBAL RANK
-    // =====================================
-    const { data } = await supabase
+    // =========================================
+    // 🔥 GET RANK
+    // =========================================
+    const { data: better } = await supabase
       .from("leaderboard")
-      .select("wallet,score")
-      .order("score", { ascending: false })
+      .select("wallet")
+      .gt("score", score)
 
-    const rank =
-      "#" +
-      (data?.findIndex(
-        (w: any) => w.wallet === address
-      ) + 1)
+    const rank = (better?.length || 0) + 1
 
     return NextResponse.json({
       wallet,
-      swapCount,
       swaps: swapCount,
+      swapCount,
       tradingVolumeUSD: Number(volumeUSD.toFixed(2)),
-      tradingDays: Object.keys(tradingDays).length,
+      tradingDays: tradingDaysCount,
       tradingGas: Number(tradingGas.toFixed(6)),
       tradingGasETH: Number(tradingGas.toFixed(6)),
-      score: Math.floor(score),
+      score: Math.round(score),
       rank
     })
 
