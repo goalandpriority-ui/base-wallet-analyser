@@ -9,7 +9,7 @@ const supabase = getSupabase()
 
 const { data } = await supabase
 .from("leaderboard")
-.select("*")
+.select("wallet,score,swapcount,tradingvolumeusd,swaps,volume")
 
 let wallets = data?.length || 0
 let swaps = 0
@@ -17,9 +17,17 @@ let volume = 0
 
 for(const w of data || []){
 
-// use OLD columns (your DB)
-swaps += Number(w.swapcount || 0)
-volume += Number(w.tradingvolumeusd || 0)
+swaps += Number(
+w.swapcount ??
+w.swaps ??
+0
+)
+
+volume += Number(
+w.tradingvolumeusd ??
+w.volume ??
+0
+)
 
 }
 
