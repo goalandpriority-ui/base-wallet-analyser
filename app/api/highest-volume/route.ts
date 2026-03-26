@@ -12,13 +12,15 @@ const { searchParams } = new URL(req.url)
 const page=Number(searchParams.get("page")||1)
 const wallet=searchParams.get("wallet")
 
-const limit=1000
+const limit=50
 const from=(page-1)*limit
 const to=from+limit-1
 
+// ✅ only real volume wallets
 const { data } = await supabase
 .from("leaderboard")
 .select("*")
+.gt("tradingvolumeusd",0)
 .order("tradingvolumeusd",{ascending:false})
 .range(from,to)
 
@@ -37,6 +39,7 @@ if(wallet){
 const { data:all } = await supabase
 .from("leaderboard")
 .select("wallet,tradingvolumeusd")
+.gt("tradingvolumeusd",0)
 .order("tradingvolumeusd",{ascending:false})
 
 const i=all?.findIndex(
