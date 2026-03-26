@@ -12,7 +12,7 @@ const { searchParams } = new URL(req.url)
 const page = Number(searchParams.get("page") || 1)
 const wallet = searchParams.get("wallet")
 
-const limit = 1000
+const limit = 50
 const from = (page-1) * limit
 const to = from + limit - 1
 
@@ -25,10 +25,8 @@ const { data } = await supabase
 const mapped = (data || []).map(w=>({
 
 wallet: w.wallet,
-
 score: Number(w.score || 0),
 
-// support OLD + NEW columns
 swaps: Number(
 w.swaps ??
 w.swapcount ??
@@ -74,9 +72,16 @@ if(index!==-1) yourRank=index+1
 
 }
 
+const globalStats = {
+wallets: mapped.length,
+swaps: mapped.reduce((a,b)=>a+b.swaps,0),
+volume: mapped.reduce((a,b)=>a+b.volume,0)
+}
+
 return NextResponse.json({
 data:mapped,
-yourRank
+yourRank,
+globalStats
 })
 
 }
