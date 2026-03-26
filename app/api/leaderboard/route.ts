@@ -16,9 +16,11 @@ const limit = 50
 const from = (page-1) * limit
 const to = from + limit - 1
 
+// ✅ only real wallets
 const { data } = await supabase
 .from("leaderboard")
 .select("*")
+.gt("score",0)
 .order("score",{ascending:false})
 .range(from,to)
 
@@ -62,6 +64,7 @@ if(wallet){
 const { data:all } = await supabase
 .from("leaderboard")
 .select("wallet,score")
+.gt("score",0)
 .order("score",{ascending:false})
 
 const index = all?.findIndex(
