@@ -152,30 +152,55 @@ export async function POST(req: NextRequest) {
       volumeUSD * 0.01 +
       tradingDaysCount * 5
 
-    // ✅ FINAL FIX
-    await supabase
+
+    // 🔥 SAFE SAVE (NO OVERWRITE BUG)
+    const { data: existing } = await supabase
       .from("leaderboard")
-      .upsert({
-        wallet: address,
+      .select("wallet")
+      .eq("wallet", address)
+      .single()
 
-        score,
+    if (existing) {
 
-        // new
-        swaps: swapCount,
-        volume: volumeUSD,
-        days: tradingDaysCount,
-        gas: tradingGas,
+      await supabase
+        .from("leaderboard")
+        .update({
+          score,
+          swaps: swapCount,
+          volume: volumeUSD,
+          days: tradingDaysCount,
+          gas: tradingGas,
 
-        // old compatibility
-        swapcount: swapCount,
-        tradingvolumeusd: volumeUSD,
-        tradingdays: tradingDaysCount,
-        tradinggaseth: tradingGas,
+          swapcount: swapCount,
+          tradingvolumeusd: volumeUSD,
+          tradingdays: tradingDaysCount,
+          tradinggaseth: tradingGas,
 
-        updated_at: new Date().toISOString()
-      },{
-        onConflict: "wallet"
-      })
+          updated_at: new Date().toISOString()
+        })
+        .eq("wallet", address)
+
+    } else {
+
+      await supabase
+        .from("leaderboard")
+        .insert({
+          wallet: address,
+          score,
+          swaps: swapCount,
+          volume: volumeUSD,
+          days: tradingDaysCount,
+          gas: tradingGas,
+
+          swapcount: swapCount,
+          tradingvolumeusd: volumeUSD,
+          tradingdays: tradingDaysCount,
+          tradinggaseth: tradingGas,
+
+          updated_at: new Date().toISOString()
+        })
+    }
+
 
     const { data: better } = await supabase
       .from("leaderboard")
