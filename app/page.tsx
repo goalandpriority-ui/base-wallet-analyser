@@ -21,8 +21,15 @@ try{
 await sdk.actions.ready()
 const context:any = await sdk.context
 
-const fcWallet =
+// ✅ NEW SDK
+const fcWalletNew =
+context?.user?.wallet?.address
+
+// ✅ OLD SDK fallback
+const fcWalletOld =
 context?.user?.verifiedAddresses?.ethAddresses?.[0]
+
+const fcWallet = fcWalletNew || fcWalletOld
 
 if(fcWallet){
 const w = fcWallet.toLowerCase()
@@ -33,7 +40,9 @@ setConnecting(false)
 return
 }
 
-}catch{}
+}catch(e){
+console.log("Farcaster wallet not found")
+}
 
 try{
 
@@ -178,7 +187,7 @@ alert("Payment failed")
 
 }
 
-/* ANALYSE 🔥 FINAL FIX */
+/* ANALYSE */
 const analyse = async()=>{
 
 if(!paid){
@@ -191,7 +200,6 @@ setData(null)
 
 try{
 
-// ✅ ALWAYS use latest wallet from storage
 const currentWallet =
 (localStorage.getItem("lastWallet") || wallet)?.toLowerCase()
 
@@ -201,10 +209,8 @@ setLoading(false)
 return
 }
 
-// keep sync
 setWallet(currentWallet)
 
-// ✅ BASIC
 const basicRes = await fetch("/api/analyse",{
 method:"POST",
 headers:{
@@ -215,7 +221,6 @@ body:JSON.stringify({wallet: currentWallet})
 
 const basicData = await basicRes.json()
 
-// ✅ PRO (DB SAVE)
 const proRes = await fetch("/api/analyse-pro",{
 method:"POST",
 headers:{
@@ -336,7 +341,7 @@ Pay & Unlock
 
 }
 
-/* styles same as yours */
+/* styles unchanged */
 
 const wrap:CSSProperties={padding:20,maxWidth:700,margin:"auto"}
 const header:CSSProperties={background:"#020617",padding:24,borderRadius:18,marginBottom:25,position:"relative"}
