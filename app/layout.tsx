@@ -24,18 +24,18 @@ export default function RootLayout({
         splashBackgroundColor: "#020617"
       }
     }
-  }
+  };
 
   return (
     <html lang="en">
       <head>
-        {/* === CRITICAL Farcaster Mini App Meta === */}
+        {/* CRITICAL: Farcaster Mini App Meta Tag */}
         <meta 
           name="fc:miniapp" 
           content={JSON.stringify(miniAppConfig)} 
         />
 
-        {/* Fallback for older clients */}
+        {/* Fallback Frame Tags */}
         <meta property="fc:frame" content="vNext" />
         <meta property="fc:frame:image" content="https://base-wallet-analyser.vercel.app/splash.png" />
         <meta property="fc:frame:button:1" content="Open Base Wallet Analyser" />
@@ -63,7 +63,7 @@ export default function RootLayout({
   )
 }
 
-// ==================== Your Existing Styles ====================
+// ==================== Your Existing Styles (Copy as is) ====================
 const body = {
   margin: 0,
   minHeight: "100vh",
