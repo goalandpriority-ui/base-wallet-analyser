@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"
+
 "use client"
 
 import { useEffect, useState } from "react"
@@ -24,7 +26,9 @@ typeof window !== "undefined"
 
 const load = ()=>{
 
-fetch(`/api/leaderboard?page=${page}&wallet=${wallet||""}`)
+fetch(`/api/leaderboard?page=${page}&wallet=${wallet||""}`,{
+cache:"no-store"
+})
 .then(res=>res.json())
 .then(res=>{
 
@@ -50,7 +54,7 @@ return ()=>clearInterval(i)
 
 useEffect(()=>{
 
-fetch("/api/stats")
+fetch("/api/stats",{cache:"no-store"})
 .then(res=>res.json())
 .then(res=>{
 
@@ -74,7 +78,9 @@ setPage(targetPage)
 const searchWallet = ()=>{
 if(!search) return
 
-fetch(`/api/leaderboard?wallet=${search}`)
+fetch(`/api/leaderboard?wallet=${search}`,{
+cache:"no-store"
+})
 .then(res=>res.json())
 .then(res=>{
 if(res.yourRank){
@@ -274,4 +280,4 @@ Next
 
 </div>
 )
-  }
+}
