@@ -153,26 +153,32 @@ export async function POST(req: NextRequest) {
       tradingDaysCount * 5
 
 
-    // 🔥 SAFE UPSERT (NO OVERWRITE BUG)
+    // 🔥 SAFE SAVE (NO OVERWRITE BUG)
     await supabase
       .from("leaderboard")
-      .upsert({
+      .delete()
+      .eq("wallet", address)
+
+    await supabase
+      .from("leaderboard")
+      .insert({
         wallet: address,
+
         score,
 
+        // new
         swaps: swapCount,
         volume: volumeUSD,
         days: tradingDaysCount,
         gas: tradingGas,
 
+        // old compatibility
         swapcount: swapCount,
         tradingvolumeusd: volumeUSD,
         tradingdays: tradingDaysCount,
         tradinggaseth: tradingGas,
 
         updated_at: new Date().toISOString()
-      }, {
-        onConflict: "wallet"
       })
 
 
