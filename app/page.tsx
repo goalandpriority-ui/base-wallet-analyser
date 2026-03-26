@@ -176,7 +176,7 @@ alert("Payment failed")
 
 }
 
-/* ANALYSE */
+/* ANALYSE (🔥 FIXED - NO RACE CONDITION) */
 const analyse = async()=>{
 
 if(!paid){
@@ -191,17 +191,8 @@ try{
 
 localStorage.setItem("lastWallet",wallet)
 
-const [basicRes,proRes] = await Promise.all([
-
-fetch("/api/analyse",{
-method:"POST",
-headers:{
-"Content-Type":"application/json"
-},
-body:JSON.stringify({wallet})
-}),
-
-fetch("/api/analyse-pro",{
+// ✅ FIRST basic
+const basicRes = await fetch("/api/analyse",{
 method:"POST",
 headers:{
 "Content-Type":"application/json"
@@ -209,9 +200,17 @@ headers:{
 body:JSON.stringify({wallet})
 })
 
-])
-
 const basicData = await basicRes.json()
+
+// ✅ THEN pro (leaderboard save)
+const proRes = await fetch("/api/analyse-pro",{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({wallet})
+})
+
 const proData = await proRes.json()
 
 setData({
