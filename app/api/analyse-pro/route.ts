@@ -153,15 +153,10 @@ export async function POST(req: NextRequest) {
       tradingDaysCount * 5
 
 
-    // 🔥 SAFE SAVE (NO OVERWRITE BUG)
+    // 🔥 FIXED SAVE (UPSERT — NO DUPLICATE / NO DELETE)
     await supabase
       .from("leaderboard")
-      .delete()
-      .eq("wallet", address)
-
-    await supabase
-      .from("leaderboard")
-      .insert({
+      .upsert({
         wallet: address,
 
         score,
@@ -179,6 +174,8 @@ export async function POST(req: NextRequest) {
         tradinggaseth: tradingGas,
 
         updated_at: new Date().toISOString()
+      },{
+        onConflict: "wallet"
       })
 
 
