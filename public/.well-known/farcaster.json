@@ -1,0 +1,18 @@
+{
+  "accountAssociation": {
+    "header": "eyJmaWQiOjIzODAwNiwidHlwZSI6ImN1c3RvZHkiLCJrZXkiOiIweGVmOTAzMTEwMTRBMWE3ZmY4MDMwNzlmQTVlOGIxMmQ3MjhGNjY0RUUifQ",
+    "payload": "eyJkb21haW4iOiJiYXNlLXdhbGxldC1hbmFseXNlci52ZXJjZWwuYXBwIn0",
+    "signature": "EEaunrtl4ixprcJivQPYA8mkNaZkZRJfePBi0n5uPq02tN8vZJva6zupxkhI2sjCZ6HRFvBQbx2pTz1geQyRghw="
+  },
+  "frame": {
+    "version": "1",
+    "name": "Base Wallet Analyser",
+    "iconUrl": "https://base-wallet-analyser.vercel.app/icon.png",
+    "homeUrl": "https://base-wallet-analyser.vercel.app",
+    "imageUrl": "https://base-wallet-analyser.vercel.app/splash.png",
+    "buttonTitle": "Open App",
+    "splashImageUrl": "https://base-wallet-analyser.vercel.app/splash.png",
+    "splashBackgroundColor": "#020617",
+    "webhookUrl": "https://base-wallet-analyser.vercel.app/api/webhook"
+  }
+}
