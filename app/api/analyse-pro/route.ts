@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
       volumeUSD * 0.01 +
       tradingDaysCount * 5
 
-    // ✅ FIXED SAVE (old + new columns)
+    // ✅ FINAL FIX
     await supabase
       .from("leaderboard")
       .upsert({
@@ -166,13 +166,15 @@ export async function POST(req: NextRequest) {
         days: tradingDaysCount,
         gas: tradingGas,
 
-        // old (leaderboard compatibility)
+        // old compatibility
         swapcount: swapCount,
         tradingvolumeusd: volumeUSD,
         tradingdays: tradingDaysCount,
         tradinggaseth: tradingGas,
 
         updated_at: new Date().toISOString()
+      },{
+        onConflict: "wallet"
       })
 
     const { data: better } = await supabase
