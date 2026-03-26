@@ -3,27 +3,6 @@ import Navbar from "./navbar"
 export const metadata = {
   title: "Base Wallet Analyser",
   description: "Analyse Base wallets",
-
-  openGraph: {
-    title: "Base Wallet Analyser",
-    description: "Analyse Base wallets",
-    images: [
-      "https://base-wallet-analyser.vercel.app/splash.png"
-    ]
-  },
-
-  other: {
-    "fc:frame": "vNext",
-    "fc:frame:image":
-      "https://base-wallet-analyser.vercel.app/splash.png",
-
-    "fc:frame:button:1": "Open App",
-    "fc:frame:button:1:action": "link",
-    "fc:frame:button:1:target":
-      "https://base-wallet-analyser.vercel.app",
-
-    "fc:miniapp": "true"
-  }
 }
 
 export default function RootLayout({
@@ -33,9 +12,39 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+
+        {/* Farcaster Frame */}
+        <meta property="fc:frame" content="vNext" />
+        <meta
+          property="fc:frame:image"
+          content="https://base-wallet-analyser.vercel.app/splash.png"
+        />
+        <meta
+          property="fc:frame:button:1"
+          content="Open Base Wallet Analyser"
+        />
+        <meta
+          property="fc:frame:button:1:action"
+          content="link"
+        />
+        <meta
+          property="fc:frame:button:1:target"
+          content="https://base-wallet-analyser.vercel.app"
+        />
+
+        {/* OpenGraph */}
+        <meta property="og:title" content="Base Wallet Analyser" />
+        <meta property="og:description" content="Analyse Base wallets" />
+        <meta
+          property="og:image"
+          content="https://base-wallet-analyser.vercel.app/splash.png"
+        />
+
+      </head>
+
       <body style={body}>
 
-        {/* floating glow */}
         <div style={glow1} />
         <div style={glow2} />
         <div style={glow3} />
