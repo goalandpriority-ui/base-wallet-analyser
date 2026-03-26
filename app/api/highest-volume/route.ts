@@ -12,14 +12,13 @@ const { searchParams } = new URL(req.url)
 const page=Number(searchParams.get("page")||1)
 const wallet=searchParams.get("wallet")
 
-const limit=50
+const limit=20
 const from=(page-1)*limit
 const to=from+limit-1
 
-// ✅ only real volume wallets
-const { data } = await supabase
+const { data, count } = await supabase
 .from("leaderboard")
-.select("*")
+.select("*",{count:"exact"})
 .gt("tradingvolumeusd",0)
 .order("tradingvolumeusd",{ascending:false})
 .range(from,to)
@@ -52,7 +51,10 @@ if(i!==-1) yourRank=i+1
 
 return NextResponse.json({
 data:mapped,
-yourRank
+yourRank,
+total:count,
+page,
+hasMore:(count||0) > to+1
 })
 
 }
