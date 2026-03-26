@@ -19,12 +19,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Wallet required" })
     }
 
-    const address = wallet.toLowerCase()
+    const address = wallet.toLowerCase().trim()
 
     let allTransfers: any[] = []
     let pageKey: string | undefined = undefined
 
-    // FETCH FULL HISTORY
     do {
       const res = await rpc.post("", {
         jsonrpc: "2.0",
