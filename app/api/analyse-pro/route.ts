@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Wallet required" })
     }
 
-    const address = wallet.toLowerCase()
+    const address = wallet.toLowerCase().trim()
 
     let allTransfers: any[] = []
     let pageKey: string | undefined = undefined
@@ -153,53 +153,27 @@ export async function POST(req: NextRequest) {
       tradingDaysCount * 5
 
 
-    // 🔥 SAFE SAVE (NO OVERWRITE BUG)
-    const { data: existing } = await supabase
+    // 🔥 SAFE UPSERT (NO OVERWRITE BUG)
+    await supabase
       .from("leaderboard")
-      .select("wallet")
-      .eq("wallet", address)
-      .single()
+      .upsert({
+        wallet: address,
+        score,
 
-    if (existing) {
+        swaps: swapCount,
+        volume: volumeUSD,
+        days: tradingDaysCount,
+        gas: tradingGas,
 
-      await supabase
-        .from("leaderboard")
-        .update({
-          score,
-          swaps: swapCount,
-          volume: volumeUSD,
-          days: tradingDaysCount,
-          gas: tradingGas,
+        swapcount: swapCount,
+        tradingvolumeusd: volumeUSD,
+        tradingdays: tradingDaysCount,
+        tradinggaseth: tradingGas,
 
-          swapcount: swapCount,
-          tradingvolumeusd: volumeUSD,
-          tradingdays: tradingDaysCount,
-          tradinggaseth: tradingGas,
-
-          updated_at: new Date().toISOString()
-        })
-        .eq("wallet", address)
-
-    } else {
-
-      await supabase
-        .from("leaderboard")
-        .insert({
-          wallet: address,
-          score,
-          swaps: swapCount,
-          volume: volumeUSD,
-          days: tradingDaysCount,
-          gas: tradingGas,
-
-          swapcount: swapCount,
-          tradingvolumeusd: volumeUSD,
-          tradingdays: tradingDaysCount,
-          tradinggaseth: tradingGas,
-
-          updated_at: new Date().toISOString()
-        })
-    }
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: "wallet"
+      })
 
 
     const { data: better } = await supabase
