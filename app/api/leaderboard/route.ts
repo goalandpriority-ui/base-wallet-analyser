@@ -12,14 +12,13 @@ const { searchParams } = new URL(req.url)
 const page = Number(searchParams.get("page") || 1)
 const wallet = searchParams.get("wallet")
 
-const limit = 50
+const limit = 20
 const from = (page-1) * limit
 const to = from + limit - 1
 
-// ✅ only real wallets
-const { data } = await supabase
+const { data, count } = await supabase
 .from("leaderboard")
-.select("*")
+.select("*",{ count:"exact" })
 .gt("score",0)
 .order("score",{ascending:false})
 .range(from,to)
@@ -28,31 +27,10 @@ const mapped = (data || []).map(w=>({
 
 wallet: w.wallet,
 score: Number(w.score || 0),
-
-swaps: Number(
-w.swaps ??
-w.swapcount ??
-0
-),
-
-volume: Number(
-w.volume ??
-w.tradingvolumeusd ??
-0
-),
-
-days: Number(
-w.days ??
-w.tradingdays ??
-0
-),
-
-gas: Number(
-w.gas ??
-w.tradinggaseth ??
-0
-),
-
+swaps: Number(w.swapcount || 0),
+volume: Number(w.tradingvolumeusd || 0),
+days: Number(w.tradingdays || 0),
+gas: Number(w.tradinggaseth || 0),
 paid: w.paid || false
 
 }))
@@ -75,16 +53,12 @@ if(index!==-1) yourRank=index+1
 
 }
 
-const globalStats = {
-wallets: mapped.length,
-swaps: mapped.reduce((a,b)=>a+b.swaps,0),
-volume: mapped.reduce((a,b)=>a+b.volume,0)
-}
-
 return NextResponse.json({
 data:mapped,
 yourRank,
-globalStats
+total: count,
+page,
+hasMore: (count || 0) > to + 1
 })
 
 }
