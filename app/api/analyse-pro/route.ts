@@ -153,33 +153,26 @@ export async function POST(req: NextRequest) {
       tradingDaysCount * 5
 
 
-    // 🔥 FINAL SAFE SAVE (UPSERT)
+    // ✅ SAVE TO LEADERBOARD (MATCH YOUR TABLE)
     const { data: saved, error } = await supabase
       .from("leaderboard")
       .upsert({
         wallet: address,
-
         score,
 
-        // new
-        swaps: swapCount,
-        volume: volumeUSD,
-        days: tradingDaysCount,
-        gas: tradingGas,
-
-        // old compatibility
         swapcount: swapCount,
         tradingvolumeusd: volumeUSD,
         tradingdays: tradingDaysCount,
         tradinggaseth: tradingGas,
 
         updated_at: new Date().toISOString()
+
       },{
         onConflict: "wallet"
       })
 
-    console.log("Leaderboard saved:", saved)
-    console.log("Leaderboard error:", error)
+    console.log("saved:", saved)
+    console.log("error:", error)
 
 
     const { data: better } = await supabase
