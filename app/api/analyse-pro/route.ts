@@ -153,8 +153,8 @@ export async function POST(req: NextRequest) {
       tradingDaysCount * 5
 
 
-    // 🔥 FIXED SAVE (UPSERT — NO DUPLICATE / NO DELETE)
-    await supabase
+    // 🔥 FINAL SAFE SAVE (UPSERT)
+    const { data: saved, error } = await supabase
       .from("leaderboard")
       .upsert({
         wallet: address,
@@ -177,6 +177,9 @@ export async function POST(req: NextRequest) {
       },{
         onConflict: "wallet"
       })
+
+    console.log("Leaderboard saved:", saved)
+    console.log("Leaderboard error:", error)
 
 
     const { data: better } = await supabase
