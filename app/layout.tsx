@@ -1,8 +1,14 @@
 import Navbar from "./navbar"
+import type { Metadata } from 'next'
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Base Wallet Analyser",
-  description: "Analyse Base wallets",
+  description: "Analyse wallets on Base network",
+  openGraph: {
+    title: "Base Wallet Analyser",
+    description: "Analyse wallets on Base network - Transactions, Volume & On-chain Activity",
+    images: [{ url: "https://base-wallet-analyser.vercel.app/og-image.png" }],
+  },
 }
 
 export default function RootLayout({
@@ -10,54 +16,54 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  // Mini App Embed JSON
+  // Farcaster Mini App Configuration
   const miniAppConfig = {
     version: "next",
-    imageUrl: "https://base-wallet-analyser.vercel.app/splash.png",
+    imageUrl: "https://base-wallet-analyser.vercel.app/og-image.png",   // ← og-image use pannu (1200x800)
     button: {
       title: "Open Base Wallet Analyser",
       action: {
         type: "launch_frame",
         name: "Base Wallet Analyser",
         url: "https://base-wallet-analyser.vercel.app/",
-        splashImageUrl: "https://base-wallet-analyser.vercel.app/splash.png",
+        splashImageUrl: "https://base-wallet-analyser.vercel.app/splash.png",  // ← 200x200 splash
         splashBackgroundColor: "#020617"
       }
     }
-  };
+  }
 
   return (
     <html lang="en">
       <head>
-        {/* === CRITICAL: Farcaster Mini App Embed === */}
+        {/* === MAIN Farcaster Mini App Meta Tag (Most Important) === */}
         <meta 
           name="fc:miniapp" 
           content={JSON.stringify(miniAppConfig)} 
         />
 
-        {/* Backward compatibility (keep this) */}
+        {/* Backward compatibility for older Farcaster clients */}
         <meta property="fc:frame" content="vNext" />
-        <meta
-          property="fc:frame:image"
-          content="https://base-wallet-analyser.vercel.app/splash.png"
+        <meta 
+          property="fc:frame:image" 
+          content="https://base-wallet-analyser.vercel.app/og-image.png" 
         />
-        <meta
-          property="fc:frame:button:1"
-          content="Open Base Wallet Analyser"
+        <meta 
+          property="fc:frame:button:1" 
+          content="Open Base Wallet Analyser" 
         />
-        <meta
-          property="fc:frame:button:1:action"
-          content="link"
+        <meta 
+          property="fc:frame:button:1:action" 
+          content="link" 
         />
-        <meta
-          property="fc:frame:button:1:target"
-          content="https://base-wallet-analyser.vercel.app"
+        <meta 
+          property="fc:frame:button:1:target" 
+          content="https://base-wallet-analyser.vercel.app" 
         />
 
-        {/* Open Graph for better sharing */}
+        {/* Open Graph Meta */}
         <meta property="og:title" content="Base Wallet Analyser" />
         <meta property="og:description" content="Analyse wallets on Base network - Transactions, Volume & On-chain Activity" />
-        <meta property="og:image" content="https://base-wallet-analyser.vercel.app/splash.png" />
+        <meta property="og:image" content="https://base-wallet-analyser.vercel.app/og-image.png" />
       </head>
 
       <body style={body}>
@@ -75,7 +81,7 @@ export default function RootLayout({
   )
 }
 
-// === Your existing styles (no change) ===
+// ==================== Your Existing Styles (No Change) ====================
 const body = {
   margin: 0,
   minHeight: "100vh",
