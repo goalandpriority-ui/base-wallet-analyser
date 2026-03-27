@@ -1,9 +1,17 @@
+// app/layout.tsx
 import Navbar from "./navbar"
 
 export const metadata = {
 title: "Base Wallet Analyser",
 description: "Analyse wallets on Base network",
 other: {
+
+"fc:frame":"vNext",
+"fc:frame:image":"https://base-wallet-analyser.vercel.app/splash.png",
+"fc:frame:button:1":"Open Base Wallet Analyser",
+"fc:frame:button:1:action":"link",
+"fc:frame:button:1:target":"https://base-wallet-analyser.vercel.app",
+
 "fc:miniapp": JSON.stringify({
 version:"1",
 imageUrl:"https://base-wallet-analyser.vercel.app/splash.png",
@@ -16,10 +24,8 @@ splashImageUrl:"https://base-wallet-analyser.vercel.app/splash.png",
 splashBackgroundColor:"#020617"
 }
 }
-}),
-"og:title":"Base Wallet Analyser",
-"og:image":"https://base-wallet-analyser.vercel.app/splash.png",
-"og:description":"Analyse wallets on Base network"
+})
+
 }
 }
 
