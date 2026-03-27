@@ -35,6 +35,11 @@ if(accounts?.[0]){
 const w = accounts[0].toLowerCase()
 setWallet(w)
 localStorage.setItem("lastWallet",w)
+
+/* restore paid local */
+const localPaid = localStorage.getItem("paid_"+w)
+if(localPaid==="true") setPaid(true)
+
 checkPaid(w)
 setConnecting(false)
 return
@@ -72,6 +77,11 @@ if(fcWallet){
 const w = fcWallet.toLowerCase()
 setWallet(w)
 localStorage.setItem("lastWallet",w)
+
+/* restore paid local */
+const localPaid = localStorage.getItem("paid_"+w)
+if(localPaid==="true") setPaid(true)
+
 checkPaid(w)
 setConnecting(false)
 return
@@ -97,6 +107,11 @@ if(acc?.[0]){
 const w = acc[0].toLowerCase()
 setWallet(w)
 localStorage.setItem("lastWallet",w)
+
+/* restore paid local */
+const localPaid = localStorage.getItem("paid_"+w)
+if(localPaid==="true") setPaid(true)
+
 checkPaid(w)
 setConnecting(false)
 return
@@ -111,8 +126,16 @@ return
 const cached = localStorage.getItem("lastWallet")
 
 if(cached){
-setWallet(cached.toLowerCase())
-checkPaid(cached.toLowerCase())
+
+const w = cached.toLowerCase()
+
+setWallet(w)
+
+/* restore paid local */
+const localPaid = localStorage.getItem("paid_"+w)
+if(localPaid==="true") setPaid(true)
+
+checkPaid(w)
 }
 
 setConnecting(false)
@@ -142,6 +165,10 @@ if(accounts?.[0]){
 const addr = accounts[0].toLowerCase()
 setWallet(addr)
 localStorage.setItem("lastWallet",addr)
+
+const localPaid = localStorage.getItem("paid_"+addr)
+if(localPaid==="true") setPaid(true)
+
 checkPaid(addr)
 return
 }
@@ -165,6 +192,10 @@ const addr = accounts[0].toLowerCase()
 
 setWallet(addr)
 localStorage.setItem("lastWallet",addr)
+
+const localPaid = localStorage.getItem("paid_"+addr)
+if(localPaid==="true") setPaid(true)
+
 checkPaid(addr)
 
 }catch{
@@ -183,6 +214,11 @@ const res = await fetch("/api/check-paid?wallet=${w}")
 const json = await res.json()
 
 setPaid(json.paid)
+
+/* save local */
+if(json.paid){
+localStorage.setItem("paid_"+w,"true")
+}
 
 }
 
@@ -241,6 +277,9 @@ if(!json.ok){
 alert("Payment save failed")
 return
 }
+
+/* IMPORTANT lifetime save */
+localStorage.setItem("paid_"+wallet.toLowerCase(),"true")
 
 await checkPaid(wallet)
 setPaid(true)
@@ -341,6 +380,7 @@ text: castText
 }catch(e){
 
 console.log(e)
+alert("Error analysing wallet")
 
 }
 
@@ -350,9 +390,7 @@ setLoading(false)
 
 return (
 
-<div style={container}><h2>Base Wallet Analyser</h2>{connecting && <p>Connecting wallet...</p>}
-
-{!wallet && !connecting && (
+<div style={container}><h2>Base Wallet Analyser</h2>{connecting && <p>Connecting wallet...</p>}{!wallet && !connecting && (
 <button style={button} onClick={connectWallet}>
 Connect Wallet
 </button>
@@ -372,22 +410,14 @@ Analyse Wallet
 
 {loading && <p>Analysing...</p>}
 
-{data && !data.error && (
+{data && (
 
-<div style={result}><p>📊 Transactions: {data.totalTxns}</p>
-<p>💰 Transfer Volume: {data.totalVolumeETH} ETH</p>
-<p>⛽ Gas: {data.totalGasETH} ETH</p>
-<p>📅 Active Days: {data.activeDays}</p><hr style={divider}/><p>🔁 Swaps: {data.swapCount}</p>
-<p>💎 Trading Volume: ${data.tradingVolumeUSD}</p>
-<p>📅 Trading Days: {data.tradingDays}</p>
-<p>⛽ Trading Gas: {data.tradingGasETH} ETH</p><hr style={divider}/><p>🏆 Rank: #{data.rank}</p>
-<p>⭐ Score: {data.score}</p></div>)}
-
-</div>
-)}
-
-const container:CSSProperties={
-padding:20
+<pre style={card}>
+{JSON.stringify(data,null,2)}
+</pre>)}</div>
+)}const container:CSSProperties={
+padding:20,
+fontFamily:"monospace"
 }
 
 const button:CSSProperties={
@@ -396,16 +426,10 @@ marginTop:10,
 cursor:"pointer"
 }
 
-const result:CSSProperties={
+const card:CSSProperties={
 marginTop:20,
-background:"#020617",
-color:"#22c55e",
-padding:20,
-borderRadius:12,
-border:"1px solid #111"
-}
-
-const divider:CSSProperties={
-margin:"15px 0",
-borderColor:"#111"
+background:"#111",
+color:"#0f0",
+padding:10,
+overflow:"auto"
 }
