@@ -1,7 +1,29 @@
 // app/layout.tsx
 import Navbar from "./navbar"
 
-/* ==================== STYLES FIRST ==================== */
+/* ==================== FARCASTER MINI APP META ==================== */
+
+export const metadata = {
+  title: "Base Wallet Analyser",
+  description: "Analyse wallets on Base network",
+  other: {
+    "fc:miniapp": JSON.stringify({
+      version: "1",
+      imageUrl: "https://base-wallet-analyser.vercel.app/splash.png",
+      button: {
+        title: "Open Base Wallet Analyser",
+        action: {
+          type: "launch_miniapp",
+          url: "https://base-wallet-analyser.vercel.app",
+          splashImageUrl: "https://base-wallet-analyser.vercel.app/splash.png",
+          splashBackgroundColor: "#020617"
+        }
+      }
+    })
+  }
+}
+
+/* ==================== STYLES ==================== */
 
 const body = {
   margin: 0,
@@ -17,9 +39,38 @@ const container = {
   padding: 20
 }
 
-const glow1 = { position: "fixed" as const, top: -200, left: -200, width: 400, height: 400, background: "radial-gradient(#22c55e33, transparent)", filter: "blur(80px)", zIndex: -1 }
-const glow2 = { position: "fixed" as const, bottom: -200, right: -200, width: 400, height: 400, background: "radial-gradient(#3b82f633, transparent)", filter: "blur(80px)", zIndex: -1 }
-const glow3 = { position: "fixed" as const, top: "40%", left: "50%", width: 300, height: 300, background: "radial-gradient(#22c55e22, transparent)", filter: "blur(60px)", zIndex: -1 }
+const glow1 = {
+  position: "fixed" as const,
+  top: -200,
+  left: -200,
+  width: 400,
+  height: 400,
+  background: "radial-gradient(#22c55e33, transparent)",
+  filter: "blur(80px)",
+  zIndex: -1
+}
+
+const glow2 = {
+  position: "fixed" as const,
+  bottom: -200,
+  right: -200,
+  width: 400,
+  height: 400,
+  background: "radial-gradient(#3b82f633, transparent)",
+  filter: "blur(80px)",
+  zIndex: -1
+}
+
+const glow3 = {
+  position: "fixed" as const,
+  top: "40%",
+  left: "50%",
+  width: 300,
+  height: 300,
+  background: "radial-gradient(#22c55e22, transparent)",
+  filter: "blur(60px)",
+  zIndex: -1
+}
 
 /* ==================== COMPONENT ==================== */
 
@@ -28,7 +79,6 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-
   return (
     <html lang="en">
       <body style={body}>
