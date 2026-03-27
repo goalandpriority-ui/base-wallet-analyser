@@ -1,17 +1,6 @@
-import Home from "./home"
-
 export const metadata = {
   title: "Base Wallet Analyser",
   description: "Analyse wallets on Base network",
-
-  openGraph: {
-    title: "Base Wallet Analyser",
-    description: "Analyse wallets on Base network",
-    images: [
-      "https://base-wallet-analyser.vercel.app/splash.png"
-    ]
-  },
-
   other: {
     "fc:frame": "vNext",
     "fc:frame:image":
@@ -33,7 +22,7 @@ export const metadata = {
         title: "Open Base Wallet Analyser",
         action: {
           type: "launch_miniapp",
-          url: "https://base-wallet-analyser.vercel.app/",
+          url: "https://base-wallet-analyser.vercel.app",
           splashImageUrl:
             "https://base-wallet-analyser.vercel.app/splash.png",
           splashBackgroundColor: "#020617"
@@ -42,6 +31,8 @@ export const metadata = {
     })
   }
 }
+
+import Home from "./home"
 
 export default function Page(){
   return <Home/>
