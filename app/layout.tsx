@@ -1,5 +1,28 @@
 import Navbar from "./navbar"
 
+export const metadata = {
+title: "Base Wallet Analyser",
+description: "Analyse wallets on Base network",
+other: {
+"fc:miniapp": JSON.stringify({
+version:"1",
+imageUrl:"https://base-wallet-analyser.vercel.app/splash.png",
+button:{
+title:"Open Base Wallet Analyser",
+action:{
+type:"launch_miniapp",
+url:"https://base-wallet-analyser.vercel.app",
+splashImageUrl:"https://base-wallet-analyser.vercel.app/splash.png",
+splashBackgroundColor:"#020617"
+}
+}
+}),
+"og:title":"Base Wallet Analyser",
+"og:image":"https://base-wallet-analyser.vercel.app/splash.png",
+"og:description":"Analyse wallets on Base network"
+}
+}
+
 const body = {
 margin: 0,
 minHeight: "100vh",
@@ -52,35 +75,8 @@ children,
 }:{
 children: React.ReactNode
 }) {
-
-const embed = {
-version:"1",
-imageUrl:"https://base-wallet-analyser.vercel.app/splash.png",
-button:{
-title:"Open Base Wallet Analyser",
-action:{
-type:"launch_miniapp",
-url:"https://base-wallet-analyser.vercel.app",
-splashImageUrl:"https://base-wallet-analyser.vercel.app/splash.png",
-splashBackgroundColor:"#020617"
-}
-}
-}
-
 return (
 <html lang="en">
-<head>
-
-<meta name="fc:miniapp" content={JSON.stringify(embed)} />
-
-<meta property="og:title" content="Base Wallet Analyser" />
-<meta property="og:description" content="Analyse wallets on Base network" />
-<meta property="og:image" content="https://base-wallet-analyser.vercel.app/splash.png" />
-
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-
-</head>
-
 <body style={body}>
 
 <div style={glow1} />
