@@ -128,7 +128,6 @@ const connectWallet = async()=>{
 
 try{
 
-/* farcaster provider connect */
 try{
 
 const provider = await sdk.wallet.getEthereumProvider()
@@ -187,7 +186,7 @@ setPaid(json.paid)
 
 }
 
-/* PAY (FIXED) */
+/* PAY */
 const pay = async()=>{
 
 try{
@@ -199,28 +198,19 @@ return
 
 let provider:any
 
-/* farcaster provider */
 try{
 provider = await sdk.wallet.getEthereumProvider()
 }catch{}
 
-/* fallback */
 if(!provider){
 provider = (window as any).ethereum
 }
 
-if(!provider){
-alert("Wallet provider not found")
-return
-}
-
-/* switch BASE */
 await provider.request({
 method:"wallet_switchEthereumChain",
 params:[{ chainId:"0x2105" }]
 }).catch(()=>{})
 
-/* send payment */
 const tx = await provider.request({
 method:"eth_sendTransaction",
 params:[{
@@ -229,11 +219,6 @@ to:process.env.NEXT_PUBLIC_PAY_TO!,
 value:"0x16bcc41e9000"
 }]
 })
-
-if(!tx){
-alert("Payment failed")
-return
-}
 
 const txHash = typeof tx === "string" ? tx : tx.hash
 
@@ -262,7 +247,6 @@ setPaid(true)
 
 }catch(e){
 console.log(e)
-alert("Payment failed")
 }
 
 }
@@ -352,14 +336,11 @@ await sdk.actions.composeCast({
 text: castText
 })
 
-}catch(e){
-console.log("Cast skipped")
-}
+}catch{}
 
 }catch(e){
 
 console.log(e)
-alert("Error analysing wallet")
 
 }
 
@@ -391,18 +372,22 @@ Analyse Wallet
 
 {loading && <p>Analysing...</p>}
 
-{data && (
+{data && !data.error && (
 
-<pre style={card}>
-{JSON.stringify(data,null,2)}
-</pre>)}
+<div style={result}><p>📊 Transactions: {data.totalTxns}</p>
+<p>💰 Transfer Volume: {data.totalVolumeETH} ETH</p>
+<p>⛽ Gas: {data.totalGasETH} ETH</p>
+<p>📅 Active Days: {data.activeDays}</p><hr style={divider}/><p>🔁 Swaps: {data.swapCount}</p>
+<p>💎 Trading Volume: ${data.tradingVolumeUSD}</p>
+<p>📅 Trading Days: {data.tradingDays}</p>
+<p>⛽ Trading Gas: {data.tradingGasETH} ETH</p><hr style={divider}/><p>🏆 Rank: #{data.rank}</p>
+<p>⭐ Score: {data.score}</p></div>)}
 
 </div>
 )}
 
 const container:CSSProperties={
-padding:20,
-fontFamily:"monospace"
+padding:20
 }
 
 const button:CSSProperties={
@@ -411,10 +396,16 @@ marginTop:10,
 cursor:"pointer"
 }
 
-const card:CSSProperties={
+const result:CSSProperties={
 marginTop:20,
-background:"#111",
-color:"#0f0",
-padding:10,
-overflow:"auto"
+background:"#020617",
+color:"#22c55e",
+padding:20,
+borderRadius:12,
+border:"1px solid #111"
+}
+
+const divider:CSSProperties={
+margin:"15px 0",
+borderColor:"#111"
 }
