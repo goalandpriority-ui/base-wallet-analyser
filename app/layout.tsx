@@ -1,7 +1,5 @@
 import Navbar from "./navbar"
 
-/* ==================== STYLES ==================== */
-
 const body = {
 margin: 0,
 minHeight: "100vh",
@@ -71,22 +69,15 @@ splashBackgroundColor:"#020617"
 
 return (
 <html lang="en">
-
 <head>
-<meta
-name="fc:miniapp"
-content={JSON.stringify(embed)}
-/>
 
-<meta
-property="og:image"
-content="https://base-wallet-analyser.vercel.app/splash.png"
-/>
+<meta name="fc:miniapp" content={JSON.stringify(embed)} />
 
-<meta
-property="og:title"
-content="Base Wallet Analyser"
-/>
+<meta property="og:title" content="Base Wallet Analyser" />
+<meta property="og:description" content="Analyse wallets on Base network" />
+<meta property="og:image" content="https://base-wallet-analyser.vercel.app/splash.png" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 
 </head>
 
