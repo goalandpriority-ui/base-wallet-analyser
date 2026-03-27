@@ -57,19 +57,54 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  return (
-    <html lang="en">
-      <body style={body}>
-        <div style={glow1} />
-        <div style={glow2} />
-        <div style={glow3} />
 
-        <Navbar />
+const embed = {
+version:"1",
+imageUrl:"https://base-wallet-analyser.vercel.app/splash.png",
+button:{
+title:"Open Base Wallet Analyser",
+action:{
+type:"launch_miniapp",
+url:"https://base-wallet-analyser.vercel.app",
+splashImageUrl:"https://base-wallet-analyser.vercel.app/splash.png",
+splashBackgroundColor:"#020617"
+}
+}
+}
 
-        <div style={container}>
-          {children}
-        </div>
-      </body>
-    </html>
-  )
+return (
+<html lang="en">
+
+<head>
+
+<meta property="fc:frame" content="vNext" />
+<meta property="fc:frame:image" content="https://base-wallet-analyser.vercel.app/splash.png" />
+
+<meta property="fc:frame:button:1" content="Open Base Wallet Analyser" />
+<meta property="fc:frame:button:1:action" content="link" />
+<meta property="fc:frame:button:1:target" content="https://base-wallet-analyser.vercel.app" />
+
+<meta
+name="fc:miniapp"
+content={JSON.stringify(embed)}
+/>
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+</head>
+
+<body style={body}>
+<div style={glow1} />
+<div style={glow2} />
+<div style={glow3} />
+
+<Navbar />
+
+<div style={container}>
+{children}
+</div>
+
+</body>
+</html>
+)
 }
