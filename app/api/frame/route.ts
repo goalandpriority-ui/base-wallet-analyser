@@ -8,14 +8,14 @@ return new Response(`
 <meta property="og:description" content="Analyse wallets on Base network" />
 <meta property="og:image" content="https://base-wallet-analyser.vercel.app/splash.png" />
 
-<meta name="fc:frame" content="vNext" />
-<meta name="fc:frame:image" content="https://base-wallet-analyser.vercel.app/splash.png" />
+<meta property="fc:frame" content="vNext" />
+<meta property="fc:frame:image" content="https://base-wallet-analyser.vercel.app/splash.png" />
 
-<meta name="fc:frame:button:1" content="Open Base Wallet Analyser" />
-<meta name="fc:frame:button:1:action" content="link" />
-<meta name="fc:frame:button:1:target" content="https://base-wallet-analyser.vercel.app" />
+<meta property="fc:frame:button:1" content="Open Base Wallet Analyser" />
+<meta property="fc:frame:button:1:action" content="link" />
+<meta property="fc:frame:button:1:target" content="https://base-wallet-analyser.vercel.app" />
 
-<meta name="fc:miniapp" content='{
+<meta property="fc:miniapp" content='{
 "version":"1",
 "imageUrl":"https://base-wallet-analyser.vercel.app/splash.png",
 "button":{
