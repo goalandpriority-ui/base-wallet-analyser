@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"
+
 export async function GET() {
 return new Response(`<!DOCTYPE html>
 <html>
@@ -21,9 +23,7 @@ return new Response(`<!DOCTYPE html>
 "title":"Open Base Wallet Analyser",
 "action":{
 "type":"launch_miniapp",
-"url":"https://base-wallet-analyser.vercel.app",
-"splashImageUrl":"https://base-wallet-analyser.vercel.app/splash.png",
-"splashBackgroundColor":"#020617"
+"url":"https://base-wallet-analyser.vercel.app"
 }
 }
 }'/>
