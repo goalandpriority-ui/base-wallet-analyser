@@ -128,6 +128,9 @@ const connectWallet = async()=>{
 
 try{
 
+/* farcaster provider connect */
+try{
+
 const provider = await sdk.wallet.getEthereumProvider()
 
 if(provider){
@@ -145,6 +148,8 @@ return
 }
 
 }
+
+}catch{}
 
 const eth = (window as any).ethereum
 
@@ -182,7 +187,7 @@ setPaid(json.paid)
 
 }
 
-/* PAY */
+/* PAY (FIXED) */
 const pay = async()=>{
 
 try{
@@ -192,20 +197,36 @@ alert("Connect wallet first")
 return
 }
 
-const eth = (window as any).ethereum
+let provider:any
 
-await eth.request({
+/* farcaster provider */
+try{
+provider = await sdk.wallet.getEthereumProvider()
+}catch{}
+
+/* fallback */
+if(!provider){
+provider = (window as any).ethereum
+}
+
+if(!provider){
+alert("Wallet provider not found")
+return
+}
+
+/* switch BASE */
+await provider.request({
 method:"wallet_switchEthereumChain",
 params:[{ chainId:"0x2105" }]
 }).catch(()=>{})
 
-const tx = await eth.request({
+/* send payment */
+const tx = await provider.request({
 method:"eth_sendTransaction",
 params:[{
 from:wallet,
 to:process.env.NEXT_PUBLIC_PAY_TO!,
-value:"0x16bcc41e9000",
-chainId:"0x2105"
+value:"0x16bcc41e9000"
 }]
 })
 
@@ -310,8 +331,7 @@ const finalData = {
 
 setData(finalData)
 
-/* ================= AUTO CAST ================= */
-
+/* AUTO CAST */
 try{
 
 const castText =
@@ -325,7 +345,7 @@ const castText =
 🏆 Rank: #${finalData.rank}
 ⭐ Score: ${finalData.score}
 
-Analyse your wallet 👇
+Analyse yours 👇
 https://base-wallet-analyser.vercel.app`
 
 await sdk.actions.composeCast({
