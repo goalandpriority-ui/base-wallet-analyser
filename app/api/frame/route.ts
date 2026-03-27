@@ -1,13 +1,42 @@
 export async function GET() {
-  return Response.json({
-    version: "1",
-    name: "Base Wallet Analyser",
-    iconUrl: "https://base-wallet-analyser.vercel.app/icon.png",
-    homeUrl: "https://base-wallet-analyser.vercel.app",
-    imageUrl: "https://base-wallet-analyser.vercel.app/splash.png",
-    buttonTitle: "Open Base Wallet Analyser",
-    splashImageUrl: "https://base-wallet-analyser.vercel.app/splash.png",
-    splashBackgroundColor: "#020617",
-    webhookUrl: "https://base-wallet-analyser.vercel.app/api/webhook"
-  })
+return new Response(`
+<!DOCTYPE html>
+<html>
+<head>
+
+<meta property="og:title" content="Base Wallet Analyser" />
+<meta property="og:description" content="Analyse wallets on Base network" />
+<meta property="og:image" content="https://base-wallet-analyser.vercel.app/splash.png" />
+
+<meta name="fc:frame" content="vNext" />
+<meta name="fc:frame:image" content="https://base-wallet-analyser.vercel.app/splash.png" />
+
+<meta name="fc:frame:button:1" content="Open Base Wallet Analyser" />
+<meta name="fc:frame:button:1:action" content="link" />
+<meta name="fc:frame:button:1:target" content="https://base-wallet-analyser.vercel.app" />
+
+<meta name="fc:miniapp" content='{
+"version":"1",
+"imageUrl":"https://base-wallet-analyser.vercel.app/splash.png",
+"button":{
+"title":"Open Base Wallet Analyser",
+"action":{
+"type":"launch_miniapp",
+"url":"https://base-wallet-analyser.vercel.app",
+"splashImageUrl":"https://base-wallet-analyser.vercel.app/splash.png",
+"splashBackgroundColor":"#020617"
+}
+}
+}'/>
+
+</head>
+<body>
+Base Wallet Analyser
+</body>
+</html>
+`,{
+headers:{
+"Content-Type":"text/html"
+}
+})
 }
