@@ -180,7 +180,7 @@ const checkPaid = async (addr?:string)=>{
 const w = (addr || wallet)?.toLowerCase()
 if(!w) return
 
-const res = await fetch("/api/check-paid?wallet=${w}")
+const res = await fetch(`/api/check-paid?wallet=${w}`)
 const json = await res.json()
 
 setPaid(json.paid)
@@ -322,4 +322,61 @@ alert("Error analysing wallet")
 
 setLoading(false)
 
+}
+
+return (
+<div style={container}>
+
+<h2>Base Wallet Analyser</h2>
+
+{connecting && <p>Connecting wallet...</p>}
+
+{!wallet && !connecting && (
+<button style={button} onClick={connectWallet}>
+Connect Wallet
+</button>
+)}
+
+{wallet && !paid && (
+<button style={button} onClick={pay}>
+Pay 0.000025 ETH
+</button>
+)}
+
+{wallet && paid && (
+<button style={button} onClick={analyse}>
+Analyse Wallet
+</button>
+)}
+
+{loading && <p>Analysing...</p>}
+
+{data && (
+<pre style={card}>
+{JSON.stringify(data,null,2)}
+</pre>
+)}
+
+</div>
+)
+
+}
+
+const container:CSSProperties={
+padding:20,
+fontFamily:"monospace"
+}
+
+const button:CSSProperties={
+padding:12,
+marginTop:10,
+cursor:"pointer"
+}
+
+const card:CSSProperties={
+marginTop:20,
+background:"#111",
+color:"#0f0",
+padding:10,
+overflow:"auto"
 }
