@@ -19,17 +19,24 @@ const init = async()=>{
 try{
 
 await sdk.actions.ready()
-const context:any = await sdk.context
 
-// ✅ NEW SDK
-const fcWalletNew =
-context?.user?.wallet?.address
+let context:any = await sdk.context
 
-// ✅ OLD SDK fallback
-const fcWalletOld =
+let fcWallet =
+context?.user?.wallet?.address ||
 context?.user?.verifiedAddresses?.ethAddresses?.[0]
 
-const fcWallet = fcWalletNew || fcWalletOld
+// force connect
+if(!fcWallet){
+try{
+await sdk.wallet.connect()
+context = await sdk.context
+
+fcWallet =
+context?.user?.wallet?.address ||
+context?.user?.verifiedAddresses?.ethAddresses?.[0]
+}catch{}
+}
 
 if(fcWallet){
 const w = fcWallet.toLowerCase()
@@ -87,10 +94,27 @@ const connectWallet = async()=>{
 
 try{
 
+// farcaster connect
+try{
+await sdk.wallet.connect()
+const context:any = await sdk.context
+const addr =
+context?.user?.wallet?.address ||
+context?.user?.verifiedAddresses?.ethAddresses?.[0]
+
+if(addr){
+const w = addr.toLowerCase()
+setWallet(w)
+localStorage.setItem("lastWallet",w)
+checkPaid(w)
+return
+}
+}catch{}
+
 const eth = (window as any).ethereum
 
 if(!eth){
-alert("No wallet found")
+console.log("No wallet found")
 return
 }
 
@@ -116,7 +140,7 @@ const checkPaid = async (addr?:string)=>{
 const w = (addr || wallet)?.toLowerCase()
 if(!w) return
 
-const res = await fetch(`/api/check-paid?wallet=${w}`)
+const res = await fetch("/api/check-paid?wallet=${w}")
 const json = await res.json()
 
 setPaid(json.paid)
@@ -200,11 +224,20 @@ setData(null)
 
 try{
 
-const currentWallet =
+let currentWallet =
 (localStorage.getItem("lastWallet") || wallet)?.toLowerCase()
 
 if(!currentWallet){
-alert("No wallet found")
+try{
+const context:any = await sdk.context
+currentWallet =
+context?.user?.wallet?.address ||
+context?.user?.verifiedAddresses?.ethAddresses?.[0]
+}catch{}
+}
+
+if(!currentWallet){
+console.log("No wallet found")
 setLoading(false)
 return
 }
@@ -248,9 +281,8 @@ setLoading(false)
 }
 
 return(
-<main style={wrap}>
 
-<div style={header}>
+<main style={wrap}><div style={header}>
 <div style={glow}/>
 <div style={titleWrap}>
 <div style={icon}>⚡</div>
@@ -261,21 +293,11 @@ Analyse wallets on Base network
 </div>
 </div>
 </div>
-</div>
-
-<div style={card}>
-
-<div style={small}>Connected Wallet</div>
-
-<div style={walletRow}>
-
-<div style={walletText}>
+</div><div style={card}><div style={small}>Connected Wallet</div><div style={walletRow}><div style={walletText}>
 {connecting
 ? "Connecting..."
 : wallet || "No wallet"}
-</div>
-
-{paid && <div style={pro}>PRO</div>}
+</div>{paid && <div style={pro}>PRO</div>}
 
 {!wallet && !connecting && (
 <button onClick={connectWallet} style={connect}>
@@ -283,25 +305,13 @@ Connect
 </button>
 )}
 
-</div>
+</div></div>{!paid && wallet && (
 
-</div>
-
-{!paid && wallet && (
-
-<div style={payCard}>
-
-<div>
+<div style={payCard}><div>
 🔒 Pay 0.000025 ETH to unlock wallet analytics
-</div>
-
-<button onClick={pay} style={payBtn}>
+</div><button onClick={pay} style={payBtn}>
 Pay & Unlock
-</button>
-
-</div>
-
-)}
+</button></div>)}
 
 {paid && (
 <button onClick={analyse} style={analyseBtn}>
@@ -313,35 +323,19 @@ Pay & Unlock
 
 {data && !data.error && (
 
-<div style={result}>
-
-<p>📊 Transactions: {data.totalTxns || 0}</p>
+<div style={result}><p>📊 Transactions: {data.totalTxns || 0}</p>
 <p>💰 Transfer Volume: {data.totalVolumeETH || 0} ETH</p>
 <p>⛽ Gas: {data.totalGasETH || 0} ETH</p>
-<p>📅 Active Days: {data.activeDays || 0}</p>
-
-<hr style={divider}/>
-
-<p>🔁 Swaps: {data.swapCount || 0}</p>
+<p>📅 Active Days: {data.activeDays || 0}</p><hr style={divider}/><p>🔁 Swaps: {data.swapCount || 0}</p>
 <p>💎 Trading Volume: ${data.tradingVolumeUSD ?? 0}</p>
 <p>📅 Trading Days: {data.tradingDays || 0}</p>
-<p>⛽ Trading Gas: {data.tradingGasETH || 0} ETH</p>
-
-<hr style={divider}/>
-
-<p>🏆 Rank: #{data.rank || "-"}</p>
-<p>⭐ Score: {data.score || 0}</p>
-
-</div>
-
-)}
+<p>⛽ Trading Gas: {data.tradingGasETH || 0} ETH</p><hr style={divider}/><p>🏆 Rank: #{data.rank || "-"}</p>
+<p>⭐ Score: {data.score || 0}</p></div>)}
 
 </main>
-)
+)}
 
-}
-
-/* styles unchanged */
+/* styles */
 
 const wrap:CSSProperties={padding:20,maxWidth:700,margin:"auto"}
 const header:CSSProperties={background:"#020617",padding:24,borderRadius:18,marginBottom:25,position:"relative"}
