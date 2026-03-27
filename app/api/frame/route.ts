@@ -1,6 +1,5 @@
 export async function GET() {
-return new Response(`
-<!DOCTYPE html>
+return new Response(`<!DOCTYPE html>
 <html>
 <head>
 
@@ -33,10 +32,9 @@ return new Response(`
 <body>
 Base Wallet Analyser
 </body>
-</html>
-`,{
+</html>`,{
 headers:{
-"Content-Type":"text/html"
+"Content-Type":"text/html; charset=utf-8"
 }
 })
 }
