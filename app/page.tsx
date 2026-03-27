@@ -22,20 +22,27 @@ await sdk.actions.ready()
 
 let context:any = await sdk.context
 
+// NEW SDK
 let fcWallet =
-context?.user?.wallet?.address ||
+context?.user?.wallet?.address
+
+// OLD SDK fallback
+const fcWalletOld =
 context?.user?.verifiedAddresses?.ethAddresses?.[0]
 
-// force connect
+fcWallet = fcWallet || fcWalletOld
+
+// retry once (important)
 if(!fcWallet){
-try{
-await sdk.wallet.connect()
+
+await new Promise(r=>setTimeout(r,300))
+
 context = await sdk.context
 
 fcWallet =
 context?.user?.wallet?.address ||
 context?.user?.verifiedAddresses?.ethAddresses?.[0]
-}catch{}
+
 }
 
 if(fcWallet){
@@ -94,27 +101,10 @@ const connectWallet = async()=>{
 
 try{
 
-// farcaster connect
-try{
-await sdk.wallet.connect()
-const context:any = await sdk.context
-const addr =
-context?.user?.wallet?.address ||
-context?.user?.verifiedAddresses?.ethAddresses?.[0]
-
-if(addr){
-const w = addr.toLowerCase()
-setWallet(w)
-localStorage.setItem("lastWallet",w)
-checkPaid(w)
-return
-}
-}catch{}
-
 const eth = (window as any).ethereum
 
 if(!eth){
-console.log("No wallet found")
+alert("No wallet found")
 return
 }
 
@@ -227,17 +217,22 @@ try{
 let currentWallet =
 (localStorage.getItem("lastWallet") || wallet)?.toLowerCase()
 
+// retry from sdk if empty
 if(!currentWallet){
+
 try{
 const context:any = await sdk.context
+
 currentWallet =
 context?.user?.wallet?.address ||
 context?.user?.verifiedAddresses?.ethAddresses?.[0]
+
 }catch{}
+
 }
 
 if(!currentWallet){
-console.log("No wallet found")
+alert("No wallet found")
 setLoading(false)
 return
 }
@@ -335,7 +330,7 @@ Pay & Unlock
 </main>
 )}
 
-/* styles */
+/* styles unchanged */
 
 const wrap:CSSProperties={padding:20,maxWidth:700,margin:"auto"}
 const header:CSSProperties={background:"#020617",padding:24,borderRadius:18,marginBottom:25,position:"relative"}
