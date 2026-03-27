@@ -128,9 +128,6 @@ const connectWallet = async()=>{
 
 try{
 
-/* farcaster provider connect */
-try{
-
 const provider = await sdk.wallet.getEthereumProvider()
 
 if(provider){
@@ -148,8 +145,6 @@ return
 }
 
 }
-
-}catch{}
 
 const eth = (window as any).ethereum
 
@@ -180,7 +175,7 @@ const checkPaid = async (addr?:string)=>{
 const w = (addr || wallet)?.toLowerCase()
 if(!w) return
 
-const res = await fetch(`/api/check-paid?wallet=${w}`)
+const res = await fetch("/api/check-paid?wallet=${w}")
 const json = await res.json()
 
 setPaid(json.paid)
@@ -308,10 +303,38 @@ body:JSON.stringify({wallet: currentWallet})
 
 const proData = await proRes.json()
 
-setData({
+const finalData = {
 ...basicData,
 ...proData
+}
+
+setData(finalData)
+
+/* ================= AUTO CAST ================= */
+
+try{
+
+const castText =
+`🔥 Base Wallet analysed!
+
+📊 Transactions: ${finalData.totalTxns}
+💰 Transfer Volume: ${finalData.totalVolumeETH} ETH
+🔁 Swaps: ${finalData.swapCount}
+💎 Trading Volume: $${finalData.tradingVolumeUSD}
+
+🏆 Rank: #${finalData.rank}
+⭐ Score: ${finalData.score}
+
+Analyse your wallet 👇
+https://base-wallet-analyser.vercel.app`
+
+await sdk.actions.composeCast({
+text: castText
 })
+
+}catch(e){
+console.log("Cast skipped")
+}
 
 }catch(e){
 
@@ -325,11 +348,8 @@ setLoading(false)
 }
 
 return (
-<div style={container}>
 
-<h2>Base Wallet Analyser</h2>
-
-{connecting && <p>Connecting wallet...</p>}
+<div style={container}><h2>Base Wallet Analyser</h2>{connecting && <p>Connecting wallet...</p>}
 
 {!wallet && !connecting && (
 <button style={button} onClick={connectWallet}>
@@ -352,15 +372,13 @@ Analyse Wallet
 {loading && <p>Analysing...</p>}
 
 {data && (
+
 <pre style={card}>
 {JSON.stringify(data,null,2)}
-</pre>
-)}
+</pre>)}
 
 </div>
-)
-
-}
+)}
 
 const container:CSSProperties={
 padding:20,
