@@ -5,7 +5,7 @@
     "signature": "EEaunrtl4ixprcJivQPYA8mkNaZkZRJfePBi0n5uPq02tN8vZJva6zupxkhI2sjCZ6HRFvBQbx2pTz1geQyRghw="
   },
 
-  "frame": {
+  "miniapp": {
     "version": "1",
     "name": "Base Wallet Analyser",
     "iconUrl": "https://base-wallet-analyser.vercel.app/icon.png",
@@ -14,18 +14,5 @@
     "buttonTitle": "Open Base Wallet Analyser",
     "splashImageUrl": "https://base-wallet-analyser.vercel.app/splash.png",
     "splashBackgroundColor": "#020617"
-  },
-
-  "miniapp": {
-    "version": "1",
-    "name": "Base Wallet Analyser",
-    "iconUrl": "https://base-wallet-analyser.vercel.app/icon.png",
-    "homeUrl": "https://base-wallet-analyser.vercel.app",
-    "baseUrl": "https://base-wallet-analyser.vercel.app",
-    "imageUrl": "https://base-wallet-analyser.vercel.app/splash.png",
-    "buttonTitle": "Open Base Wallet Analyser",
-    "splashImageUrl": "https://base-wallet-analyser.vercel.app/splash.png",
-    "splashBackgroundColor": "#020617",
-    "webhookUrl": "https://base-wallet-analyser.vercel.app/api/webhook"
   }
 }
