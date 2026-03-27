@@ -1,6 +1,9 @@
 // app/layout.tsx
 import Navbar from "./navbar"
 
+/* 🔥 IMPORTANT — FORCE META RENDER */
+export const dynamic = "force-dynamic"
+
 /* ==================== META ==================== */
 
 export const metadata = {
