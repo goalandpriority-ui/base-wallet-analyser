@@ -1,46 +1,4 @@
-// app/layout.tsx
 import Navbar from "./navbar"
-
-/* 🔥 IMPORTANT — FORCE META RENDER */
-export const dynamic = "force-dynamic"
-
-/* ==================== META ==================== */
-
-export const metadata = {
-title: "Base Wallet Analyser",
-description: "Analyse wallets on Base network",
-other: {
-
-"fc:frame": "vNext",
-
-"fc:frame:image":
-"https://base-wallet-analyser.vercel.app/splash.png",
-
-"fc:frame:button:1":
-"Open Base Wallet Analyser",
-
-"fc:frame:button:1:action":
-"link",
-
-"fc:frame:button:1:target":
-"https://base-wallet-analyser.vercel.app",
-
-"fc:miniapp": JSON.stringify({
-version:"1",
-imageUrl:"https://base-wallet-analyser.vercel.app/splash.png",
-button:{
-title:"Open Base Wallet Analyser",
-action:{
-type:"launch_miniapp",
-url:"https://base-wallet-analyser.vercel.app",
-splashImageUrl:"https://base-wallet-analyser.vercel.app/splash.png",
-splashBackgroundColor:"#020617"
-}
-}
-})
-
-}
-}
 
 /* ==================== STYLES ==================== */
 
@@ -91,15 +49,47 @@ filter: "blur(60px)",
 zIndex: -1
 }
 
-/* ==================== COMPONENT ==================== */
-
 export default function RootLayout({
 children,
-}: {
+}:{
 children: React.ReactNode
 }) {
+
+const embed = {
+version:"1",
+imageUrl:"https://base-wallet-analyser.vercel.app/splash.png",
+button:{
+title:"Open Base Wallet Analyser",
+action:{
+type:"launch_miniapp",
+url:"https://base-wallet-analyser.vercel.app",
+splashImageUrl:"https://base-wallet-analyser.vercel.app/splash.png",
+splashBackgroundColor:"#020617"
+}
+}
+}
+
 return (
 <html lang="en">
+
+<head>
+<meta
+name="fc:miniapp"
+content={JSON.stringify(embed)}
+/>
+
+<meta
+property="og:image"
+content="https://base-wallet-analyser.vercel.app/splash.png"
+/>
+
+<meta
+property="og:title"
+content="Base Wallet Analyser"
+/>
+
+</head>
+
 <body style={body}>
 
 <div style={glow1} />
