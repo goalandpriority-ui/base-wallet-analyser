@@ -4,7 +4,7 @@
     "payload": "eyJkb21haW4iOiJiYXNlLXdhbGxldC1hbmFseXNlci52ZXJjZWwuYXBwIn0",
     "signature": "EEaunrtl4ixprcJivQPYA8mkNaZkZRJfePBi0n5uPq02tN8vZJva6zupxkhI2sjCZ6HRFvBQbx2pTz1geQyRghw="
   },
-  "frame": {
+  "miniapp": {
     "version": "1",
     "name": "Base Wallet Analyser",
     "iconUrl": "https://base-wallet-analyser.vercel.app/icon.png",
