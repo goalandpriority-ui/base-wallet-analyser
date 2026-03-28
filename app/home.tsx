@@ -195,7 +195,7 @@ const checkPaid = async (addr?:string)=>{
 const w = (addr || wallet)?.toLowerCase()
 if(!w) return
 
-const res = await fetch(/api/check-paid?wallet=${w})
+const res = await fetch(`/api/check-paid?wallet=${w}`)
 const json = await res.json()
 
 setPaid(json.paid)
