@@ -20,7 +20,6 @@ try{
 
 /* MINI APP READY */
 await sdk.actions.ready()
-await sdk.actions.setMiniAppReady()
 
 /* FARCASTER PROVIDER FIRST */
 try{
