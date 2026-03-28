@@ -18,7 +18,9 @@ const init = async()=>{
 
 try{
 
+/* MINI APP READY */
 await sdk.actions.ready()
+await sdk.actions.setMiniAppReady()
 
 /* FARCASTER PROVIDER FIRST */
 try{
@@ -460,4 +462,4 @@ marginTop:20
 const divider:CSSProperties={
 margin:"15px 0",
 borderColor:"#0f172a"
-}
+  }
