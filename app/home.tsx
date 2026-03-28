@@ -3,6 +3,13 @@
 import { useEffect, useState, CSSProperties } from "react"
 import { sdk } from "@farcaster/miniapp-sdk"
 
+/* FORCE FARCASTER BG FIX */
+if (typeof window !== "undefined") {
+document.documentElement.style.background = "#020617"
+document.body.style.background = "#020617"
+document.body.style.color = "#22c55e"
+}
+
 export default function Home() {
 
 const [wallet,setWallet]=useState("")
@@ -11,14 +18,17 @@ const [loading,setLoading]=useState(false)
 const [paid,setPaid]=useState(false)
 const [connecting,setConnecting]=useState(true)
 
+/* MINIAPP READY */
+useEffect(()=>{
+sdk.actions.ready()
+},[])
+
 /* CONNECT */
 useEffect(()=>{
 
 const init = async()=>{
 
 try{
-
-await sdk.actions.ready()
 
 /* FARCASTER PROVIDER FIRST */
 try{
@@ -322,24 +332,37 @@ setLoading(false)
 
 return(
 
-<main style={wrap}>  <div style={header}>    
-<div style={titleWrap}>    
-<div style={icon}>⚡</div>    
-<div>    
-<h1 style={title}>Base Wallet Analyser</h1>    
-<div style={subtitle}>Analyse wallets on Base network</div>    
-</div>    
-</div>    
-</div>  <div style={card}>    
-<div style={small}>Connected Wallet</div>  <div style={walletRow}>    
-<div style={walletText}>    
-{connecting ? "Connecting..." : wallet}    
-</div>  {paid && <div style={pro}>PRO</div>}  </div>    
-</div>  {!paid && wallet && (  
-<button onClick={pay} style={analyseBtn}>  
-Pay 0.000025 ETH  
-</button>  
-)}  {paid && (
+<main style={wrap}>
+
+<div style={header}>
+<div style={titleWrap}>
+<div style={icon}>⚡</div>
+<div>
+<h1 style={title}>Base Wallet Analyser</h1>
+<div style={subtitle}>Analyse wallets on Base network</div>
+</div>
+</div>
+</div>
+
+<div style={card}>
+<div style={small}>Connected Wallet</div>
+
+<div style={walletRow}>
+<div style={walletText}>
+{connecting ? "Connecting..." : wallet}
+</div>
+
+{paid && <div style={pro}>PRO</div>}
+</div>
+</div>
+
+{!paid && wallet && (
+<button onClick={pay} style={analyseBtn}>
+Pay 0.000025 ETH
+</button>
+)}
+
+{paid && (
 <button onClick={analyse} style={analyseBtn}>
 {loading ? "Analysing..." : "Analyse Wallet"}
 </button>
@@ -347,14 +370,34 @@ Pay 0.000025 ETH
 
 {data && (
 
-<div style={result}>  <p>📊 Transactions: {data.totalTxns}</p>    
-<p>💰 Transfer Volume: {data.totalVolumeETH} ETH</p>    
-<p>⛽ Gas: {data.totalGasETH} ETH</p>    
-<p>📅 Active Days: {data.activeDays}</p>  <hr style={divider}/>  <p>🔁 Swaps: {data.swapCount}</p>    
-<p>💎 Trading Volume: ${data.tradingVolumeUSD}</p>    
-<p>📅 Trading Days: {data.tradingDays}</p>    
-<p>⛽ Trading Gas: {data.tradingGasETH} ETH</p>  <hr style={divider}/>  <p>🏆 Rank: #{data.rank}</p>    
-<p>⭐ Score: {data.score}</p>  </div>  )}  </main>  )  }
+<div style={result}>
+
+<p>📊 Transactions: {data.totalTxns}</p>
+<p>💰 Transfer Volume: {data.totalVolumeETH} ETH</p>
+<p>⛽ Gas: {data.totalGasETH} ETH</p>
+<p>📅 Active Days: {data.activeDays}</p>
+
+<hr style={divider}/>
+
+<p>🔁 Swaps: {data.swapCount}</p>
+<p>💎 Trading Volume: ${data.tradingVolumeUSD}</p>
+<p>📅 Trading Days: {data.tradingDays}</p>
+<p>⛽ Trading Gas: {data.tradingGasETH} ETH</p>
+
+<hr style={divider}/>
+
+<p>🏆 Rank: #{data.rank}</p>
+<p>⭐ Score: {data.score}</p>
+
+</div>
+
+)}
+
+</main>
+
+)
+
+}
 
 /* styles */
 
@@ -375,9 +418,18 @@ gap:14
 
 const icon:CSSProperties={fontSize:34}
 
-const title:CSSProperties={fontSize:28,fontWeight:700,margin:0}
+const title:CSSProperties={
+fontSize:28,
+fontWeight:700,
+margin:0,
+color:"#22c55e"
+}
 
-const subtitle:CSSProperties={fontSize:13,opacity:.7}
+const subtitle:CSSProperties={
+fontSize:13,
+opacity:.7,
+color:"#22c55e"
+}
 
 const card:CSSProperties={
 background:"#020617",
