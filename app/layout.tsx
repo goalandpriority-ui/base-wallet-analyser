@@ -1,18 +1,5 @@
+// app/layout.tsx
 import Navbar from "./navbar"
-
-const body = {
-margin: 0,
-minHeight: "100vh",
-fontFamily: "system-ui",
-background: "radial-gradient(circle at 20% 20%, #071225 0%, #020617 40%)",
-color: "white"
-}
-
-const container = {
-maxWidth: 900,
-margin: "auto",
-padding: 20
-}
 
 export default function RootLayout({
 children,
@@ -44,15 +31,15 @@ return (
 <meta property="og:description" content="Analyse wallets on Base network" />
 <meta property="og:image" content="https://base-wallet-analyser.vercel.app/splash.png" />
 
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
 </head>
 
-<body style={body}>
+<body>
 
 <Navbar />
 
-<div style={container}>
 {children}
-</div>
 
 </body>
 </html>
