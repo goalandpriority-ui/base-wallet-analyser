@@ -1,4 +1,3 @@
-// app/layout.tsx
 import Navbar from "./navbar"
 
 export default function RootLayout({
@@ -26,6 +25,11 @@ return (
 <head>
 
 <meta property="fc:miniapp" content={JSON.stringify(miniapp)} />
+
+<link
+rel="manifest"
+href="/.well-known/farcaster.json"
+/>
 
 <meta property="og:title" content="Base Wallet Analyser" />
 <meta property="og:description" content="Analyse wallets on Base network" />
