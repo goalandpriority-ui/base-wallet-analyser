@@ -6,10 +6,13 @@ metadataBase: new URL("https://base-wallet-analyser.vercel.app"),
 
 title: "Base Wallet Analyser",
 description: "Analyse wallets on Base network",
+
 other: {
 
 "fc:frame":"vNext",
 "fc:frame:image":"/splash.png",
+"fc:frame:post_url":"https://base-wallet-analyser.vercel.app",
+
 "fc:frame:button:1":"Open Base Wallet Analyser",
 "fc:frame:button:1:action":"link",
 "fc:frame:button:1:target":"https://base-wallet-analyser.vercel.app",
