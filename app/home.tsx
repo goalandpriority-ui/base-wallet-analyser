@@ -18,7 +18,6 @@ const init = async()=>{
 
 try{
 
-/* MINI APP READY */
 await sdk.actions.ready()
 
 /* FARCASTER PROVIDER FIRST */
@@ -196,7 +195,7 @@ const checkPaid = async (addr?:string)=>{
 const w = (addr || wallet)?.toLowerCase()
 if(!w) return
 
-const res = await fetch(`/api/check-paid?wallet=${w}`)
+const res = await fetch(/api/check-paid?wallet=${w})
 const json = await res.json()
 
 setPaid(json.paid)
@@ -323,37 +322,24 @@ setLoading(false)
 
 return(
 
-<main style={wrap}>
-
-<div style={header}>
-<div style={titleWrap}>
-<div style={icon}>⚡</div>
-<div>
-<h1 style={title}>Base Wallet Analyser</h1>
-<div style={subtitle}>Analyse wallets on Base network</div>
-</div>
-</div>
-</div>
-
-<div style={card}>
-<div style={small}>Connected Wallet</div>
-
-<div style={walletRow}>
-<div style={walletText}>
-{connecting ? "Connecting..." : wallet}
-</div>
-
-{paid && <div style={pro}>PRO</div>}
-</div>
-</div>
-
-{!paid && wallet && (
-<button onClick={pay} style={analyseBtn}>
-Pay 0.000025 ETH
-</button>
-)}
-
-{paid && (
+<main style={wrap}>  <div style={header}>    
+<div style={titleWrap}>    
+<div style={icon}>⚡</div>    
+<div>    
+<h1 style={title}>Base Wallet Analyser</h1>    
+<div style={subtitle}>Analyse wallets on Base network</div>    
+</div>    
+</div>    
+</div>  <div style={card}>    
+<div style={small}>Connected Wallet</div>  <div style={walletRow}>    
+<div style={walletText}>    
+{connecting ? "Connecting..." : wallet}    
+</div>  {paid && <div style={pro}>PRO</div>}  </div>    
+</div>  {!paid && wallet && (  
+<button onClick={pay} style={analyseBtn}>  
+Pay 0.000025 ETH  
+</button>  
+)}  {paid && (
 <button onClick={analyse} style={analyseBtn}>
 {loading ? "Analysing..." : "Analyse Wallet"}
 </button>
@@ -361,34 +347,14 @@ Pay 0.000025 ETH
 
 {data && (
 
-<div style={result}>
-
-<p>📊 Transactions: {data.totalTxns}</p>
-<p>💰 Transfer Volume: {data.totalVolumeETH} ETH</p>
-<p>⛽ Gas: {data.totalGasETH} ETH</p>
-<p>📅 Active Days: {data.activeDays}</p>
-
-<hr style={divider}/>
-
-<p>🔁 Swaps: {data.swapCount}</p>
-<p>💎 Trading Volume: ${data.tradingVolumeUSD}</p>
-<p>📅 Trading Days: {data.tradingDays}</p>
-<p>⛽ Trading Gas: {data.tradingGasETH} ETH</p>
-
-<hr style={divider}/>
-
-<p>🏆 Rank: #{data.rank}</p>
-<p>⭐ Score: {data.score}</p>
-
-</div>
-
-)}
-
-</main>
-
-)
-
-}
+<div style={result}>  <p>📊 Transactions: {data.totalTxns}</p>    
+<p>💰 Transfer Volume: {data.totalVolumeETH} ETH</p>    
+<p>⛽ Gas: {data.totalGasETH} ETH</p>    
+<p>📅 Active Days: {data.activeDays}</p>  <hr style={divider}/>  <p>🔁 Swaps: {data.swapCount}</p>    
+<p>💎 Trading Volume: ${data.tradingVolumeUSD}</p>    
+<p>📅 Trading Days: {data.tradingDays}</p>    
+<p>⛽ Trading Gas: {data.tradingGasETH} ETH</p>  <hr style={divider}/>  <p>🏆 Rank: #{data.rank}</p>    
+<p>⭐ Score: {data.score}</p>  </div>  )}  </main>  )  }
 
 /* styles */
 
@@ -461,4 +427,4 @@ marginTop:20
 const divider:CSSProperties={
 margin:"15px 0",
 borderColor:"#0f172a"
-  }
+}
