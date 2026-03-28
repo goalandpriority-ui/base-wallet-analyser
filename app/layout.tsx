@@ -3,14 +3,14 @@ import type { Metadata } from "next";
 
 const miniappMetadata = {
   version: "1",
-  imageUrl: "https://base-wallet-analyser.vercel.app/og-image.jpg",   // ← Idha 1200x800 (3:2) image create pannu & upload pannu
+  imageUrl: "https://base-wallet-analyser.vercel.app/icon.png",  // ← icon added
   button: {
     title: "🚀 Open Base Wallet Analyser",
     action: {
       type: "launch_miniapp",
-      name: "Base Wallet Analyser",           // ← Idhu important
+      name: "Base Wallet Analyser",
       url: "https://base-wallet-analyser.vercel.app",
-      splashImageUrl: "https://base-wallet-analyser.vercel.app/splash.png",
+      splashImageUrl: "https://base-wallet-analyser.vercel.app/splash.png", // ← splash
       splashBackgroundColor: "#020617"
     }
   }
@@ -22,7 +22,9 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Base Wallet Analyser",
     description: "Analyse wallets on Base network",
-    images: [{ url: "https://base-wallet-analyser.vercel.app/og-image.jpg" }],
+    images: [
+      { url: "https://base-wallet-analyser.vercel.app/splash.png" } // ← splash preview
+    ],
   },
   other: {
     "fc:miniapp": JSON.stringify(miniappMetadata),
