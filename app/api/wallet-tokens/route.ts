@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     let all: any[] = []
     let pageKey: any = undefined
 
-    /* OUTGOING (SELL) */
+    /* OUTGOING */
     do {
 
       const res = await rpc.post("/", {
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
 
     pageKey = undefined
 
-    /* INCOMING (BUY) */
+    /* INCOMING */
     do {
 
       const res = await rpc.post("/", {
@@ -72,23 +72,27 @@ export async function POST(req: NextRequest) {
 
     for (const tx of all) {
 
+      const token =
+        tx.rawContract?.address?.toLowerCase()
+
       const symbol =
         tx.asset ||
-        tx.rawContract?.address?.slice(0,6) ||
+        token?.slice(0,6) ||
         "UNKNOWN"
 
       const value = Number(tx.value || 0)
+      if (!value) continue
 
-      if (!value || value === 0) continue
-
-      if (!tokens[symbol]) {
-        tokens[symbol] = {
+      if (!tokens[token]) {
+        tokens[token] = {
           symbol,
+          token,
           volume: 0,
           buys: 0,
           sells: 0,
-          profit: 0,
-          lastBuy: 0,
+          buyAmount: 0,
+          sellAmount: 0,
+          holding: 0,
           trades: 0
         }
       }
@@ -98,48 +102,56 @@ export async function POST(req: NextRequest) {
 
       /* BUY */
       if (to === address) {
-        tokens[symbol].buys++
-        tokens[symbol].lastBuy = value
-        tokens[symbol].trades++
+        tokens[token].buys++
+        tokens[token].buyAmount += value
+        tokens[token].holding += value
+        tokens[token].trades++
       }
 
       /* SELL */
       if (from === address) {
-        tokens[symbol].sells++
-        tokens[symbol].profit +=
-          value - tokens[symbol].lastBuy
-        tokens[symbol].trades++
+        tokens[token].sells++
+        tokens[token].sellAmount += value
+        tokens[token].holding -= value
+        tokens[token].trades++
       }
 
-      tokens[symbol].volume += value
+      tokens[token].volume += value
     }
 
     const list = Object.values(tokens)
       .map((t:any)=>{
 
-        const wins = t.profit > 0 ? 1 : 0
-        const losses = t.profit <= 0 ? 1 : 0
+        const avgBuy =
+          t.buys ? t.buyAmount / t.buys : 0
 
-        const total = wins + losses
+        const avgSell =
+          t.sells ? t.sellAmount / t.sells : 0
+
+        const pnl =
+          t.sellAmount - t.buyAmount
 
         const winRate =
-          total > 0
-            ? (wins / total) * 100
-            : 0
+          pnl > 0 ? 100 : 0
 
         return {
           symbol: t.symbol,
+          token: t.token,
           volume: t.volume,
           buys: t.buys,
           sells: t.sells,
-          profit: t.profit,
+          avgBuy,
+          avgSell,
+          pnl,
+          holding: t.holding,
           trades: t.trades,
           winRate
         }
 
       })
+      .filter((t:any)=>t.volume > 0)
       .sort((a:any,b:any)=>b.volume-a.volume)
-      .slice(0,50)
+      .slice(0,100)
 
     return NextResponse.json(list)
 
@@ -148,4 +160,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json([])
 
   }
-          }
+}
