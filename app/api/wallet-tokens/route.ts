@@ -14,100 +14,101 @@ const address = wallet.toLowerCase()
 
 /* get transfers */
 
-const txs = await axios.post(RPC,{
+const res = await axios.post(RPC,{
 jsonrpc:"2.0",
 id:1,
 method:"alchemy_getAssetTransfers",
 params:[{
 fromBlock:"0x0",
 toBlock:"latest",
-fromAddress:address,
 category:["erc20"],
 withMetadata:true,
-maxCount:"0x3e8"
+maxCount:"0x3e8",
+fromAddress:address
 }]
 })
 
-const transfers = txs.data.result.transfers || []
+const outgoing =
+res.data.result.transfers || []
+
+const res2 = await axios.post(RPC,{
+jsonrpc:"2.0",
+id:1,
+method:"alchemy_getAssetTransfers",
+params:[{
+fromBlock:"0x0",
+toBlock:"latest",
+category:["erc20"],
+withMetadata:true,
+maxCount:"0x3e8",
+toAddress:address
+}]
+})
+
+const incoming =
+res2.data.result.transfers || []
+
+const all = [...outgoing,...incoming]
 
 const tokens:Record<string,any>={}
 
-/* read swaps */
+for(const tx of all){
 
-for(const t of transfers){
+const token =
+tx.rawContract?.address?.toLowerCase()
 
-const hash = t.hash
+if(!token) continue
 
-const receipt = await axios.post(RPC,{
-jsonrpc:"2.0",
-id:1,
-method:"eth_getTransactionReceipt",
-params:[hash]
-})
-
-const logs = receipt.data.result?.logs || []
-
-for(const log of logs){
-
-const token = log.address.toLowerCase()
-
-const raw = parseInt(log.data,16)
-if(!raw || raw===0) continue
+const value = Number(tx.value || 0)
+if(!value) continue
 
 if(!tokens[token]){
 tokens[token]={
+symbol:tx.asset || token.slice(0,6),
 token,
-symbol:t.asset || token.slice(0,6),
 buys:0,
 sells:0,
 buyAmount:0,
 sellAmount:0,
 holding:0,
-trades:0,
-lastBuy:0
+trades:0
 }
 }
 
-const from = log.topics?.[1]
-const to = log.topics?.[2]
+const from = tx.from?.toLowerCase()
+const to = tx.to?.toLowerCase()
 
-/* buy */
+/* BUY */
 
-if(to?.includes(address.slice(2))){
-
+if(to===address){
 tokens[token].buys++
-tokens[token].buyAmount+=raw
-tokens[token].holding+=raw
-tokens[token].lastBuy=raw
+tokens[token].buyAmount+=value
+tokens[token].holding+=value
 tokens[token].trades++
-
 }
 
-/* sell */
+/* SELL */
 
-if(from?.includes(address.slice(2))){
-
+if(from===address){
 tokens[token].sells++
-tokens[token].sellAmount+=raw
-tokens[token].holding-=raw
+tokens[token].sellAmount+=value
+tokens[token].holding-=value
 tokens[token].trades++
-
 }
 
 }
 
-}
+/* calculate */
 
-/* build pnl */
-
-const list = Object.values(tokens)
+const list =
+Object.values(tokens)
 .map((t:any)=>{
 
 const entry =
-t.buys ? t.buyAmount / t.buys : 0
+t.buys ? t.buyAmount/t.buys : 0
 
 const exit =
-t.sells ? t.sellAmount / t.sells : 0
+t.sells ? t.sellAmount/t.sells : 0
 
 const realized =
 t.sellAmount - (entry * t.sells)
@@ -120,11 +121,6 @@ realized + unrealized
 
 const winRate =
 pnl > 0 ? 100 : 0
-
-const copySignal =
-t.buys > 2 &&
-winRate > 60 &&
-t.holding > 0
 
 return{
 
@@ -145,22 +141,21 @@ pnl,
 
 trades:t.trades,
 
-winRate,
-copySignal
+winRate
 
 }
 
 })
-.filter((t:any)=>t.trades>1)
+.filter((t:any)=>t.trades>0)
 .sort((a:any,b:any)=>b.pnl-a.pnl)
 .slice(0,100)
 
 return NextResponse.json(list)
 
-}catch{
+}catch(e){
 
 return NextResponse.json([])
 
 }
 
-}
+  }
