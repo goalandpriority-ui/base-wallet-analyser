@@ -6,6 +6,7 @@ import Link from "next/link"
 export default function CopyTrading(){
 
 const [data,setData]=useState<any[]>([])
+const [copied,setCopied]=useState<string | null>(null)
 
 useEffect(()=>{
 
@@ -39,10 +40,24 @@ load()
 
 },[])
 
+/* COPY WALLET */
 const copy = (wallet:string)=>{
 navigator.clipboard.writeText(wallet || "")
 }
 
+/* COPY TRADE (manual) */
+const copyTrade = (wallet:string)=>{
+
+localStorage.setItem("copyTrader",wallet)
+setCopied(wallet)
+
+setTimeout(()=>{
+setCopied(null)
+},2000)
+
+}
+
+/* TAG */
 const getTag = (w:any)=>{
 
 if((w?.volume||0) > 100000) return "🐋 Whale"
@@ -153,8 +168,11 @@ style={copyBtn}
 Copy wallet
 </button>
 
-<button style={tradeBtn}>
-🤖 Copy Trade
+<button
+onClick={()=>copyTrade(wallet)}
+style={tradeBtn}
+>
+{copied === wallet ? "✓ Copied" : "🤖 Copy Trade"}
 </button>
 
 <Link href={`/wallet/${wallet}`} style={link}>
