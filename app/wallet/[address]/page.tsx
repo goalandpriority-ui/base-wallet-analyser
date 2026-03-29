@@ -13,9 +13,12 @@ const [tokens,setTokens]=useState<any[]>([])
 const [following,setFollowing]=useState(false)
 const [paid,setPaid]=useState(false)
 
-/* NEW FOLLOW STATS */
 const [followers,setFollowers]=useState(0)
 const [followingCount,setFollowingCount]=useState(0)
+
+/* NEW */
+const [lastSwap,setLastSwap]=useState<any>(null)
+const [activeToken,setActiveToken]=useState<any>(null)
 
 /* fetch */
 
@@ -49,7 +52,21 @@ body:JSON.stringify({wallet:address})
 })
 
 const j = await t.json()
-setTokens(Array.isArray(j)?j:[])
+
+const arr = Array.isArray(j)?j:[]
+
+setTokens(arr)
+
+/* last swap */
+if(arr.length){
+setLastSwap(arr[0])
+}
+
+/* active token */
+const active =
+arr.find((t:any)=> t?.buys > t?.sells)
+
+if(active) setActiveToken(active)
 
 }catch{
 setTokens([])
@@ -57,16 +74,13 @@ setTokens([])
 
 /* check paid */
 try{
-
 const p = await fetch(`/api/check-paid?wallet=${address}`)
 const pj = await p.json()
 setPaid(pj?.paid)
-
 }catch{}
 
 /* follow stats */
 try{
-
 const f = await fetch(`/api/follow-count?wallet=${address}`)
 const j = await f.json()
 
@@ -169,7 +183,6 @@ PRO
 
 </div>
 
-{/* FOLLOW COUNT */}
 <div style={{
 display:"flex",
 gap:14,
@@ -195,6 +208,35 @@ opacity:.8
 
 </div>
 
+{/* ACTIVE POSITION */}
+<div style={card}>
+<h3>🟢 Current Position</h3>
+
+{activeToken ? (
+<>
+<div>Token: {activeToken.symbol}</div>
+<div>Buys: {activeToken.buys}</div>
+<div>Sells: {activeToken.sells}</div>
+<div>Win Rate: {Math.round(activeToken.winRate)}%</div>
+</>
+):"No active trades"}
+
+</div>
+
+{/* LAST SWAP */}
+<div style={card}>
+<h3>🔁 Last Swap</h3>
+
+{lastSwap ? (
+<>
+<div>Token: {lastSwap.symbol}</div>
+<div>Volume: ${Math.round(lastSwap.volume)}</div>
+<div>Win Rate: {Math.round(lastSwap.winRate)}%</div>
+</>
+):"No swaps"}
+
+</div>
+
 {/* stats */}
 <div style={card}>
 
@@ -216,14 +258,14 @@ opacity:.8
 {/* tokens */}
 <div style={card}>
 
-<h3>Top Tokens</h3>
+<h3>Trade History</h3>
 
 {tokens.map((t,i)=>(
 
 <div key={i} style={row}>
 
 <div>
-{t?.symbol || "TOKEN"}
+{t?.symbol}
 {bestToken?.symbol===t?.symbol && " 🥇"}
 </div>
 
@@ -240,7 +282,7 @@ opacity:.8
 {/* copy trade */}
 <div style={card}>
 
-<h3>Copy Trade Signal</h3>
+<h3>🤖 Copy Trade Signal</h3>
 
 <div>Best Token: {bestToken?.symbol || "-"}</div>
 <div>Win Rate: {walletWinRate.toFixed(1)}%</div>
@@ -254,6 +296,8 @@ Copy Next Trade
 </div>
 )
 }
+
+/* styles */
 
 const proBadge={
 background:"#22c55e",
