@@ -1,168 +1,130 @@
 import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
 
-const rpc = axios.create({
-  baseURL:
-    "https://base-mainnet.g.alchemy.com/v2/" +
-    process.env.ALCHEMY_API_KEY,
-  timeout: 20000
-})
+const RPC =
+"https://base-mainnet.g.alchemy.com/v2/" +
+process.env.ALCHEMY_API_KEY
 
-const COINGECKO =
-"https://api.coingecko.com/api/v3/simple/token_price/base"
-
-export async function POST(req: NextRequest) {
+export async function POST(req: NextRequest){
 
 try{
 
 const { wallet } = await req.json()
 const address = wallet.toLowerCase()
 
-let all:any[]=[]
-let pageKey:any=undefined
+/* get transfers */
 
-/* OUT */
-do{
-
-const res = await rpc.post("/",{
+const txs = await axios.post(RPC,{
 jsonrpc:"2.0",
 id:1,
 method:"alchemy_getAssetTransfers",
 params:[{
 fromBlock:"0x0",
 toBlock:"latest",
+fromAddress:address,
 category:["erc20"],
 withMetadata:true,
-maxCount:"0x3e8",
-pageKey,
-fromAddress:address
+maxCount:"0x3e8"
 }]
 })
 
-all = all.concat(res.data.result.transfers || [])
-pageKey = res.data.result.pageKey
-
-}while(pageKey)
-
-pageKey=undefined
-
-/* IN */
-do{
-
-const res = await rpc.post("/",{
-jsonrpc:"2.0",
-id:1,
-method:"alchemy_getAssetTransfers",
-params:[{
-fromBlock:"0x0",
-toBlock:"latest",
-category:["erc20"],
-withMetadata:true,
-maxCount:"0x3e8",
-pageKey,
-toAddress:address
-}]
-})
-
-all = all.concat(res.data.result.transfers || [])
-pageKey = res.data.result.pageKey
-
-}while(pageKey)
-
-/* group tokens */
+const transfers = txs.data.result.transfers || []
 
 const tokens:Record<string,any>={}
 
-for(const tx of all){
+/* read swaps */
 
-const token =
-tx.rawContract?.address?.toLowerCase()
+for(const t of transfers){
 
-const symbol =
-tx.asset ||
-token?.slice(0,6) ||
-"UNKNOWN"
+const hash = t.hash
 
-const value = Number(tx.value || 0)
-if(!value) continue
+const receipt = await axios.post(RPC,{
+jsonrpc:"2.0",
+id:1,
+method:"eth_getTransactionReceipt",
+params:[hash]
+})
+
+const logs = receipt.data.result?.logs || []
+
+for(const log of logs){
+
+const token = log.address.toLowerCase()
+
+const raw = parseInt(log.data,16)
+if(!raw || raw===0) continue
 
 if(!tokens[token]){
 tokens[token]={
-symbol,
 token,
+symbol:t.asset || token.slice(0,6),
 buys:0,
 sells:0,
 buyAmount:0,
 sellAmount:0,
 holding:0,
-volume:0,
-trades:0
+trades:0,
+lastBuy:0
 }
 }
 
-const from = tx.from?.toLowerCase()
-const to = tx.to?.toLowerCase()
+const from = log.topics?.[1]
+const to = log.topics?.[2]
 
-if(to===address){
+/* buy */
+
+if(to?.includes(address.slice(2))){
+
 tokens[token].buys++
-tokens[token].buyAmount+=value
-tokens[token].holding+=value
+tokens[token].buyAmount+=raw
+tokens[token].holding+=raw
+tokens[token].lastBuy=raw
 tokens[token].trades++
+
 }
 
-if(from===address){
+/* sell */
+
+if(from?.includes(address.slice(2))){
+
 tokens[token].sells++
-tokens[token].sellAmount+=value
-tokens[token].holding-=value
+tokens[token].sellAmount+=raw
+tokens[token].holding-=raw
 tokens[token].trades++
+
 }
 
-tokens[token].volume+=value
 }
 
-/* price fetch */
+}
 
-const addresses = Object.keys(tokens).join(",")
-
-let prices:any={}
-try{
-
-const res = await axios.get(
-`${COINGECKO}?contract_addresses=${addresses}&vs_currencies=usd`
-)
-
-prices = res.data
-
-}catch{}
-
-/* build list */
+/* build pnl */
 
 const list = Object.values(tokens)
 .map((t:any)=>{
 
-const price =
-prices[t.token]?.usd || 0
-
-const avgBuy =
+const entry =
 t.buys ? t.buyAmount / t.buys : 0
 
-const avgSell =
+const exit =
 t.sells ? t.sellAmount / t.sells : 0
 
 const realized =
-t.sellAmount - (avgBuy * t.sells)
+t.sellAmount - (entry * t.sells)
 
 const unrealized =
-t.holding * price
+t.holding * entry
 
 const pnl =
 realized + unrealized
 
-const positionValue =
-t.holding * price
-
 const winRate =
 pnl > 0 ? 100 : 0
+
+const copySignal =
+t.buys > 2 &&
+winRate > 60 &&
+t.holding > 0
 
 return{
 
@@ -172,28 +134,25 @@ token:t.token,
 buys:t.buys,
 sells:t.sells,
 
-avgBuy,
-avgSell,
-
-price,
+entryPrice:entry,
+exitPrice:exit,
 
 holding:t.holding,
-positionValue,
 
 realized,
 unrealized,
 pnl,
 
-volume:t.volume,
 trades:t.trades,
 
-winRate
+winRate,
+copySignal
 
 }
 
 })
-.filter((t:any)=>t.volume>0)
-.sort((a:any,b:any)=>b.volume-a.volume)
+.filter((t:any)=>t.trades>1)
+.sort((a:any,b:any)=>b.pnl-a.pnl)
 .slice(0,100)
 
 return NextResponse.json(list)
