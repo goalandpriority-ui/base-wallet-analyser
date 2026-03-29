@@ -92,9 +92,7 @@ return copy
 
 /* STOP LOSS */
 const checkStopLoss = async(token:string)=>{
-
 console.log("Checking stop loss for",token)
-
 }
 
 /* AUTO COPY BOT */
@@ -185,22 +183,29 @@ return "📈 Trader"
 
 return(
 
-<div style={wrap}><h1 style={title}>
+<div style={wrap}>
+<h1 style={title}>
 🤖 Copy Trading PRO
-</h1><div style={subtitle}>
-Follow top wallets and auto copy trades
-</div>{active && (
+</h1>
 
+<div style={subtitle}>
+Follow top wallets and auto copy trades
+</div>
+
+{active && (
 <div style={activeBox}>
 🟢 Auto copying: {active.slice(0,6)}...{active.slice(-4)}
 <button onClick={stopCopy} style={stopBtn}>
 Stop
 </button>
 </div>
-)}{data.length === 0 && (
+)}
 
+{data.length === 0 && (
 <div style={{opacity:.6}}>No traders found</div>
-)}{data.map((w,i)=>{
+)}
+
+{data.map((w,i)=>{
 
 const wallet = w?.wallet || "unknown"
 
@@ -225,49 +230,63 @@ boxShadow:isPaid
 ? "0 0 15px rgba(34,197,94,.4)"
 : "0 0 25px rgba(34,197,94,.15)"
 }}
-><div style={rowTop}><div>
+>
+
+<div style={rowTop}>
+<div>
 #{i+1} {getTag(w)}
 {isPaid && (
 <span style={proBadge}>
 PRO
 </span>
 )}
-</div><div style={score}>
+</div>
+
+<div style={score}>
 Score {Math.round(w?.score || 0)}
-</div></div><div style={walletStyle}>
+</div>
+</div>
+
+<div style={walletStyle}>
 {wallet}
-</div><div style={label}>Win Rate</div>
+</div>
+
+<div style={label}>Win Rate</div>
 <div style={bar}>
 <div style={{
 ...barFill,
 width:`${winRate}%`,
 background:"linear-gradient(90deg,#22c55e,#4ade80)"
 }}/>
-</div><div style={label}>Volume</div>
+</div>
+
+<div style={label}>Volume</div>
 <div style={bar}>
 <div style={{
 ...barFill,
 width:`${volumeBar}%`,
 background:"linear-gradient(90deg,#3b82f6,#60a5fa)"
 }}/>
-</div><div style={stats}>
+</div>
+
+<div style={stats}>
 Swaps: {w?.swaps || 0} • 
 Volume: ${Math.round(w?.volume || 0)}
-</div><div style={btnRow}><button
+</div>
+
+<div style={btnRow}>
+
+<button
 onClick={()=>copy(wallet)}
 style={copyBtn}
-
-«»
-
-Copy wallet
+>
+📋 Copy wallet
 </button>
 
 <button
 onClick={()=>copyTrade(wallet)}
 style={tradeBtn}
-
-«»
-
+>
 {copied === wallet
 ? "✓ Copied"
 : active === wallet
@@ -277,12 +296,19 @@ style={tradeBtn}
 
 <Link href={`/wallet/${wallet}`} style={link}>
 View profile
-</Link></div></div>)
+</Link>
+
+</div>
+</div>
+)
+
 })}
 
 </div>
 )
-}/* styles */
+}
+
+/* styles */
 
 const wrap={
 padding:20,
