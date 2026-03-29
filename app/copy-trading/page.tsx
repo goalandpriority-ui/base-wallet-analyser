@@ -3,6 +3,16 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 
+/* COPY SETTINGS */
+const copySettings = {
+enabled: true,
+copyPercent: 10,
+maxBuyEth: 0.02,
+stopLoss: 20,
+whitelist: [],
+blacklist: []
+}
+
 export default function CopyTrading(){
 
 const [data,setData]=useState<any[]>([])
@@ -41,7 +51,7 @@ load()
 
 },[])
 
-/* AUTO COPY BOT */
+/* AUTO BOT */
 useEffect(()=>{
 
 const trader = localStorage.getItem("copyTrader")
@@ -53,33 +63,44 @@ return ()=> clearInterval(interval)
 
 },[])
 
-/* COPY WALLET */
-const copy = (wallet:string)=>{
-navigator.clipboard.writeText(wallet || "")
+/* TOKEN FILTER */
+const isAllowedToken = (token:string)=>{
+
+if(copySettings.blacklist.includes(token))
+return false
+
+if(
+copySettings.whitelist.length &&
+!copySettings.whitelist.includes(token)
+)
+return false
+
+return true
 }
 
-/* COPY TRADE */
-const copyTrade = (wallet:string)=>{
+/* COPY AMOUNT */
+const getCopyAmount = (amount:number)=>{
 
-localStorage.setItem("copyTrader",wallet)
-localStorage.removeItem("lastTrade")
+let copy =
+amount * (copySettings.copyPercent/100)
 
-setCopied(wallet)
-setActive(wallet)
+if(copy > copySettings.maxBuyEth)
+copy = copySettings.maxBuyEth
 
-setTimeout(()=>setCopied(null),1500)
+return copy
+}
+
+/* STOP LOSS */
+const checkStopLoss = async(token:string)=>{
+
+console.log("Checking stop loss for",token)
 
 }
 
-/* STOP COPY */
-const stopCopy = ()=>{
-localStorage.removeItem("copyTrader")
-localStorage.removeItem("lastTrade")
-setActive(null)
-}
-
-/* AUTO BOT */
+/* AUTO COPY BOT */
 const runCopyBot = async()=>{
+
+if(!copySettings.enabled) return
 
 const trader = localStorage.getItem("copyTrader")
 if(!trader) return
@@ -94,24 +115,62 @@ headers:{
 body:JSON.stringify({wallet: trader})
 })
 
-const trade = await res.json()
+const swap = await res.json()
 
 const hash =
-trade?.lastSwapHash ||
-trade?.hash ||
-JSON.stringify(trade)
+swap?.lastSwapHash ||
+swap?.hash ||
+JSON.stringify(swap)
 
-const last = localStorage.getItem("lastTrade")
+const last = localStorage.getItem("lastSwap")
 
 if(last === hash) return
 
-localStorage.setItem("lastTrade",hash)
+localStorage.setItem("lastSwap",hash)
 
-/* simulate copy */
-console.log("Copying trade from",trader)
+const amount = getCopyAmount(
+swap?.amountEth || 0.01
+)
+
+console.log("Copy trade",{
+trader,
+amount
+})
+
+if(swap?.tokenOut){
+if(!isAllowedToken(swap.tokenOut))
+return
+
+checkStopLoss(swap.tokenOut)
+}
 
 }catch{}
 
+}
+
+/* COPY WALLET */
+const copy = (wallet:string)=>{
+navigator.clipboard.writeText(wallet || "")
+}
+
+/* COPY TRADE */
+const copyTrade = (wallet:string)=>{
+
+localStorage.setItem("copyTrader",wallet)
+localStorage.removeItem("lastSwap")
+
+setCopied(wallet)
+setActive(wallet)
+
+setTimeout(()=>setCopied(null),1500)
+
+}
+
+/* STOP */
+const stopCopy = ()=>{
+localStorage.removeItem("copyTrader")
+localStorage.removeItem("lastSwap")
+setActive(null)
 }
 
 /* TAG */
@@ -125,30 +184,23 @@ return "📈 Trader"
 }
 
 return(
-<div style={wrap}>
 
-<h1 style={title}>
+<div style={wrap}><h1 style={title}>
 🤖 Copy Trading PRO
-</h1>
-
-<div style={subtitle}>
+</h1><div style={subtitle}>
 Follow top wallets and auto copy trades
-</div>
+</div>{active && (
 
-{active && (
 <div style={activeBox}>
 🟢 Auto copying: {active.slice(0,6)}...{active.slice(-4)}
 <button onClick={stopCopy} style={stopBtn}>
 Stop
 </button>
 </div>
-)}
+)}{data.length === 0 && (
 
-{data.length === 0 && (
 <div style={{opacity:.6}}>No traders found</div>
-)}
-
-{data.map((w,i)=>{
+)}{data.map((w,i)=>{
 
 const wallet = w?.wallet || "unknown"
 
@@ -173,65 +225,49 @@ boxShadow:isPaid
 ? "0 0 15px rgba(34,197,94,.4)"
 : "0 0 25px rgba(34,197,94,.15)"
 }}
->
-
-<div style={rowTop}>
-
-<div>
+><div style={rowTop}><div>
 #{i+1} {getTag(w)}
 {isPaid && (
 <span style={proBadge}>
 PRO
 </span>
 )}
-</div>
-
-<div style={score}>
+</div><div style={score}>
 Score {Math.round(w?.score || 0)}
-</div>
-
-</div>
-
-<div style={walletStyle}>
+</div></div><div style={walletStyle}>
 {wallet}
-</div>
-
-<div style={label}>Win Rate</div>
+</div><div style={label}>Win Rate</div>
 <div style={bar}>
 <div style={{
 ...barFill,
 width:`${winRate}%`,
 background:"linear-gradient(90deg,#22c55e,#4ade80)"
 }}/>
-</div>
-
-<div style={label}>Volume</div>
+</div><div style={label}>Volume</div>
 <div style={bar}>
 <div style={{
 ...barFill,
 width:`${volumeBar}%`,
 background:"linear-gradient(90deg,#3b82f6,#60a5fa)"
 }}/>
-</div>
-
-<div style={stats}>
+</div><div style={stats}>
 Swaps: {w?.swaps || 0} • 
 Volume: ${Math.round(w?.volume || 0)}
-</div>
-
-<div style={btnRow}>
-
-<button
+</div><div style={btnRow}><button
 onClick={()=>copy(wallet)}
 style={copyBtn}
->
+
+«»
+
 Copy wallet
 </button>
 
 <button
 onClick={()=>copyTrade(wallet)}
 style={tradeBtn}
->
+
+«»
+
 {copied === wallet
 ? "✓ Copied"
 : active === wallet
@@ -241,20 +277,12 @@ style={tradeBtn}
 
 <Link href={`/wallet/${wallet}`} style={link}>
 View profile
-</Link>
-
-</div>
-
-</div>
-
-)
+</Link></div></div>)
 })}
 
 </div>
 )
-}
-
-/* styles */
+}/* styles */
 
 const wrap={
 padding:20,
@@ -390,4 +418,4 @@ padding:"2px 6px",
 borderRadius:4,
 fontSize:9,
 fontWeight:700
-}
+  }
