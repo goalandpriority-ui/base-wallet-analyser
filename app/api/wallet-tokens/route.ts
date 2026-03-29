@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     let all: any[] = []
     let pageKey: any = undefined
 
-    // fetch all erc20 transfers
+    /* OUTGOING (SELL) */
     do {
 
       const res = await rpc.post("/", {
@@ -32,13 +32,37 @@ export async function POST(req: NextRequest) {
           withMetadata: true,
           maxCount: "0x3e8",
           pageKey,
-          fromAddress: address,
+          fromAddress: address
+        }]
+      })
+
+      const result = res.data.result
+      all = all.concat(result.transfers || [])
+      pageKey = result.pageKey
+
+    } while (pageKey)
+
+    pageKey = undefined
+
+    /* INCOMING (BUY) */
+    do {
+
+      const res = await rpc.post("/", {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "alchemy_getAssetTransfers",
+        params: [{
+          fromBlock: "0x0",
+          toBlock: "latest",
+          category: ["erc20"],
+          withMetadata: true,
+          maxCount: "0x3e8",
+          pageKey,
           toAddress: address
         }]
       })
 
       const result = res.data.result
-
       all = all.concat(result.transfers || [])
       pageKey = result.pageKey
 
@@ -55,36 +79,36 @@ export async function POST(req: NextRequest) {
 
       const value = Number(tx.value || 0)
 
+      if (!value || value === 0) continue
+
       if (!tokens[symbol]) {
         tokens[symbol] = {
           symbol,
           volume: 0,
           buys: 0,
           sells: 0,
-          wins: 0,
-          losses: 0,
-          lastBuy: 0
+          profit: 0,
+          lastBuy: 0,
+          trades: 0
         }
       }
 
       const from = tx.from?.toLowerCase()
       const to = tx.to?.toLowerCase()
 
-      // BUY
+      /* BUY */
       if (to === address) {
         tokens[symbol].buys++
         tokens[symbol].lastBuy = value
+        tokens[symbol].trades++
       }
 
-      // SELL
+      /* SELL */
       if (from === address) {
         tokens[symbol].sells++
-
-        if (value > tokens[symbol].lastBuy) {
-          tokens[symbol].wins++
-        } else {
-          tokens[symbol].losses++
-        }
+        tokens[symbol].profit +=
+          value - tokens[symbol].lastBuy
+        tokens[symbol].trades++
       }
 
       tokens[symbol].volume += value
@@ -93,20 +117,29 @@ export async function POST(req: NextRequest) {
     const list = Object.values(tokens)
       .map((t:any)=>{
 
-        const total = t.wins + t.losses
+        const wins = t.profit > 0 ? 1 : 0
+        const losses = t.profit <= 0 ? 1 : 0
+
+        const total = wins + losses
 
         const winRate =
           total > 0
-            ? (t.wins / total) * 100
+            ? (wins / total) * 100
             : 0
 
         return {
-          ...t,
+          symbol: t.symbol,
+          volume: t.volume,
+          buys: t.buys,
+          sells: t.sells,
+          profit: t.profit,
+          trades: t.trades,
           winRate
         }
+
       })
       .sort((a:any,b:any)=>b.volume-a.volume)
-      .slice(0,25)
+      .slice(0,50)
 
     return NextResponse.json(list)
 
@@ -115,4 +148,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json([])
 
   }
-}
+          }
