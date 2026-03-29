@@ -7,7 +7,9 @@ export default function CopyTrading(){
 
 const [data,setData]=useState<any[]>([])
 const [copied,setCopied]=useState<string | null>(null)
+const [active,setActive]=useState<string | null>(null)
 
+/* LOAD */
 useEffect(()=>{
 
 const load = async()=>{
@@ -21,7 +23,6 @@ let rows:any[] = []
 if(Array.isArray(json)) rows = json
 else rows = json?.data || []
 
-/* FIX FIELD NAMES */
 const mapped = rows.map((w:any)=>({
 ...w,
 swaps: w.swapCount || 0,
@@ -40,20 +41,76 @@ load()
 
 },[])
 
+/* AUTO COPY BOT */
+useEffect(()=>{
+
+const trader = localStorage.getItem("copyTrader")
+if(trader) setActive(trader)
+
+const interval = setInterval(runCopyBot,10000)
+
+return ()=> clearInterval(interval)
+
+},[])
+
 /* COPY WALLET */
 const copy = (wallet:string)=>{
 navigator.clipboard.writeText(wallet || "")
 }
 
-/* COPY TRADE (manual) */
+/* COPY TRADE */
 const copyTrade = (wallet:string)=>{
 
 localStorage.setItem("copyTrader",wallet)
-setCopied(wallet)
+localStorage.removeItem("lastTrade")
 
-setTimeout(()=>{
-setCopied(null)
-},2000)
+setCopied(wallet)
+setActive(wallet)
+
+setTimeout(()=>setCopied(null),1500)
+
+}
+
+/* STOP COPY */
+const stopCopy = ()=>{
+localStorage.removeItem("copyTrader")
+localStorage.removeItem("lastTrade")
+setActive(null)
+}
+
+/* AUTO BOT */
+const runCopyBot = async()=>{
+
+const trader = localStorage.getItem("copyTrader")
+if(!trader) return
+
+try{
+
+const res = await fetch("/api/analyse-pro",{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({wallet: trader})
+})
+
+const trade = await res.json()
+
+const hash =
+trade?.lastSwapHash ||
+trade?.hash ||
+JSON.stringify(trade)
+
+const last = localStorage.getItem("lastTrade")
+
+if(last === hash) return
+
+localStorage.setItem("lastTrade",hash)
+
+/* simulate copy */
+console.log("Copying trade from",trader)
+
+}catch{}
 
 }
 
@@ -77,6 +134,15 @@ return(
 <div style={subtitle}>
 Follow top wallets and auto copy trades
 </div>
+
+{active && (
+<div style={activeBox}>
+🟢 Auto copying: {active.slice(0,6)}...{active.slice(-4)}
+<button onClick={stopCopy} style={stopBtn}>
+Stop
+</button>
+</div>
+)}
 
 {data.length === 0 && (
 <div style={{opacity:.6}}>No traders found</div>
@@ -109,7 +175,6 @@ boxShadow:isPaid
 }}
 >
 
-{/* header */}
 <div style={rowTop}>
 
 <div>
@@ -127,12 +192,10 @@ Score {Math.round(w?.score || 0)}
 
 </div>
 
-{/* wallet */}
 <div style={walletStyle}>
 {wallet}
 </div>
 
-{/* win rate */}
 <div style={label}>Win Rate</div>
 <div style={bar}>
 <div style={{
@@ -142,7 +205,6 @@ background:"linear-gradient(90deg,#22c55e,#4ade80)"
 }}/>
 </div>
 
-{/* volume */}
 <div style={label}>Volume</div>
 <div style={bar}>
 <div style={{
@@ -152,13 +214,11 @@ background:"linear-gradient(90deg,#3b82f6,#60a5fa)"
 }}/>
 </div>
 
-{/* stats */}
 <div style={stats}>
 Swaps: {w?.swaps || 0} • 
 Volume: ${Math.round(w?.volume || 0)}
 </div>
 
-{/* buttons */}
 <div style={btnRow}>
 
 <button
@@ -172,7 +232,11 @@ Copy wallet
 onClick={()=>copyTrade(wallet)}
 style={tradeBtn}
 >
-{copied === wallet ? "✓ Copied" : "🤖 Copy Trade"}
+{copied === wallet
+? "✓ Copied"
+: active === wallet
+? "🟢 Copying"
+: "🤖 Copy Trade"}
 </button>
 
 <Link href={`/wallet/${wallet}`} style={link}>
@@ -210,6 +274,26 @@ color:"transparent"
 const subtitle={
 opacity:.6,
 marginBottom:20
+}
+
+const activeBox={
+background:"#020617",
+border:"1px solid #22c55e",
+padding:10,
+borderRadius:10,
+marginBottom:15,
+display:"flex",
+justifyContent:"space-between",
+alignItems:"center"
+}
+
+const stopBtn={
+background:"#ef4444",
+border:"none",
+padding:"4px 10px",
+borderRadius:6,
+color:"#fff",
+cursor:"pointer"
 }
 
 const card={
