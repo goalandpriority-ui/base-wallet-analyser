@@ -3,14 +3,14 @@ import type { Metadata } from "next";
 
 const miniappMetadata = {
   version: "1",
-  imageUrl: "https://base-wallet-analyser.vercel.app/icon.png",  // ← icon added
+  imageUrl: "https://base-wallet-analyser.vercel.app/icon.png",
   button: {
     title: "🚀 Open Base Wallet Analyser",
     action: {
       type: "launch_miniapp",
       name: "Base Wallet Analyser",
       url: "https://base-wallet-analyser.vercel.app",
-      splashImageUrl: "https://base-wallet-analyser.vercel.app/splash.png", // ← splash
+      splashImageUrl: "https://base-wallet-analyser.vercel.app/splash.png",
       splashBackgroundColor: "#020617"
     }
   }
@@ -23,7 +23,11 @@ export const metadata: Metadata = {
     title: "Base Wallet Analyser",
     description: "Analyse wallets on Base network",
     images: [
-      { url: "https://base-wallet-analyser.vercel.app/splash.png" } // ← splash preview
+      {
+        url: "https://base-wallet-analyser.vercel.app/og-image.png",
+        width: 1200,
+        height: 630
+      }
     ],
   },
   other: {
