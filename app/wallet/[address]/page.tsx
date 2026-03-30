@@ -8,7 +8,8 @@ export default function WalletProfile(){
 const params = useParams()
 const address = params?.address as string
 
-const [data,setData]=useState<any>(null)
+const [data,setData]=useState<any>({})
+const [stats,setStats]=useState<any>({})
 const [followers,setFollowers]=useState(0)
 const [following,setFollowing]=useState(false)
 const [followingCount,setFollowingCount]=useState(0)
@@ -20,19 +21,27 @@ if(!address) return
 
 const load = async()=>{
 
-/* analyse */
+/* wallet stats */
 try{
-const res = await fetch("/api/analyse-pro",{
+const r = await fetch("/api/analyse",{
 method:"POST",
 headers:{ "Content-Type":"application/json" },
 body:JSON.stringify({wallet:address})
 })
+const j = await r.json()
+setStats(j || {})
+}catch{}
 
-const json = await res.json()
-setData(json || {})
-}catch{
-setData({})
-}
+/* trading stats */
+try{
+const r = await fetch("/api/analyse-pro",{
+method:"POST",
+headers:{ "Content-Type":"application/json" },
+body:JSON.stringify({wallet:address})
+})
+const j = await r.json()
+setData(j || {})
+}catch{}
 
 /* paid */
 try{
@@ -41,7 +50,7 @@ const pj = await p.json()
 setPaid(pj?.paid)
 }catch{}
 
-/* follow */
+/* follow stats */
 try{
 const f = await fetch(`/api/follow-count?wallet=${address}`)
 const j = await f.json()
@@ -82,14 +91,10 @@ followed:address
 setFollowing(true)
 }
 
-if(!data){
-return <div style={{padding:20}}>Loading...</div>
-}
-
 return(
 <div style={{padding:20,maxWidth:900,margin:"auto"}}>
 
-{/* header */}
+{/* HEADER */}
 <div style={card}>
 
 <div style={{fontSize:12,opacity:.6}}>
@@ -139,10 +144,10 @@ opacity:.8
 
 <h3>Wallet Stats</h3>
 
-<div>📊 Transactions: {data?.txCount || 0}</div>
-<div>💰 Transfer Volume: {data?.transferVolume || 0} ETH</div>
-<div>⛽ Gas: {data?.gasUsed || 0} ETH</div>
-<div>📅 Active Days: {data?.activeDays || 0}</div>
+<div>📊 Transactions: {stats?.txCount || 0}</div>
+<div>💰 Transfer Volume: {stats?.transferVolume || 0} ETH</div>
+<div>⛽ Gas: {stats?.gasUsed || 0} ETH</div>
+<div>📅 Active Days: {stats?.activeDays || 0}</div>
 
 </div>
 
@@ -211,4 +216,4 @@ padding:"6px 12px",
 background:"#facc15",
 border:"none",
 borderRadius:8
-}
+  }
