@@ -6,8 +6,8 @@ const RPC =
 process.env.ALCHEMY_API_KEY
 
 const BASE = [
-"0x4200000000000000000000000000000000000006",
-"0xd9aaec86b65d86f6a7b5c4120c3b4c0e5b2f0e73"
+"0x4200000000000000000000000000000000000006", // WETH
+"0xd9aaec86b65d86f6a7b5c4120c3b4c0e5b2f0e73" // USDC
 ]
 
 async function fetchTransfers(address:string,type:"from"|"to"){
@@ -27,7 +27,6 @@ maxCount:"0x3e8",
 })
 
 return res.data.result.transfers || []
-
 }
 
 export async function POST(req:NextRequest){
@@ -42,7 +41,7 @@ const incoming = await fetchTransfers(address,"to")
 
 const all = [...out,...incoming]
 
-/* group swaps */
+/* group by tx hash */
 
 const grouped:Record<string,any[]>={}
 
@@ -51,7 +50,9 @@ if(!grouped[tx.hash]) grouped[tx.hash]=[]
 grouped[tx.hash].push(tx)
 }
 
-const tokens:Record<string,any>={}
+/* build trades */
+
+const trades:any[] = []
 
 for(const hash in grouped){
 
@@ -59,6 +60,7 @@ const txs = grouped[hash]
 
 let baseSpent=0
 let baseReceived=0
+
 let tokenBuy:any=null
 let tokenSell:any=null
 
@@ -67,115 +69,110 @@ for(const tx of txs){
 const token =
 tx.rawContract?.address?.toLowerCase()
 
-const value = Number(tx.value||0)
-
+const value = Number(tx.value || 0)
 if(!token || !value) continue
 
 const from = tx.from?.toLowerCase()
 const to = tx.to?.toLowerCase()
 
 /* base spent */
+
 if(from===address && BASE.includes(token)){
-baseSpent+=value
+baseSpent += value
 }
 
 /* base received */
+
 if(to===address && BASE.includes(token)){
-baseReceived+=value
+baseReceived += value
 }
 
 /* token buy */
+
 if(to===address && !BASE.includes(token)){
-tokenBuy={
-token,
-symbol:tx.asset || token.slice(0,6),
-value
+tokenBuy = {
+symbol: tx.asset || token.slice(0,6),
+amount: value
 }
 }
 
 /* token sell */
+
 if(from===address && !BASE.includes(token)){
-tokenSell={
-token,
-symbol:tx.asset || token.slice(0,6),
-value
+tokenSell = {
+symbol: tx.asset || token.slice(0,6),
+amount: value
 }
 }
 
 }
 
-/* BUY */
+/* BUY trade */
 
 if(tokenBuy && baseSpent){
 
-const t = tokenBuy.token
-
-if(!tokens[t]){
-tokens[t]={
+trades.push({
+type:"BUY",
 symbol:tokenBuy.symbol,
-buys:0,
-sells:0,
-buy:0,
-sell:0,
-holding:0
-}
-}
-
-tokens[t].buys++
-tokens[t].buy+=baseSpent
-tokens[t].holding+=tokenBuy.value
+entry:baseSpent,
+exit:0,
+amount:tokenBuy.amount,
+pnl:0
+})
 
 }
 
-/* SELL */
+/* SELL trade */
 
 if(tokenSell && baseReceived){
 
-const t = tokenSell.token
-
-if(!tokens[t]){
-tokens[t]={
+trades.push({
+type:"SELL",
 symbol:tokenSell.symbol,
-buys:0,
-sells:0,
-buy:0,
-sell:0,
-holding:0
-}
-}
-
-tokens[t].sells++
-tokens[t].sell+=baseReceived
-tokens[t].holding-=tokenSell.value
-
-}
-
-}
-
-const list = Object.values(tokens)
-.map((t:any)=>{
-
-const pnl = t.sell - t.buy
-
-const winRate =
-t.sells
-? (t.sell > t.buy ? 100 : 0)
-: 0
-
-return{
-symbol:t.symbol,
-buys:t.buys,
-sells:t.sells,
-holding:t.holding,
-pnl,
-winRate
-}
-
+entry:0,
+exit:baseReceived,
+amount:tokenSell.amount,
+pnl:0
 })
-.sort((a:any,b:any)=>b.pnl-a.pnl)
-.slice(0,50)
 
-return NextResponse.json(list)
+}
+
+}
+
+/* match buy sell */
+
+const history:any[]=[]
+
+const open:Record<string,any>={}
+
+for(const t of trades){
+
+if(t.type==="BUY"){
+open[t.symbol]=t
+continue
+}
+
+if(t.type==="SELL" && open[t.symbol]){
+
+const buy = open[t.symbol]
+
+const pnl = t.exit - buy.entry
+
+history.push({
+symbol:t.symbol,
+entry:buy.entry,
+exit:t.exit,
+amount:t.amount,
+pnl
+})
+
+delete open[t.symbol]
+
+}
+
+}
+
+return NextResponse.json(history.reverse())
 
 }catch{
 
@@ -183,4 +180,4 @@ return NextResponse.json([])
 
 }
 
-      }
+}
