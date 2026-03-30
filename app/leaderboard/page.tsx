@@ -75,14 +75,12 @@ volume: res.volume || 0
 
 },[])
 
-/* FIXED */
 const jumpToRank = ()=>{
 if(!rank) return
 const targetPage = Math.ceil(rank / 20)
 setPage(targetPage)
 }
 
-/* FIXED */
 const searchWallet = ()=>{
 if(!search) return
 
@@ -157,8 +155,6 @@ style={{display:"block",marginTop:4}}
 
 </div>
 
-{/* your rank */}
-
 {rank && (
 <div style={{
 background:"#000",
@@ -179,8 +175,6 @@ Jump to my rank
 </div>
 )}
 
-{/* search */}
-
 <div style={{marginBottom:15}}>
 
 <input
@@ -196,8 +190,6 @@ Search
 
 </div>
 
-{/* list */}
-
 {data.map((w,i)=>{
 
 const position = (page-1)*20+i+1
@@ -208,21 +200,15 @@ w.wallet.toLowerCase() === wallet.toLowerCase()
 
 return(
 
-<Link
-key={i}
-href={`/wallet/${w.wallet}`}
-style={{textDecoration:"none"}}
->
-
 <div
+key={i}
 style={{
 background: isYou ? "#06281c" : "#0b0b0b",
 color:"#00ff9c",
 padding:14,
 borderRadius:10,
 marginBottom:8,
-border:"1px solid #111",
-cursor:"pointer"
+border:"1px solid #111"
 }}
 >
 
@@ -243,7 +229,8 @@ justifyContent:"space-between"
 
 <div style={{
 fontSize:13,
-opacity:0.8
+opacity:0.8,
+wordBreak:"break-all"
 }}>
 {w.wallet}
 </div>
@@ -257,14 +244,18 @@ Swaps: {w.swaps} |
 Vol: ${Math.round(w.volume)}
 </div>
 
+<div style={{marginTop:8}}>
+<Link href={`/wallet/${w.wallet}`}>
+<button style={viewBtn}>
+View Wallet Profile
+</button>
+</Link>
 </div>
 
-</Link>
+</div>
 
 )
 })}
-
-{/* pagination */}
 
 <div style={{
 marginTop:20,
@@ -288,4 +279,14 @@ Next
 
 </div>
 )
+}
+
+const viewBtn={
+padding:"6px 12px",
+background:"#22c55e",
+border:"none",
+borderRadius:8,
+color:"#020617",
+fontWeight:600,
+cursor:"pointer"
 }
