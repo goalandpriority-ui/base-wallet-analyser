@@ -65,7 +65,7 @@ style={{textDecoration:"none"}}
 )
 }
 
-const card={
+const card:React.CSSProperties={
 background:"#020617",
 padding:12,
 borderRadius:10,
