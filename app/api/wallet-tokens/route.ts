@@ -49,7 +49,7 @@ const txs = [
 ...(inc.data.result.transfers || [])
 ]
 
-/* group by hash */
+/* group */
 
 const map:Record<string,any[]> = {}
 
@@ -63,14 +63,6 @@ const history:any[] = []
 for(const hash in map){
 
 const group = map[hash]
-
-/* sort transfers */
-group.sort(
-(a,b)=>
-new Date(a.metadata.blockTimestamp).getTime()
--
-new Date(b.metadata.blockTimestamp).getTime()
-)
 
 let firstOut:any=null
 let lastIn:any=null
@@ -88,34 +80,27 @@ tx.rawContract?.address?.slice(0,6) ||
 const value = parseFloat(tx.value || "0")
 if(!value) continue
 
-/* first token sent */
 if(from===address && !firstOut){
-firstOut={
-token,
-amount:value
-}
+firstOut={ token, value }
 }
 
-/* last token received */
 if(to===address){
-lastIn={
-token,
-amount:value
-}
+lastIn={ token, value }
 }
 
 }
-
-/* router swap detect */
 
 if(firstOut && lastIn){
 
+const pnl = lastIn.value - firstOut.value
+
 history.push({
-token:lastIn.token,
-entry:firstOut.amount,
-exit:lastIn.amount,
-amount:lastIn.amount,
-pnl:lastIn.amount-firstOut.amount
+symbol:lastIn.token,
+volume:lastIn.value,
+entry:firstOut.value,
+exit:lastIn.value,
+profit:pnl,
+winRate: pnl>0 ? 100 : 0
 })
 
 }
