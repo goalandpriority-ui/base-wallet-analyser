@@ -55,13 +55,8 @@ const isPaid = w?.paid
 
 return(
 
-<Link
-key={i}
-href={`/wallet/${w.wallet}`}
-style={{textDecoration:"none"}}
->
-
 <div
+key={i}
 style={{
 background:"#020617",
 color:"#00ff9c",
@@ -99,7 +94,8 @@ Score {Math.round(w.score || 0)}
 <div style={{
 fontSize:13,
 opacity:.8,
-marginTop:4
+marginTop:4,
+wordBreak:"break-all"
 }}>
 {w.wallet}
 </div>
@@ -112,9 +108,15 @@ Swaps: {w.swaps} |
 Volume: ${Math.round(w.volume)}
 </div>
 
+<div style={{marginTop:8}}>
+<Link href={`/wallet/${w.wallet}`}>
+<button style={viewBtn}>
+View Wallet Profile
+</button>
+</Link>
 </div>
 
-</Link>
+</div>
 
 )
 })}
@@ -151,4 +153,15 @@ padding:"2px 6px",
 borderRadius:4,
 fontSize:9,
 fontWeight:700
+}
+
+const viewBtn={
+marginTop:6,
+padding:"6px 12px",
+background:"#22c55e",
+border:"none",
+borderRadius:8,
+color:"#020617",
+fontWeight:600,
+cursor:"pointer"
 }
