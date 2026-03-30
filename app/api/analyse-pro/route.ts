@@ -74,49 +74,43 @@ export async function POST(req: NextRequest) {
 
     for (const [hash, transfers] of Array.from(txMap.entries())) {
 
-      let sentAssets: string[] = []
-      let receivedAssets: string[] = []
+      let sent: any[] = []
+      let received: any[] = []
 
       for (const t of transfers) {
+
         const asset = (t.asset || "").toUpperCase()
+        const value = Number(t.value || 0)
+
+        if (!asset || !value) continue
 
         if (t.from?.toLowerCase() === address) {
-          sentAssets.push(asset)
+          sent.push({ asset, value })
         }
 
         if (t.to?.toLowerCase() === address) {
-          receivedAssets.push(asset)
+          received.push({ asset, value })
         }
       }
 
-      const uniqueSent = Array.from(new Set(sentAssets))
-      const uniqueReceived = Array.from(new Set(receivedAssets))
+      if (!sent.length || !received.length) continue
 
-      const isSwap =
-        uniqueSent.length > 0 &&
-        uniqueReceived.length > 0 &&
-        JSON.stringify(uniqueSent) !== JSON.stringify(uniqueReceived)
+      /* pick biggest only (router noise remove) */
+      const biggestSent = sent.sort((a,b)=>b.value-a.value)[0]
+      const biggestRecv = received.sort((a,b)=>b.value-a.value)[0]
 
-      if (!isSwap) continue
+      /* ignore same token */
+      if (biggestSent.asset === biggestRecv.asset) continue
 
       swapCount++
 
-      for (const t of transfers) {
-        const value = Number(t.value || 0)
-        const asset = (t.asset || "").toUpperCase()
+      /* volume calc */
+      if (STABLES.includes(biggestSent.asset)) {
+        volumeUSD += biggestSent.value
+      }
 
-        if (!value || !asset) continue
-
-        if (t.from?.toLowerCase() === address) {
-
-          if (STABLES.includes(asset)) {
-            volumeUSD += value
-          }
-
-          if (asset === "ETH" || asset === "WETH") {
-            volumeUSD += value * 3000
-          }
-        }
+      if (biggestSent.asset === "ETH" || biggestSent.asset === "WETH") {
+        volumeUSD += biggestSent.value * 3000
       }
 
       try {
@@ -153,12 +147,20 @@ export async function POST(req: NextRequest) {
       tradingDaysCount * 5
 
 
-    // ✅ SAVE TO LEADERBOARD (MATCH YOUR TABLE)
-    const { data: saved, error } = await supabase
+    await supabase
       .from("leaderboard")
-      .upsert({
+      .delete()
+      .eq("wallet", address)
+
+    await supabase
+      .from("leaderboard")
+      .insert({
         wallet: address,
         score,
+        swaps: swapCount,
+        volume: volumeUSD,
+        days: tradingDaysCount,
+        gas: tradingGas,
 
         swapcount: swapCount,
         tradingvolumeusd: volumeUSD,
@@ -166,14 +168,7 @@ export async function POST(req: NextRequest) {
         tradinggaseth: tradingGas,
 
         updated_at: new Date().toISOString()
-
-      },{
-        onConflict: "wallet"
       })
-
-    console.log("saved:", saved)
-    console.log("error:", error)
-
 
     const { data: better } = await supabase
       .from("leaderboard")
