@@ -12,16 +12,14 @@ const { searchParams } = new URL(req.url)
 const page = Number(searchParams.get("page") || 1)
 const wallet = searchParams.get("wallet")
 
-// ⚡ performance (1000 too high)
 const limit = 20
 const from = (page - 1) * limit
 const to = from + limit - 1
 
-// 🔥 only real traders (swapcount > 0)
+/* FIX — removed .gt(swapcount,0) */
 const { data, error } = await supabase
 .from("leaderboard")
 .select("*")
-.gt("swapcount", 0)
 .order("swapcount", { ascending: false })
 .range(from, to)
 
@@ -42,7 +40,6 @@ if(wallet){
 const { data: all } = await supabase
 .from("leaderboard")
 .select("wallet,swapcount")
-.gt("swapcount", 0)
 .order("swapcount", { ascending: false })
 
 const i = all?.findIndex(
