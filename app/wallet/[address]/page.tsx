@@ -16,7 +16,6 @@ const [paid,setPaid]=useState(false)
 const [followers,setFollowers]=useState(0)
 const [followingCount,setFollowingCount]=useState(0)
 
-/* NEW */
 const [lastSwap,setLastSwap]=useState<any>(null)
 const [activeToken,setActiveToken]=useState<any>(null)
 
@@ -28,6 +27,7 @@ if(!address) return
 
 const load = async()=>{
 
+/* analyse */
 try{
 
 const a = await fetch("/api/analyse-pro",{
@@ -43,28 +43,27 @@ setData(d || {})
 setData({})
 }
 
+/* REAL TRADES */
 try{
 
-const t = await fetch("/api/wallet-tokens",{
+const t = await fetch("/api/wallet-trades",{
 method:"POST",
 headers:{ "Content-Type":"application/json" },
 body:JSON.stringify({wallet:address})
 })
 
-const j = await t.json()
+const arr = await t.json()
 
-const arr = Array.isArray(j)?j:[]
+setTokens(arr || [])
 
-setTokens(arr)
-
-/* last swap */
-if(arr.length){
+/* last trade */
+if(arr?.length){
 setLastSwap(arr[0])
 }
 
-/* active token */
+/* active position */
 const active =
-arr.find((t:any)=> t?.buys > t?.sells)
+arr.find((t:any)=> !t.sellUsd)
 
 if(active) setActiveToken(active)
 
@@ -126,31 +125,31 @@ followed:address
 setFollowing(true)
 }
 
-/* calculations */
+/* stats */
 
-const totalWins =
-tokens.reduce((a,t)=>a+(t?.wins||0),0)
+const pnl =
+tokens.reduce(
+(a,t)=>a+(t?.pnl||0),
+0
+)
 
-const totalLoss =
-tokens.reduce((a,t)=>a+(t?.losses||0),0)
+const wins =
+tokens.filter(t=>t?.pnl>0).length
+
+const losses =
+tokens.filter(t=>t?.pnl<0).length
 
 const walletWinRate =
-(totalWins+totalLoss)>0
-? (totalWins/(totalWins+totalLoss))*100
+(wins+losses)>0
+? (wins/(wins+losses))*100
 : 0
 
 const bestToken =
 tokens.length
 ? [...tokens].sort(
-(a,b)=>(b?.winRate||0)-(a?.winRate||0)
+(a,b)=>(b?.pnl||0)-(a?.pnl||0)
 )[0]
 : null
-
-const pnl =
-tokens.reduce(
-(a,t)=>a+(t?.volume||0)*(t?.winRate||0)/100,
-0
-)
 
 if(!data){
 return <div style={{padding:20}}>Loading...</div>
@@ -215,23 +214,37 @@ opacity:.8
 {activeToken ? (
 <>
 <div>Token: {activeToken.symbol}</div>
-<div>Buys: {activeToken.buys}</div>
-<div>Sells: {activeToken.sells}</div>
-<div>Win Rate: {Math.round(activeToken.winRate)}%</div>
+<div>Buy: ${Math.round(activeToken.buyUsd)}</div>
+
+<div style={{fontSize:12,opacity:.6}}>
+{activeToken.time}
+</div>
 </>
 ):"No active trades"}
 
 </div>
 
-{/* LAST SWAP */}
+{/* LAST TRADE */}
 <div style={card}>
-<h3>🔁 Last Swap</h3>
+<h3>🔁 Last Trade</h3>
 
 {lastSwap ? (
 <>
 <div>Token: {lastSwap.symbol}</div>
-<div>Volume: ${Math.round(lastSwap.volume)}</div>
-<div>Win Rate: {Math.round(lastSwap.winRate)}%</div>
+<div>Buy: ${Math.round(lastSwap.buyUsd)}</div>
+<div>Sell: ${Math.round(lastSwap.sellUsd)}</div>
+
+<div style={{
+color:lastSwap.pnl>=0
+? "#22c55e"
+: "#ef4444"
+}}>
+PnL: ${Math.round(lastSwap.pnl)}
+</div>
+
+<div style={{fontSize:12,opacity:.6}}>
+{lastSwap.time}
+</div>
 </>
 ):"No swaps"}
 
@@ -251,26 +264,45 @@ opacity:.8
 
 <div>Win Rate: {walletWinRate.toFixed(1)}%</div>
 <div>Best Token: {bestToken?.symbol || "-"}</div>
-<div>Est PnL: ${Math.round(pnl)}</div>
+<div>Total PnL: ${Math.round(pnl)}</div>
 
 </div>
 
-{/* tokens */}
+{/* trades */}
 <div style={card}>
 
 <h3>Trade History</h3>
 
 {tokens.map((t,i)=>(
 
-<div key={i} style={row}>
+<div key={i} style={{
+padding:"10px 0",
+borderBottom:"1px solid #111"
+}}>
 
-<div>
-{t?.symbol}
+<div style={{fontWeight:600}}>
+{t.symbol}
 {bestToken?.symbol===t?.symbol && " 🥇"}
 </div>
 
-<div>
-{Math.round(t?.winRate || 0)}%
+<div style={{fontSize:12}}>
+Buy: ${Math.round(t.buyUsd)} → 
+Sell: ${Math.round(t.sellUsd)}
+</div>
+
+<div style={{fontSize:12}}>
+Entry: {t.entry} | Exit: {t.exit}
+</div>
+
+<div style={{
+color: t.pnl >= 0 ? "#22c55e" : "#ef4444",
+fontSize:12
+}}>
+PnL: ${Math.round(t.pnl)} ({t.pnlPercent?.toFixed(1)}%)
+</div>
+
+<div style={{fontSize:11,opacity:.6}}>
+{t.time}
 </div>
 
 </div>
@@ -314,13 +346,6 @@ padding:20,
 borderRadius:12,
 marginBottom:14,
 border:"1px solid #111"
-}
-
-const row={
-display:"flex",
-justifyContent:"space-between",
-padding:"8px 0",
-borderBottom:"1px solid #111"
 }
 
 const divider={
