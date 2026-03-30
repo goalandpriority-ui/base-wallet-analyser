@@ -5,8 +5,7 @@ import axios from "axios"
 
 const RPC = process.env.BASE_RPC!
 
-/* swap topics */
-const TOPICS = [
+const SWAP_TOPICS = [
 "0xd78ad95fa46c994b6551d0da85fc275fe613fcd9a1d2c3c0f6b1c6f7a8d7a7d0",
 "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67"
 ]
@@ -20,60 +19,56 @@ if(!wallet) return NextResponse.json([])
 
 const address = wallet.toLowerCase()
 
-/* get wallet tx first */
-const txs = await axios.post(RPC,{
+/* latest block */
+const latest = await axios.post(RPC,{
 jsonrpc:"2.0",
 id:1,
-method:"alchemy_getAssetTransfers",
+method:"eth_blockNumber",
+params:[]
+})
+
+const block =
+parseInt(latest.data.result,16)
+
+const fromBlock = block - 2000
+
+/* logs */
+const logs = await axios.post(RPC,{
+jsonrpc:"2.0",
+id:1,
+method:"eth_getLogs",
 params:[{
-fromAddress:address,
-category:["external","erc20"],
-withMetadata:true,
-maxCount:"0x64"
+fromBlock:"0x"+fromBlock.toString(16),
+toBlock:"latest",
+topics:[SWAP_TOPICS]
 }]
 })
 
-const transfers = txs.data.result?.transfers || []
-
-const hashes =
-transfers.map((t:any)=>t.hash)
-
 const trades:any[]=[]
 
-for(const hash of hashes){
+for(const log of logs.data.result){
 
-const receipt = await axios.post(RPC,{
+const tx = await axios.post(RPC,{
 jsonrpc:"2.0",
 id:1,
-method:"eth_getTransactionReceipt",
-params:[hash]
+method:"eth_getTransactionByHash",
+params:[log.transactionHash]
 })
 
-const logs = receipt.data.result?.logs || []
+const from =
+tx.data.result?.from?.toLowerCase()
 
-for(const log of logs){
-
-if(!TOPICS.includes(log.topics?.[0]))
-continue
+if(from !== address) continue
 
 const data = log.data
 
-const amount0In =
-parseInt(data.slice(2,66),16)
+const a0in = parseInt(data.slice(2,66),16)
+const a1in = parseInt(data.slice(66,130),16)
+const a0out = parseInt(data.slice(130,194),16)
+const a1out = parseInt(data.slice(194,258),16)
 
-const amount1In =
-parseInt(data.slice(66,130),16)
-
-const amount0Out =
-parseInt(data.slice(130,194),16)
-
-const amount1Out =
-parseInt(data.slice(194,258),16)
-
-const buy = amount0Out || amount1Out
-const sell = amount0In || amount1In
-
-if(!buy && !sell) continue
+const buy = a0out || a1out
+const sell = a0in || a1in
 
 trades.push({
 symbol:"TOKEN",
@@ -85,13 +80,11 @@ time:Date.now()
 
 }
 
-}
-
-return NextResponse.json(trades.slice(0,30))
+return NextResponse.json(trades.slice(0,20))
 
 }catch(e){
 
-console.error(e)
+console.log(e)
 return NextResponse.json([])
 
 }
