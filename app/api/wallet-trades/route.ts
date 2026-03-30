@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic"
 import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
 
-const TRANSFER_TOPIC =
+const TRANSFER =
 "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a0b6f9e6f"
 
 export async function POST(req:NextRequest){
@@ -15,74 +15,61 @@ if(!wallet) return NextResponse.json([])
 
 const address = wallet.toLowerCase()
 
-/* latest txs */
-const txRes = await axios.post(process.env.BASE_RPC!,{
+/* get logs directly */
+const res = await axios.post(process.env.BASE_RPC!,{
 jsonrpc:"2.0",
 id:1,
-method:"alchemy_getAssetTransfers",
+method:"eth_getLogs",
 params:[{
 fromBlock:"0x0",
 toBlock:"latest",
-fromAddress:address,
-category:["external"],
-maxCount:"0x32"
+topics:[TRANSFER]
 }]
 })
 
-const txs = txRes.data.result?.transfers || []
+const logs = res.data.result || []
 
 const trades:any[]=[]
-
-for(const tx of txs){
-
-const receipt = await axios.post(process.env.BASE_RPC!,{
-jsonrpc:"2.0",
-id:1,
-method:"eth_getTransactionReceipt",
-params:[tx.hash]
-})
-
-const logs = receipt.data.result?.logs || []
 
 let sent:any=null
 let received:any=null
 
 for(const log of logs){
 
-if(log.topics[0] !== TRANSFER_TOPIC) continue
+const from =
+"0x"+log.topics[1].slice(26)
 
-const from = "0x"+log.topics[1].slice(26)
-const to = "0x"+log.topics[2].slice(26)
+const to =
+"0x"+log.topics[2].slice(26)
 
 const value =
-parseInt(log.data,16) / 1e18
+parseInt(log.data,16)/1e18
 
 if(from.toLowerCase()===address){
-sent = {
+sent={
 token:log.address,
 amount:value
 }
 }
 
 if(to.toLowerCase()===address){
-received = {
+received={
 token:log.address,
 amount:value
 }
 }
 
-}
-
-/* swap */
 if(sent && received){
 
 trades.push({
 sellToken:sent.token,
 buyToken:received.token,
 sellAmount:sent.amount,
-buyAmount:received.amount,
-hash:tx.hash
+buyAmount:received.amount
 })
+
+sent=null
+received=null
 
 }
 
