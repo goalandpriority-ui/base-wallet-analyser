@@ -16,11 +16,11 @@ const limit = 20
 const from = (page - 1) * limit
 const to = from + limit - 1
 
-/* FIX: remove strict filter */
+/* FIXED SORT */
 const { data } = await supabase
 .from("leaderboard")
 .select("*")
-.order("swapcount", { ascending: false })
+.order("swapcount", { ascending: false, nullsFirst: false })
 .range(from, to)
 
 const mapped = (data || []).map(w => ({
@@ -38,7 +38,7 @@ if(wallet){
 const { data: all } = await supabase
 .from("leaderboard")
 .select("wallet,swapcount")
-.order("swapcount", { ascending: false })
+.order("swapcount",{ascending:false, nullsFirst:false})
 
 const i = all?.findIndex(
 w => w.wallet.toLowerCase() === wallet.toLowerCase()
