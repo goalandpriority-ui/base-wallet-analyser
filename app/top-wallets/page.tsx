@@ -16,18 +16,13 @@ typeof window !== "undefined"
 
 useEffect(()=>{
 
-fetch(`/api/top-wallets?page=${page}&wallet=${wallet||""}`)
+fetch(`/api/top-wallets?page=${page}&wallet=${wallet||""}`,{
+cache:"no-store"
+})
 .then(res=>res.json())
 .then(res=>{
 
-/* FIX FIELD NAMES */
-const mapped = (res.data || []).map((w:any)=>({
-...w,
-swaps: w.swapcount ?? w.swaps ?? w.swapCount ?? 0,
-volume: w.tradingvolumeusd ?? w.volume ?? w.tradingVolumeUSD ?? 0
-}))
-
-setData(mapped)
+setData(res.data || [])
 setRank(res.yourRank)
 
 })
@@ -55,7 +50,7 @@ Your Rank: #{rank}
 
 {data.map((w,i)=>{
 
-const position = (page-1)*1000+i+1
+const position = (page-1)*20+i+1
 const isPaid = w?.paid
 
 return(
@@ -75,10 +70,7 @@ borderRadius:10,
 marginBottom:8,
 border:isPaid
 ? "1px solid #22c55e"
-: "1px solid #111",
-boxShadow:isPaid
-? "0 0 12px rgba(34,197,94,.4)"
-: "none"
+: "1px solid #111"
 }}
 >
 
@@ -99,7 +91,7 @@ PRO
 </div>
 
 <div>
-Score {Math.round(w.score)}
+Score {Math.round(w.score || 0)}
 </div>
 
 </div>
