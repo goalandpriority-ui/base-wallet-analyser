@@ -1,34 +1,35 @@
-export const dynamic = "force-dynamic"
-
 import { NextRequest, NextResponse } from "next/server"
 import { getSupabase } from "@/lib/supabase"
 
-export async function GET(req:NextRequest){
+export async function POST(req:NextRequest){
 
 const supabase = getSupabase()
 
-const { searchParams } = new URL(req.url)
-const wallet = searchParams.get("wallet")
+const { wallet, followed } = await req.json()
 
-if(!wallet) return NextResponse.json([])
+if(!wallet || !followed)
+return NextResponse.json({ok:false})
 
-const { data: follows } = await supabase
+/* check exists */
+const { data: exists } = await supabase
 .from("follows")
-.select("followed")
-.eq("wallet",wallet)
-
-if(!follows || follows.length===0)
-return NextResponse.json([])
-
-const wallets = follows.map(f=>f.followed)
-
-const { data } = await supabase
-.from("leaderboard")
 .select("*")
-.in("wallet",wallets)
-.order("score",{ascending:false})
-.limit(20)
+.eq("wallet",wallet)
+.eq("followed",followed)
+.single()
 
-return NextResponse.json(data || [])
+if(exists){
+return NextResponse.json({ok:true})
+}
+
+/* insert */
+await supabase
+.from("follows")
+.insert({
+wallet,
+followed
+})
+
+return NextResponse.json({ok:true})
 
 }
