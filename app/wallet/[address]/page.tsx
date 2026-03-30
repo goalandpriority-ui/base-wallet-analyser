@@ -20,9 +20,8 @@ if(!address) return
 
 const load = async()=>{
 
-/* leaderboard stats */
+/* analyse */
 try{
-
 const res = await fetch("/api/analyse-pro",{
 method:"POST",
 headers:{ "Content-Type":"application/json" },
@@ -31,7 +30,6 @@ body:JSON.stringify({wallet:address})
 
 const json = await res.json()
 setData(json || {})
-
 }catch{
 setData({})
 }
@@ -43,7 +41,7 @@ const pj = await p.json()
 setPaid(pj?.paid)
 }catch{}
 
-/* follow stats */
+/* follow */
 try{
 const f = await fetch(`/api/follow-count?wallet=${address}`)
 const j = await f.json()
@@ -127,27 +125,46 @@ opacity:.8
 </div>
 
 <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap"}}>
-
 <button onClick={share} style={btnGreen}>Share</button>
 <button onClick={copyWallet} style={btnBlue}>Copy</button>
-
 <button onClick={follow} style={btnYellow}>
 {following?"Following":"Follow"}
 </button>
-
 </div>
 
 </div>
 
-{/* performance */}
+{/* WALLET STATS */}
 <div style={card}>
 
-<h3>Wallet Performance</h3>
+<h3>Wallet Stats</h3>
 
-<div>Rank: #{data?.rank || "-"}</div>
-<div>Score: {Math.round(data?.score || 0)}</div>
-<div>Swaps: {data?.swapCount || 0}</div>
-<div>Volume: ${Math.round(data?.tradingVolumeUSD || 0)}</div>
+<div>📊 Transactions: {data?.txCount || 0}</div>
+<div>💰 Transfer Volume: {data?.transferVolume || 0} ETH</div>
+<div>⛽ Gas: {data?.gasUsed || 0} ETH</div>
+<div>📅 Active Days: {data?.activeDays || 0}</div>
+
+</div>
+
+{/* TRADING STATS */}
+<div style={card}>
+
+<h3>Trading Stats</h3>
+
+<div>🔁 Swaps: {data?.swapCount || 0}</div>
+<div>💎 Trading Volume: ${Math.round(data?.tradingVolumeUSD || 0)}</div>
+<div>📅 Trading Days: {data?.tradingDays || 0}</div>
+<div>⛽ Trading Gas: {data?.tradingGas || 0} ETH</div>
+
+</div>
+
+{/* PERFORMANCE */}
+<div style={card}>
+
+<h3>Performance</h3>
+
+<div>🏆 Rank: #{data?.rank || "-"}</div>
+<div>⭐ Score: {Math.round(data?.score || 0)}</div>
 
 </div>
 
