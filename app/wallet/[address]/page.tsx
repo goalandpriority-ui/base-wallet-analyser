@@ -3,6 +3,12 @@
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 
+/* METADATA FOR FARCASTER */
+export const metadata = {
+title: "Base Wallet Analyser",
+description: "Analyse Base wallets",
+}
+
 export default function WalletProfile(){
 
 const params = useParams()
@@ -66,8 +72,40 @@ load()
 
 },[address])
 
-const share = ()=>{
-navigator.clipboard.writeText(window.location.href)
+/* SHARE FARCASTER */
+const share = async ()=>{
+
+const url = window.location.href
+
+const text =
+`🔥 Base Wallet Profile
+
+👛 ${address}
+
+🏆 Rank: #${data?.rank || "-"}
+⭐ Score: ${Math.round(data?.score || 0)}
+🔁 Swaps: ${data?.swapCount || 0}
+💰 Volume: $${Math.round(data?.tradingVolumeUSD || 0)}
+
+📊 View full profile:
+${url}
+
+Analyse yours 👇
+https://base-wallet-analyser.vercel.app/`
+
+try{
+
+const sdk = (window as any).sdk
+
+if(sdk){
+await sdk.actions.composeCast({ text })
+return
+}
+
+}catch{}
+
+navigator.clipboard.writeText(text)
+
 }
 
 const copyWallet = ()=>{
