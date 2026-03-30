@@ -144,9 +144,9 @@ opacity:.8
 
 <h3>Wallet Stats</h3>
 
-<div>📊 Transactions: {stats?.transactions || 0}</div>
-<div>💰 Transfer Volume: {(stats?.transferVolume || 0).toFixed?.(4) || 0} ETH</div>
-<div>⛽ Gas: {(stats?.gas || 0).toFixed?.(6) || 0} ETH</div>
+<div>📊 Transactions: {stats?.txCount || 0}</div>
+<div>💰 Transfer Volume: {stats?.transferVolume || 0} ETH</div>
+<div>⛽ Gas: {stats?.gasUsed || 0} ETH</div>
 <div>📅 Active Days: {stats?.activeDays || 0}</div>
 
 </div>
@@ -156,10 +156,10 @@ opacity:.8
 
 <h3>Trading Stats</h3>
 
-<div>🔁 Swaps: {data?.swapCount || 0}</div>
-<div>💎 Trading Volume: ${Math.round(data?.tradingVolumeUSD || 0)}</div>
+<div>🔁 Swaps: {data?.swaps || 0}</div>
+<div>💎 Trading Volume: ${Math.round(data?.volume || 0)}</div>
 <div>📅 Trading Days: {data?.tradingDays || 0}</div>
-<div>⛽ Trading Gas: {(data?.tradingGas || 0).toFixed?.(6) || 0} ETH</div>
+<div>⛽ Trading Gas: {data?.tradingGas || 0} ETH</div>
 
 </div>
 
