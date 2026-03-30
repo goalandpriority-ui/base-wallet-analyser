@@ -19,7 +19,9 @@ swaps(
 first:20,
 orderBy:timestamp,
 orderDirection:desc,
-where:{ sender:"${w}" }
+where:{
+origin:"${w}"
+}
 ){
 tokenIn{symbol}
 tokenOut{symbol}
