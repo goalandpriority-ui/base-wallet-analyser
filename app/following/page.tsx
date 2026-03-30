@@ -50,15 +50,23 @@ No followed wallets
 )}
 
 {data.map((w,i)=>(
-<Link
-key={i}
-href={`/wallet/${w.followed}`}
-style={{textDecoration:"none"}}
->
-<div style={card}>
+
+<div key={i} style={card}>
+
+<div style={{wordBreak:"break-all"}}>
 {w.followed}
 </div>
+
+<div style={{marginTop:8}}>
+<Link href={`/wallet/${w.followed}`}>
+<button style={viewBtn}>
+View Wallet Profile
+</button>
 </Link>
+</div>
+
+</div>
+
 ))}
 
 </div>
@@ -73,4 +81,14 @@ marginBottom:8,
 border:"1px solid #111",
 color:"#fff",
 wordBreak:"break-all"
+}
+
+const viewBtn={
+padding:"6px 12px",
+background:"#22c55e",
+border:"none",
+borderRadius:8,
+color:"#020617",
+fontWeight:600,
+cursor:"pointer"
 }
