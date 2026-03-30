@@ -11,17 +11,16 @@ export async function POST(req:NextRequest){
 try{
 
 const { wallet } = await req.json()
-
-if(!wallet){
-return NextResponse.json([])
-}
+if(!wallet) return NextResponse.json([])
 
 const address = wallet.toLowerCase()
 
-/* fetch transfers */
-
-let all:any[]=[]
+let allTransfers:any[]=[]
 let pageKey: string | undefined = undefined
+
+const fetchTransfers = async(type:"fromAddress"|"toAddress")=>{
+
+pageKey = undefined
 
 do{
 
@@ -37,33 +36,37 @@ withMetadata:true,
 excludeZeroValue:true,
 maxCount:"0x3e8",
 pageKey,
-fromAddress:address
+[type]:address
 }]
 })
 
-const t = res.data.result?.transfers || []
-all = all.concat(t)
+const transfers = res.data.result?.transfers || []
+allTransfers = allTransfers.concat(transfers)
 
 pageKey = res.data.result?.pageKey
 
-if(all.length>5000) break
+if(allTransfers.length > 8000) break
 
 }while(pageKey)
 
+}
+
+await fetchTransfers("fromAddress")
+await fetchTransfers("toAddress")
+
 /* group tx */
+const txMap = new Map<string,any[]>()
 
-const map = new Map<string,any[]>()
-
-for(const tx of all){
-if(!map.has(tx.hash)){
-map.set(tx.hash,[])
+for(const tx of allTransfers){
+if(!txMap.has(tx.hash)){
+txMap.set(tx.hash,[])
 }
-map.get(tx.hash)!.push(tx)
+txMap.get(tx.hash)!.push(tx)
 }
 
-let trades:any[]=[]
+const trades:any[]=[]
 
-for(const [hash, transfers] of map){
+for(const [hash, transfers] of txMap){
 
 let sent:any=null
 let received:any=null
@@ -75,132 +78,91 @@ const value = Number(t.value || 0)
 
 if(!value) continue
 
-/* wallet sent */
 if(t.from?.toLowerCase()===address){
-
-if(STABLES.includes(asset) || ETH.includes(asset)){
-sent={
-symbol:asset,
-amount:value
-}
-}else{
-sent={
-symbol:asset,
-amount:value
-}
+sent={symbol:asset,amount:value}
 }
 
-}
-
-/* wallet received */
 if(t.to?.toLowerCase()===address){
-
-received={
-symbol:asset,
-amount:value
+received={symbol:asset,amount:value}
 }
 
 }
 
-}
-
-/* must be swap */
 if(!sent || !received) continue
-
-/* ignore transfer same token */
 if(sent.symbol===received.symbol) continue
 
-/* detect buy */
+let token=""
 let buyUsd=0
 let sellUsd=0
-let token=""
 
-/* buy token */
+/* BUY */
 if(
 STABLES.includes(sent.symbol) ||
 ETH.includes(sent.symbol)
 ){
-
 token = received.symbol
 
 buyUsd =
 ETH.includes(sent.symbol)
 ? sent.amount * 3000
 : sent.amount
-
 }
 
-/* sell token */
+/* SELL */
 if(
 STABLES.includes(received.symbol) ||
 ETH.includes(received.symbol)
 ){
-
 token = sent.symbol
 
 sellUsd =
 ETH.includes(received.symbol)
 ? received.amount * 3000
 : received.amount
-
 }
 
-/* timestamp */
-const time =
-transfers[0]?.metadata?.blockTimestamp
+if(!token) continue
 
 trades.push({
-hash,
 token,
 buyUsd,
 sellUsd,
-time
+time:transfers[0]?.metadata?.blockTimestamp
 })
 
 }
 
-/* merge buy + sell */
+/* merge positions */
 
-const positions:Record<string,any>={}
+const map:Record<string,any>={}
 const result:any[]=[]
 
 for(const t of trades){
 
-if(!t.token) continue
-
-if(!positions[t.token]){
-positions[t.token]={
-token:t.token,
+if(!map[t.token]){
+map[t.token]={
+symbol:t.token,
 buyUsd:0,
 sellUsd:0,
-entry:0,
-exit:0,
 time:t.time
 }
 }
 
-if(t.buyUsd){
-positions[t.token].buyUsd += t.buyUsd
-}
+if(t.buyUsd) map[t.token].buyUsd+=t.buyUsd
+if(t.sellUsd) map[t.token].sellUsd+=t.sellUsd
 
-if(t.sellUsd){
-positions[t.token].sellUsd += t.sellUsd
-}
-
-/* closed trade */
 if(
-positions[t.token].buyUsd>0 &&
-positions[t.token].sellUsd>0
+map[t.token].buyUsd>0 &&
+map[t.token].sellUsd>0
 ){
 
-const p = positions[t.token]
+const p = map[t.token]
 
 const pnl = p.sellUsd - p.buyUsd
-const pnlPercent =
-(pnl / p.buyUsd) * 100
+const pnlPercent = (pnl/p.buyUsd)*100
 
 result.push({
-symbol:p.token,
+symbol:p.symbol,
 buyUsd:p.buyUsd,
 sellUsd:p.sellUsd,
 entry:(p.buyUsd/1000).toFixed(6),
@@ -210,13 +172,12 @@ pnlPercent,
 time:p.time
 })
 
-delete positions[t.token]
+delete map[t.token]
 
 }
 
 }
 
-/* latest first */
 result.sort((a,b)=>
 new Date(b.time).getTime() -
 new Date(a.time).getTime()
@@ -229,4 +190,4 @@ console.error(e)
 return NextResponse.json([])
 }
 
-  }
+}
