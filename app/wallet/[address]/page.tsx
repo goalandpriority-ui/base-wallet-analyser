@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
+import { sdk } from "@farcaster/miniapp-sdk"
 
 /* METADATA FOR FARCASTER */
 export const metadata = {
@@ -27,7 +28,6 @@ if(!address) return
 
 const load = async()=>{
 
-/* wallet stats */
 try{
 const r = await fetch("/api/analyse",{
 method:"POST",
@@ -38,7 +38,6 @@ const j = await r.json()
 setStats(j || {})
 }catch{}
 
-/* trading stats */
 try{
 const r = await fetch("/api/analyse-pro",{
 method:"POST",
@@ -49,14 +48,12 @@ const j = await r.json()
 setData(j || {})
 }catch{}
 
-/* paid */
 try{
 const p = await fetch(`/api/check-paid?wallet=${address}`)
 const pj = await p.json()
 setPaid(pj?.paid)
 }catch{}
 
-/* follow stats */
 try{
 const f = await fetch(`/api/follow-count?wallet=${address}`)
 const j = await f.json()
@@ -94,17 +91,10 @@ Analyse yours 👇
 https://base-wallet-analyser.vercel.app/`
 
 try{
-
-const sdk = (window as any).sdk
-
-if(sdk){
 await sdk.actions.composeCast({ text })
-return
-}
-
-}catch{}
-
+}catch{
 navigator.clipboard.writeText(text)
+}
 
 }
 
@@ -132,7 +122,6 @@ setFollowing(true)
 return(
 <div style={{padding:20,maxWidth:900,margin:"auto"}}>
 
-{/* HEADER */}
 <div style={card}>
 
 <div style={{fontSize:12,opacity:.6}}>
@@ -177,45 +166,31 @@ opacity:.8
 
 </div>
 
-{/* WALLET STATS */}
 <div style={card}>
-
 <h3>Wallet Stats</h3>
-
 <div>📊 Transactions: {stats?.totalTxns || 0}</div>
 <div>💰 Transfer Volume: {stats?.totalVolumeETH || 0} ETH</div>
 <div>⛽ Gas: {stats?.totalGasETH || 0} ETH</div>
 <div>📅 Active Days: {stats?.activeDays || 0}</div>
-
 </div>
 
-{/* TRADING STATS */}
 <div style={card}>
-
 <h3>Trading Stats</h3>
-
 <div>🔁 Swaps: {data?.swapCount || 0}</div>
 <div>💎 Trading Volume: ${Math.round(data?.tradingVolumeUSD || 0)}</div>
 <div>📅 Trading Days: {data?.tradingDays || 0}</div>
 <div>⛽ Trading Gas: {data?.tradingGas || 0} ETH</div>
-
 </div>
 
-{/* PERFORMANCE */}
 <div style={card}>
-
 <h3>Performance</h3>
-
 <div>🏆 Rank: #{data?.rank || "-"}</div>
 <div>⭐ Score: {Math.round(data?.score || 0)}</div>
-
 </div>
 
 </div>
 )
 }
-
-/* styles */
 
 const proBadge={
 background:"#22c55e",
