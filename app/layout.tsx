@@ -19,17 +19,29 @@ const miniappMetadata = {
 export const metadata: Metadata = {
   title: "Base Wallet Analyser",
   description: "Analyse wallets on Base network",
+
   openGraph: {
     title: "Base Wallet Analyser",
     description: "Analyse wallets on Base network",
+    url: "https://base-wallet-analyser.vercel.app",
+    siteName: "Base Wallet Analyser",
     images: [
       {
         url: "https://base-wallet-analyser.vercel.app/og-image.png",
         width: 1200,
-        height: 630
+        height: 630,
       }
     ],
+    type: "website",
   },
+
+  twitter: {
+    card: "summary_large_image",
+    title: "Base Wallet Analyser",
+    description: "Analyse wallets on Base network",
+    images: ["https://base-wallet-analyser.vercel.app/og-image.png"],
+  },
+
   other: {
     "fc:miniapp": JSON.stringify(miniappMetadata),
   },
@@ -44,8 +56,6 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <meta name="fc:miniapp" content={JSON.stringify(miniappMetadata)} />
-
-        {/* Optional: Backward compatibility for older clients */}
         <meta name="fc:frame" content={JSON.stringify(miniappMetadata)} />
 
         <link rel="manifest" href="/.well-known/farcaster.json" />
