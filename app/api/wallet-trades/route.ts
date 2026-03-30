@@ -3,6 +3,9 @@ export const dynamic = "force-dynamic"
 import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
 
+const STABLES = ["USDC","USDT","DAI"]
+const ETH = ["ETH","WETH"]
+
 export async function POST(req: NextRequest) {
 
 try {
@@ -12,41 +15,70 @@ if (!wallet) return NextResponse.json([])
 
 const address = wallet.toLowerCase()
 
-const res = await axios.post(process.env.BASE_RPC!, {
-jsonrpc: "2.0",
-id: 1,
-method: "alchemy_getAssetTransfers",
-params: [{
-fromBlock: "0x0",
-toBlock: "latest",
-category: ["erc20"],
-withMetadata: true,
-excludeZeroValue: true,
-maxCount: "0x3e8",
-fromAddress: address
+let all:any[]=[]
+let pageKey: string | undefined = undefined
+
+do{
+
+const res = await axios.post(process.env.BASE_RPC!,{
+jsonrpc:"2.0",
+id:1,
+method:"alchemy_getAssetTransfers",
+params:[{
+fromBlock:"0x0",
+toBlock:"latest",
+category:["external","erc20"],
+withMetadata:true,
+excludeZeroValue:true,
+maxCount:"0x3e8",
+pageKey,
+fromAddress:address
 }]
 })
 
-const transfers = res.data.result?.transfers || []
+all = all.concat(res.data.result?.transfers || [])
+pageKey = res.data.result?.pageKey
 
-const trades = transfers.map((t:any)=>{
+}while(pageKey)
 
+const trades:any[]=[]
+
+for(const t of all){
+
+const symbol = (t.asset || "").toUpperCase()
 const value = Number(t.value || 0)
 
-return {
-symbol: t.asset || "TOKEN",
-buyUsd: value,
-sellUsd: 0,
-entry: value,
-exit: 0,
-pnl: 0,
-pnlPercent: 0,
-time: t.metadata?.blockTimestamp
-}
+if(!value) continue
 
+/* ignore spam */
+if(
+symbol.length > 12 ||
+symbol.includes(".") ||
+symbol.includes(" ")
+) continue
+
+/* only real tokens */
+if(
+STABLES.includes(symbol) ||
+ETH.includes(symbol)
+) continue
+
+trades.push({
+symbol,
+buyUsd:value,
+sellUsd:0,
+pnl:0,
+time:t.metadata?.blockTimestamp
 })
 
-return NextResponse.json(trades.slice(0,30))
+}
+
+trades.sort((a,b)=>
+new Date(b.time).getTime() -
+new Date(a.time).getTime()
+)
+
+return NextResponse.json(trades.slice(0,20))
 
 } catch (e) {
 
