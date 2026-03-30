@@ -153,11 +153,12 @@ export async function POST(req: NextRequest) {
       tradingDaysCount * 5
 
 
-    /* ✅ ONLY FIX — SAFE UPSERT (NO OVERWRITE BUG) */
+    /* ✅ PERFECT LEADERBOARD SAVE */
     await supabase
       .from("leaderboard")
       .upsert({
         wallet: address,
+
         score: Math.round(score),
 
         swapcount: swapCount,
@@ -167,17 +168,16 @@ export async function POST(req: NextRequest) {
 
         updated_at: new Date().toISOString()
 
-      }, {
-        onConflict: "wallet",
-        ignoreDuplicates: false
+      },{
+        onConflict: "wallet"
       })
 
 
-    /* rank calc (works for 100k wallets) */
+    /* ✅ PERFECT RANK (FAST + 100K SAFE) */
     const { count } = await supabase
       .from("leaderboard")
-      .select("*", { count: "exact", head: true })
-      .gt("score", score)
+      .select("wallet", { count: "exact", head: true })
+      .gt("score", Math.round(score))
 
     const rank = (count || 0) + 1
 
