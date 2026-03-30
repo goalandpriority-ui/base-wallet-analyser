@@ -16,12 +16,14 @@ const limit = 20
 const from = (page-1) * limit
 const to = from + limit - 1
 
+
+/* FIX — removed .gt(score,0) */
 const { data, count } = await supabase
 .from("leaderboard")
 .select("*",{ count:"exact" })
-.gt("score",0)
 .order("score",{ascending:false})
 .range(from,to)
+
 
 const mapped = (data || []).map(w=>({
 
@@ -42,7 +44,6 @@ if(wallet){
 const { data:all } = await supabase
 .from("leaderboard")
 .select("wallet,score")
-.gt("score",0)
 .order("score",{ascending:false})
 
 const index = all?.findIndex(
