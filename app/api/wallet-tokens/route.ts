@@ -12,8 +12,6 @@ try {
 const { wallet } = await req.json()
 const address = wallet.toLowerCase()
 
-/* outgoing */
-
 const out = await axios.post(RPC,{
 jsonrpc:"2.0",
 id:1,
@@ -27,8 +25,6 @@ maxCount:"0x3e8",
 fromAddress:address
 }]
 })
-
-/* incoming */
 
 const inc = await axios.post(RPC,{
 jsonrpc:"2.0",
@@ -49,25 +45,25 @@ const txs = [
 ...(inc.data.result.transfers || [])
 ]
 
-/* group */
+/* group by tx */
 
-const map: Record<string, any[]> = {}
+const map:Record<string,any[]>={}
 
-for (const t of txs) {
-if (!map[t.hash]) map[t.hash] = []
+for(const t of txs){
+if(!map[t.hash]) map[t.hash]=[]
 map[t.hash].push(t)
 }
 
-const history:any[] = []
+const history:any[]=[]
 
-for (const hash in map) {
+for(const hash in map){
 
 const group = map[hash]
 
 let sent:any[]=[]
 let received:any[]=[]
 
-for (const tx of group) {
+for(const tx of group){
 
 const from = tx.from?.toLowerCase()
 const to = tx.to?.toLowerCase()
@@ -77,48 +73,41 @@ tx.asset ||
 tx.rawContract?.address?.slice(0,6)
 
 const value = parseFloat(tx.value || "0")
-if (!value) continue
+if(!value) continue
 
-if (from === address) {
-sent.push({token,value})
-}
-
-if (to === address) {
-received.push({token,value})
-}
+if(from===address) sent.push({token,value})
+if(to===address) received.push({token,value})
 
 }
 
-/* detect swap */
+if(!sent.length || !received.length) continue
 
-for(const s of sent){
+/* pick biggest only */
 
-for(const r of received){
+const biggestSent =
+sent.sort((a,b)=>b.value-a.value)[0]
+
+const biggestRecv =
+received.sort((a,b)=>b.value-a.value)[0]
 
 /* ignore same token */
-if(s.token === r.token) continue
+if(biggestSent.token === biggestRecv.token) continue
 
 history.push({
-symbol:r.token,
-volume:r.value,
-entry:s.value,
-exit:r.value,
-profit:r.value-s.value,
-winRate:r.value>s.value ? 100 : 0
+symbol:biggestRecv.token,
+entry:biggestSent.value,
+exit:biggestRecv.value,
+volume:biggestRecv.value,
+profit:biggestRecv.value-biggestSent.value,
+winRate:biggestRecv.value>biggestSent.value?100:0
 })
-
-}
-
-}
 
 }
 
 return NextResponse.json(history.reverse())
 
-} catch {
-
+}catch{
 return NextResponse.json([])
-
 }
 
 }
