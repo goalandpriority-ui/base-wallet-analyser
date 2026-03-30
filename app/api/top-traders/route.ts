@@ -16,14 +16,12 @@ const limit = 20
 const from = (page - 1) * limit
 const to = from + limit - 1
 
-/* FIX — removed .gt(swapcount,0) */
-const { data, error } = await supabase
+/* FIX: remove strict filter */
+const { data } = await supabase
 .from("leaderboard")
 .select("*")
 .order("swapcount", { ascending: false })
 .range(from, to)
-
-console.log("TRADERS ERROR:", error)
 
 const mapped = (data || []).map(w => ({
 wallet: w.wallet,
