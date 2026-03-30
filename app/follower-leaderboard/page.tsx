@@ -43,13 +43,9 @@ color:"#fff"
 
 {data.map((w,i)=>(
 
-<Link
+<div
 key={i}
-href={`/wallet/${w.wallet}`}
-style={{textDecoration:"none"}}
->
-
-<div style={{
+style={{
 background:"#020617",
 padding:14,
 borderRadius:12,
@@ -61,11 +57,13 @@ boxShadow:w.paid
 ? "0 0 12px rgba(34,197,94,.4)"
 : "none",
 color:"#fff"
-}}>
+}}
+>
 
 <div style={{
 display:"flex",
-justifyContent:"space-between"
+justifyContent:"space-between",
+alignItems:"center"
 }}>
 
 <div>
@@ -95,9 +93,15 @@ color:"#fff"
 {w.wallet}
 </div>
 
+<div style={{marginTop:8}}>
+<Link href={`/wallet/${w.wallet}`}>
+<button style={viewBtn}>
+View Wallet Profile
+</button>
+</Link>
 </div>
 
-</Link>
+</div>
 
 ))}
 
@@ -113,4 +117,14 @@ padding:"2px 6px",
 borderRadius:4,
 fontSize:9,
 fontWeight:700
+}
+
+const viewBtn={
+padding:"6px 12px",
+background:"#22c55e",
+border:"none",
+borderRadius:8,
+color:"#020617",
+fontWeight:600,
+cursor:"pointer"
 }
