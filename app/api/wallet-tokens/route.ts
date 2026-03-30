@@ -10,7 +10,7 @@ const BASE = [
 "0xd9aaec86b65d86f6a7b5c4120c3b4c0e5b2f0e73"
 ]
 
-async function fetch(address:string){
+async function transfers(address:string){
 
 const res = await axios.post(RPC,{
 jsonrpc:"2.0",
@@ -22,11 +22,12 @@ toBlock:"latest",
 category:["erc20"],
 withMetadata:true,
 maxCount:"0x3e8",
-address:address
+address
 }]
 })
 
 return res.data.result.transfers || []
+
 }
 
 export async function POST(req:NextRequest){
@@ -36,61 +37,61 @@ try{
 const { wallet } = await req.json()
 const address = wallet.toLowerCase()
 
-const transfers = await fetch(address)
+const txs = await transfers(address)
 
-/* group by tx */
+/* group by hash */
 
 const map:Record<string,any[]>={}
 
-for(const t of transfers){
+for(const t of txs){
 if(!map[t.hash]) map[t.hash]=[]
 map[t.hash].push(t)
 }
 
-const trades:any[]=[]
+const history:any[]=[]
 
 for(const hash in map){
 
-const txs = map[hash]
+const group = map[hash]
 
 let spent=0
 let received=0
+
 let tokenIn:any=null
 let tokenOut:any=null
 
-for(const tx of txs){
+for(const tx of group){
 
 const token =
 tx.rawContract?.address?.toLowerCase()
 
 const value = Number(tx.value||0)
-
 if(!token || !value) continue
 
 const from = tx.from?.toLowerCase()
 const to = tx.to?.toLowerCase()
 
-/* spent base */
+/* spent */
 if(from===address && BASE.includes(token)){
-spent += value
+spent+=value
 }
 
-/* received base */
+/* received */
 if(to===address && BASE.includes(token)){
-received += value
+received+=value
 }
 
-/* token in */
+/* token buy */
 if(to===address && !BASE.includes(token)){
-tokenIn = {
+tokenIn={
 symbol:tx.asset || token.slice(0,6),
 amount:value
 }
 }
 
-/* token out */
+/* token sell */
 if(from===address && !BASE.includes(token)){
-tokenOut = {
+tokenOut={
 symbol:tx.asset || token.slice(0,6),
 amount:value
 }
@@ -100,51 +101,31 @@ amount:value
 
 /* buy */
 if(tokenIn && spent){
-trades.push({
+
+history.push({
 symbol:tokenIn.symbol,
-type:"BUY",
-price:spent,
-amount:tokenIn.amount
+entry:spent,
+exit:0,
+amount:tokenIn.amount,
+pnl:0
 })
+
 }
 
 /* sell */
 if(tokenOut && received){
-trades.push({
-symbol:tokenOut.symbol,
-type:"SELL",
-price:received,
-amount:tokenOut.amount
-})
-}
+
+const last =
+history.reverse().find(
+x=>x.symbol===tokenOut.symbol && x.exit===0
+)
+
+if(last){
+
+last.exit = received
+last.pnl = received - last.entry
 
 }
-
-/* match */
-
-const history:any[]=[]
-const open:any={}
-
-for(const t of trades){
-
-if(t.type==="BUY"){
-open[t.symbol]=t
-continue
-}
-
-if(t.type==="SELL" && open[t.symbol]){
-
-const buy=open[t.symbol]
-
-history.push({
-symbol:t.symbol,
-entry:buy.price,
-exit:t.price,
-amount:t.amount,
-pnl:t.price-buy.price
-})
-
-delete open[t.symbol]
 
 }
 
@@ -152,7 +133,7 @@ delete open[t.symbol]
 
 return NextResponse.json(history.reverse())
 
-}catch(e){
+}catch{
 
 return NextResponse.json([])
 
