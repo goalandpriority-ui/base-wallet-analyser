@@ -9,11 +9,10 @@ const params = useParams()
 const address = params?.address as string
 
 const [data,setData]=useState<any>(null)
-const [trades,setTrades]=useState<any[]>([])
-const [lastTrade,setLastTrade]=useState<any>(null)
-const [active,setActive]=useState<any>(null)
-
-/* LOAD */
+const [followers,setFollowers]=useState(0)
+const [following,setFollowing]=useState(false)
+const [followingCount,setFollowingCount]=useState(0)
+const [paid,setPaid]=useState(false)
 
 useEffect(()=>{
 
@@ -21,45 +20,38 @@ if(!address) return
 
 const load = async()=>{
 
-/* performance */
+/* leaderboard stats */
 try{
 
-const r = await fetch("/api/analyse-pro",{
+const res = await fetch("/api/analyse-pro",{
 method:"POST",
 headers:{ "Content-Type":"application/json" },
 body:JSON.stringify({wallet:address})
 })
 
-const j = await r.json()
-setData(j || {})
+const json = await res.json()
+setData(json || {})
 
 }catch{
 setData({})
 }
 
-/* trades */
+/* paid */
 try{
+const p = await fetch(`/api/check-paid?wallet=${address}`)
+const pj = await p.json()
+setPaid(pj?.paid)
+}catch{}
 
-const t = await fetch("/api/wallet-trades",{
-method:"POST",
-headers:{ "Content-Type":"application/json" },
-body:JSON.stringify({wallet:address})
-})
+/* follow stats */
+try{
+const f = await fetch(`/api/follow-count?wallet=${address}`)
+const j = await f.json()
 
-const arr = await t.json()
+setFollowers(j.followers || 0)
+setFollowingCount(j.following || 0)
 
-setTrades(arr || [])
-
-if(arr?.length){
-setLastTrade(arr[0])
-}
-
-const open = arr.find((t:any)=> !t.sellUsd)
-if(open) setActive(open)
-
-}catch{
-setTrades([])
-}
+}catch{}
 
 }
 
@@ -67,21 +59,30 @@ load()
 
 },[address])
 
-/* stats */
+const share = ()=>{
+navigator.clipboard.writeText(window.location.href)
+}
 
-const pnl =
-trades.reduce((a,t)=>a+(t?.pnl||0),0)
+const copyWallet = ()=>{
+navigator.clipboard.writeText(address)
+}
 
-const wins =
-trades.filter(t=>t?.pnl>0).length
+const follow = async ()=>{
 
-const losses =
-trades.filter(t=>t?.pnl<0).length
+const me = localStorage.getItem("lastWallet")
+if(!me) return
 
-const winRate =
-(wins+losses)>0
-? (wins/(wins+losses))*100
-: 0
+await fetch("/api/follow",{
+method:"POST",
+headers:{ "Content-Type":"application/json" },
+body:JSON.stringify({
+wallet:me,
+followed:address
+})
+})
+
+setFollowing(true)
+}
 
 if(!data){
 return <div style={{padding:20}}>Loading...</div>
@@ -91,7 +92,6 @@ return(
 <div style={{padding:20,maxWidth:900,margin:"auto"}}>
 
 {/* header */}
-
 <div style={card}>
 
 <div style={{fontSize:12,opacity:.6}}>
@@ -99,63 +99,47 @@ Wallet
 </div>
 
 <div style={{
-fontSize:16,
-wordBreak:"break-all"
+fontSize:18,
+wordBreak:"break-all",
+display:"flex",
+alignItems:"center",
+gap:8
 }}>
 {address}
-</div>
 
-</div>
+{paid && (
+<span style={proBadge}>
+PRO
+</span>
+)}
 
-{/* active */}
-
-<div style={card}>
-<h3>🟢 Current Position</h3>
-
-{active ? (
-<>
-<div>Token: {active.symbol}</div>
-<div>Buy: ${Math.round(active.buyUsd)}</div>
-<div style={{opacity:.6,fontSize:12}}>
-{active.time}
-</div>
-</>
-):"No active position"}
-
-</div>
-
-{/* last */}
-
-<div style={card}>
-<h3>🔁 Last Trade</h3>
-
-{lastTrade ? (
-<>
-<div>{lastTrade.symbol}</div>
-
-<div>
-Buy ${Math.round(lastTrade.buyUsd)} → 
-Sell ${Math.round(lastTrade.sellUsd)}
 </div>
 
 <div style={{
-color:lastTrade.pnl>=0
-? "#22c55e"
-: "#ef4444"
+display:"flex",
+gap:14,
+marginTop:6,
+fontSize:12,
+opacity:.8
 }}>
-PnL: ${Math.round(lastTrade.pnl)}
+<div>⭐ Followers: {followers}</div>
+<div>➡️ Following: {followingCount}</div>
 </div>
 
-<div style={{opacity:.6,fontSize:12}}>
-{lastTrade.time}
+<div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap"}}>
+
+<button onClick={share} style={btnGreen}>Share</button>
+<button onClick={copyWallet} style={btnBlue}>Copy</button>
+
+<button onClick={follow} style={btnYellow}>
+{following?"Following":"Follow"}
+</button>
+
 </div>
-</>
-):"No trades"}
 
 </div>
 
 {/* performance */}
-
 <div style={card}>
 
 <h3>Wallet Performance</h3>
@@ -165,55 +149,6 @@ PnL: ${Math.round(lastTrade.pnl)}
 <div>Swaps: {data?.swapCount || 0}</div>
 <div>Volume: ${Math.round(data?.tradingVolumeUSD || 0)}</div>
 
-<hr style={divider}/>
-
-<div>Win Rate: {winRate.toFixed(1)}%</div>
-<div>Total PnL: ${Math.round(pnl)}</div>
-
-</div>
-
-{/* history */}
-
-<div style={card}>
-
-<h3>Trade History</h3>
-
-{trades.length === 0 && (
-<div style={{opacity:.6}}>
-No trades detected
-</div>
-)}
-
-{trades.map((t,i)=>(
-
-<div key={i} style={row}>
-
-<div style={{fontWeight:600}}>
-{t.symbol}
-</div>
-
-<div style={{fontSize:12}}>
-Buy ${Math.round(t.buyUsd)} → 
-Sell ${Math.round(t.sellUsd)}
-</div>
-
-<div style={{
-fontSize:12,
-color:t.pnl>=0
-? "#22c55e"
-: "#ef4444"
-}}>
-PnL ${Math.round(t.pnl)}
-</div>
-
-<div style={{opacity:.5,fontSize:11}}>
-{t.time}
-</div>
-
-</div>
-
-))}
-
 </div>
 
 </div>
@@ -221,6 +156,15 @@ PnL ${Math.round(t.pnl)}
 }
 
 /* styles */
+
+const proBadge={
+background:"#22c55e",
+color:"#020617",
+padding:"2px 8px",
+borderRadius:6,
+fontSize:10,
+fontWeight:700
+}
 
 const card={
 background:"#020617",
@@ -230,12 +174,24 @@ marginBottom:14,
 border:"1px solid #111"
 }
 
-const row={
-padding:"10px 0",
-borderBottom:"1px solid #111"
+const btnGreen={
+padding:"6px 12px",
+background:"#22c55e",
+border:"none",
+borderRadius:8
 }
 
-const divider={
-margin:"10px 0",
-borderColor:"#111"
-                          }
+const btnBlue={
+padding:"6px 12px",
+background:"#3b82f6",
+border:"none",
+borderRadius:8,
+color:"#fff"
+}
+
+const btnYellow={
+padding:"6px 12px",
+background:"#facc15",
+border:"none",
+borderRadius:8
+}
