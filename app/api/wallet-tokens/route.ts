@@ -5,9 +5,9 @@ const RPC =
 "https://base-mainnet.g.alchemy.com/v2/" +
 process.env.ALCHEMY_API_KEY
 
-export async function POST(req:NextRequest){
+export async function POST(req: NextRequest) {
 
-try{
+try {
 
 const { wallet } = await req.json()
 const address = wallet.toLowerCase()
@@ -51,57 +51,63 @@ const txs = [
 
 /* group */
 
-const map:Record<string,any[]> = {}
+const map: Record<string, any[]> = {}
 
-for(const t of txs){
-if(!map[t.hash]) map[t.hash]=[]
+for (const t of txs) {
+if (!map[t.hash]) map[t.hash] = []
 map[t.hash].push(t)
 }
 
 const history:any[] = []
 
-for(const hash in map){
+for (const hash in map) {
 
 const group = map[hash]
 
-let firstOut:any=null
-let lastIn:any=null
+let sent:any[]=[]
+let received:any[]=[]
 
-for(const tx of group){
+for (const tx of group) {
 
 const from = tx.from?.toLowerCase()
 const to = tx.to?.toLowerCase()
 
 const token =
 tx.asset ||
-tx.rawContract?.address?.slice(0,6) ||
-"UNK"
+tx.rawContract?.address?.slice(0,6)
 
 const value = parseFloat(tx.value || "0")
-if(!value) continue
+if (!value) continue
 
-if(from===address && !firstOut){
-firstOut={ token, value }
+if (from === address) {
+sent.push({token,value})
 }
 
-if(to===address){
-lastIn={ token, value }
+if (to === address) {
+received.push({token,value})
 }
 
 }
 
-if(firstOut && lastIn){
+/* detect swap */
 
-const pnl = lastIn.value - firstOut.value
+for(const s of sent){
+
+for(const r of received){
+
+/* ignore same token */
+if(s.token === r.token) continue
 
 history.push({
-symbol:lastIn.token,
-volume:lastIn.value,
-entry:firstOut.value,
-exit:lastIn.value,
-profit:pnl,
-winRate: pnl>0 ? 100 : 0
+symbol:r.token,
+volume:r.value,
+entry:s.value,
+exit:r.value,
+profit:r.value-s.value,
+winRate:r.value>s.value ? 100 : 0
 })
+
+}
 
 }
 
@@ -109,7 +115,7 @@ winRate: pnl>0 ? 100 : 0
 
 return NextResponse.json(history.reverse())
 
-}catch(e){
+} catch {
 
 return NextResponse.json([])
 
