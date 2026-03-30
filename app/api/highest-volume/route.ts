@@ -5,56 +5,61 @@ import { getSupabase } from "@/lib/supabase"
 
 export async function GET(req:NextRequest){
 
-const supabase=getSupabase()
+const supabase = getSupabase()
 
 const { searchParams } = new URL(req.url)
 
-const page=Number(searchParams.get("page")||1)
-const wallet=searchParams.get("wallet")
+const page = Number(searchParams.get("page") || 1)
+const wallet = searchParams.get("wallet")
 
-const limit=20
-const from=(page-1)*limit
-const to=from+limit-1
+const limit = 20
+const from = (page - 1) * limit
+const to = from + limit - 1
 
+/* main query */
 const { data, count } = await supabase
 .from("leaderboard")
-.select("*",{count:"exact"})
+.select("*",{ count:"exact" })
 .gt("tradingvolumeusd",0)
 .order("tradingvolumeusd",{ascending:false})
 .range(from,to)
 
-const mapped=(data||[]).map(w=>({
-wallet:w.wallet,
-score:Number(w.score||0),
-swaps:Number(w.swapcount||0),
-volume:Number(w.tradingvolumeusd||0),
-paid:w.paid||false
+const mapped = (data || []).map(w => ({
+wallet: w.wallet,
+score: Number(w.score || 0),
+swaps: Number(w.swapcount || 0),
+volume: Number(w.tradingvolumeusd || 0),
+paid: w.paid || false
 }))
 
-let yourRank=null
+let yourRank = null
 
+/* fast rank calc */
 if(wallet){
 
-const { data:all } = await supabase
+const { data: better } = await supabase
 .from("leaderboard")
-.select("wallet,tradingvolumeusd")
-.gt("tradingvolumeusd",0)
-.order("tradingvolumeusd",{ascending:false})
-
-const i=all?.findIndex(
-w=>w.wallet.toLowerCase()===wallet.toLowerCase()
+.select("wallet",{ count:"exact" })
+.gt("tradingvolumeusd",
+  (
+    await supabase
+    .from("leaderboard")
+    .select("tradingvolumeusd")
+    .eq("wallet", wallet)
+    .single()
+  ).data?.tradingvolumeusd || 0
 )
 
-if(i!==-1) yourRank=i+1
+yourRank = (better?.length || 0) + 1
 
 }
 
 return NextResponse.json({
-data:mapped,
+data: mapped,
 yourRank,
-total:count,
+total: count,
 page,
-hasMore:(count||0) > to+1
+hasMore: (count || 0) > to + 1
 })
 
 }
