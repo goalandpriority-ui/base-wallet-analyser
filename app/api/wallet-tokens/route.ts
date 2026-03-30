@@ -5,6 +5,21 @@ const RPC =
 "https://base-mainnet.g.alchemy.com/v2/" +
 process.env.ALCHEMY_API_KEY
 
+/* SWAP ROUTERS (BASE) */
+
+const ROUTERS = [
+"0xdef1c0ded9bec7f1a1670819833240f027b25eff", // 0x
+"0x1111111254eeb25477b68fb85ed929f73a960582", // 1inch
+"0x327df1e6de05895d2ab08513aa.dd9313fe505d86", // aerodrome
+"0x420dd381b31aef6683db6b902084cb0ffece40da", // baseswap
+"0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad"  // farcaster swap
+]
+
+const BASE_TOKENS = [
+"0x4200000000000000000000000000000000000006",
+"0xd9aaec86b65d86f6a7b5c4120c3b4c0e5b2f0e73"
+]
+
 export async function POST(req: NextRequest){
 
 try{
@@ -12,9 +27,9 @@ try{
 const { wallet } = await req.json()
 const address = wallet.toLowerCase()
 
-/* OUTGOING */
+/* get transfers */
 
-const out = await axios.post(RPC,{
+const res = await axios.post(RPC,{
 jsonrpc:"2.0",
 id:1,
 method:"alchemy_getAssetTransfers",
@@ -28,9 +43,9 @@ fromAddress:address
 }]
 })
 
-/* INCOMING */
+const out = res.data.result.transfers || []
 
-const incoming = await axios.post(RPC,{
+const res2 = await axios.post(RPC,{
 jsonrpc:"2.0",
 id:1,
 method:"alchemy_getAssetTransfers",
@@ -44,10 +59,9 @@ toAddress:address
 }]
 })
 
-const all = [
-...(out.data.result.transfers || []),
-...(incoming.data.result.transfers || [])
-]
+const incoming = res2.data.result.transfers || []
+
+const all = [...out,...incoming]
 
 const tokens:Record<string,any>={}
 
@@ -58,8 +72,22 @@ tx.rawContract?.address?.toLowerCase()
 
 if(!token) continue
 
+/* ignore base token */
+if(BASE_TOKENS.includes(token)) continue
+
 const value = Number(tx.value || 0)
-if(!value || value===0) continue
+if(!value) continue
+
+const from = tx.from?.toLowerCase()
+const to = tx.to?.toLowerCase()
+
+/* detect swap only */
+
+const routerMatch =
+ROUTERS.includes(from) ||
+ROUTERS.includes(to)
+
+if(!routerMatch) continue
 
 if(!tokens[token]){
 tokens[token]={
@@ -69,43 +97,33 @@ buys:0,
 sells:0,
 buyAmount:0,
 sellAmount:0,
-holding:0,
-trades:0
+holding:0
 }
 }
 
-const from = tx.from?.toLowerCase()
-const to = tx.to?.toLowerCase()
+/* buy */
 
-/* BUY */
 if(to===address){
 tokens[token].buys++
 tokens[token].buyAmount+=value
 tokens[token].holding+=value
-tokens[token].trades++
 }
 
-/* SELL */
+/* sell */
+
 if(from===address){
 tokens[token].sells++
 tokens[token].sellAmount+=value
 tokens[token].holding-=value
-tokens[token].trades++
 }
 
 }
 
-/* IMPORTANT FILTER */
+/* calculate */
 
 const list =
 Object.values(tokens)
-.filter((t:any)=>
-
-t.buys>0 &&      // must buy
-t.sells>0 &&     // must sell
-t.trades>1       // must trade
-
-)
+.filter((t:any)=>t.buys>0 && t.sells>0)
 .map((t:any)=>{
 
 const entry =
@@ -114,44 +132,27 @@ t.buyAmount / t.buys
 const exit =
 t.sellAmount / t.sells
 
-const realized =
+const pnl =
 t.sellAmount - (entry * t.sells)
 
-const unrealized =
-t.holding * entry
-
-const pnl =
-realized + unrealized
-
 const winRate =
-pnl > 0 ? 100 :
-pnl < 0 ? 0 : 50
+pnl>0 ? 100 :
+pnl<0 ? 0 : 50
 
 return{
-
 symbol:t.symbol,
-token:t.token,
-
 buys:t.buys,
 sells:t.sells,
-
-entryPrice:entry,
-exitPrice:exit,
-
 holding:t.holding,
-
-realized,
-unrealized,
+entry,
+exit,
 pnl,
-
-trades:t.trades,
 winRate
-
 }
 
 })
 .sort((a:any,b:any)=>b.pnl-a.pnl)
-.slice(0,50)
+.slice(0,30)
 
 return NextResponse.json(list)
 
