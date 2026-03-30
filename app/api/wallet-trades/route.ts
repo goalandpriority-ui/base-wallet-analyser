@@ -5,6 +5,7 @@ import axios from "axios"
 
 const RPC = process.env.BASE_RPC!
 
+/* correct swap topics */
 const SWAP_TOPICS = [
 "0xd78ad95fa46c994b6551d0da85fc275fe613fcd9a1d2c3c0f6b1c6f7a8d7a7d0",
 "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67"
@@ -27,12 +28,10 @@ method:"eth_blockNumber",
 params:[]
 })
 
-const block =
-parseInt(latest.data.result,16)
+const block = parseInt(latest.data.result,16)
+const fromBlock = block - 5000
 
-const fromBlock = block - 2000
-
-/* logs */
+/* FIXED topics */
 const logs = await axios.post(RPC,{
 jsonrpc:"2.0",
 id:1,
@@ -40,7 +39,7 @@ method:"eth_getLogs",
 params:[{
 fromBlock:"0x"+fromBlock.toString(16),
 toBlock:"latest",
-topics:[SWAP_TOPICS]
+topics:[SWAP_TOPICS]  // ← correct nested
 }]
 })
 
@@ -58,7 +57,11 @@ params:[log.transactionHash]
 const from =
 tx.data.result?.from?.toLowerCase()
 
-if(from !== address) continue
+const to =
+tx.data.result?.to?.toLowerCase()
+
+if(from !== address && to !== address)
+continue
 
 const data = log.data
 
@@ -69,6 +72,8 @@ const a1out = parseInt(data.slice(194,258),16)
 
 const buy = a0out || a1out
 const sell = a0in || a1in
+
+if(!buy && !sell) continue
 
 trades.push({
 symbol:"TOKEN",
