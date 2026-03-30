@@ -3,6 +3,9 @@ export const dynamic = "force-dynamic"
 import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
 
+const STABLES = ["USDC","USDT","DAI"]
+const ETH = ["ETH","WETH"]
+
 export async function POST(req:NextRequest){
 
 try{
@@ -12,7 +15,15 @@ if(!wallet) return NextResponse.json([])
 
 const address = wallet.toLowerCase()
 
-/* fetch transfers */
+let all:any[]=[]
+let pageKey: string | undefined = undefined
+
+const fetch = async(type:"fromAddress"|"toAddress")=>{
+
+pageKey = undefined
+
+do{
+
 const res = await axios.post(process.env.BASE_RPC!,{
 jsonrpc:"2.0",
 id:1,
@@ -24,48 +35,94 @@ category:["erc20"],
 withMetadata:true,
 excludeZeroValue:true,
 maxCount:"0x3e8",
-fromAddress:address
+pageKey,
+[type]:address
 }]
 })
 
-const transfers = res.data.result?.transfers || []
+all = all.concat(res.data.result?.transfers || [])
+pageKey = res.data.result?.pageKey
 
+}while(pageKey)
+
+}
+
+await fetch("fromAddress")
+await fetch("toAddress")
+
+/* group by tx hash */
+const txMap = new Map<string,any[]>()
+
+for(const t of all){
+if(!txMap.has(t.hash)){
+txMap.set(t.hash,[])
+}
+txMap.get(t.hash)!.push(t)
+}
+
+const positions:Record<string,any>={}
 const trades:any[]=[]
 
-for(const t of transfers){
+for(const [hash, txs] of txMap){
 
-const token = t.rawContract?.address
-const symbol = t.asset
-const amount = Number(t.value || 0)
+let sent:any=null
+let received:any=null
 
-if(!token || !amount) continue
+for(const t of txs){
 
-/* fetch price from Dexscreener */
-try{
+const symbol = (t.asset || "").toUpperCase()
+const value = Number(t.value || 0)
 
-const priceRes = await axios.get(
-`https://api.dexscreener.com/latest/dex/tokens/${token}`
-)
+if(!value) continue
 
-const pair = priceRes.data?.pairs?.[0]
-if(!pair) continue
+if(t.from?.toLowerCase()===address){
+sent={symbol,value}
+}
 
-const price = Number(pair.priceUsd || 0)
-if(!price) continue
+if(t.to?.toLowerCase()===address){
+received={symbol,value}
+}
 
-const usd = amount * price
+}
+
+if(!sent || !received) continue
+if(sent.symbol===received.symbol) continue
+
+/* BUY */
+if(
+STABLES.includes(sent.symbol) ||
+ETH.includes(sent.symbol)
+){
+positions[received.symbol]={
+symbol:received.symbol,
+buy:sent.value,
+time:txs[0]?.metadata?.blockTimestamp
+}
+}
+
+/* SELL */
+if(
+STABLES.includes(received.symbol) ||
+ETH.includes(received.symbol)
+){
+
+const pos = positions[sent.symbol]
+if(!pos) continue
+
+const sell = received.value
+const pnl = sell - pos.buy
 
 trades.push({
-symbol,
-buyUsd: usd,
-sellUsd:0,
-pnl:0,
-entry: price,
-exit:0,
-time:t.metadata?.blockTimestamp
+symbol:sent.symbol,
+buyUsd:pos.buy,
+sellUsd:sell,
+pnl,
+time:pos.time
 })
 
-}catch{}
+delete positions[sent.symbol]
+
+}
 
 }
 
@@ -74,7 +131,7 @@ new Date(b.time).getTime() -
 new Date(a.time).getTime()
 )
 
-return NextResponse.json(trades.slice(0,25))
+return NextResponse.json(trades)
 
 }catch(e){
 console.error(e)
