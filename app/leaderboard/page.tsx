@@ -14,7 +14,7 @@ const [stats,setStats]=useState<any>({
 wallets:0,
 swaps:0,
 volume:0,
-trending:[]
+live:[]
 })
 
 const wallet =
@@ -40,6 +40,14 @@ days: w.tradingdays ?? w.days ?? 0
 setData(mapped)
 setRank(res.yourRank)
 
+/* LIVE ACTIVITY */
+if(res.live){
+setStats((prev:any)=>({
+...prev,
+live: res.live
+}))
+}
+
 })
 
 }
@@ -56,12 +64,12 @@ fetch("/api/stats",{cache:"no-store"})
 .then(res=>res.json())
 .then(res=>{
 
-setStats({
+setStats((prev:any)=>({
+...prev,
 wallets: res.wallets || 0,
 swaps: res.swaps || 0,
-volume: res.volume || 0,
-trending: res.trending || []
-})
+volume: res.volume || 0
+}))
 
 })
 
@@ -132,10 +140,10 @@ marginBottom:15
 <hr style={{margin:"10px 0",borderColor:"#222"}} />
 
 <div style={{fontWeight:700}}>
-🔥 Trending Wallets
+🔥 Live Activity
 </div>
 
-{stats.trending?.map((w:any,i:number)=>(
+{stats.live?.map((w:any,i:number)=>(
 <Link
 key={i}
 href={`/wallet/${w.wallet}`}
