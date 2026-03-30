@@ -51,43 +51,54 @@ const txs = [
 
 /* group by hash */
 
-const map:Record<string,any[]>={}
+const map:Record<string,any[]> = {}
 
 for(const t of txs){
 if(!map[t.hash]) map[t.hash]=[]
 map[t.hash].push(t)
 }
 
-const history:any[]=[]
+const history:any[] = []
 
 for(const hash in map){
 
 const group = map[hash]
 
-let sent:any=null
-let received:any=null
+/* sort transfers */
+group.sort(
+(a,b)=>
+new Date(a.metadata.blockTimestamp).getTime()
+-
+new Date(b.metadata.blockTimestamp).getTime()
+)
+
+let firstOut:any=null
+let lastIn:any=null
 
 for(const tx of group){
-
-const token =
-tx.asset ||
-tx.rawContract?.address?.slice(0,6)
-
-const value = Number(tx.value||0)
-if(!value) continue
 
 const from = tx.from?.toLowerCase()
 const to = tx.to?.toLowerCase()
 
-if(from===address){
-sent={
+const token =
+tx.asset ||
+tx.rawContract?.address?.slice(0,6) ||
+"UNK"
+
+const value = parseFloat(tx.value || "0")
+if(!value) continue
+
+/* first token sent */
+if(from===address && !firstOut){
+firstOut={
 token,
 amount:value
 }
 }
 
+/* last token received */
 if(to===address){
-received={
+lastIn={
 token,
 amount:value
 }
@@ -95,16 +106,16 @@ amount:value
 
 }
 
-/* swap detect */
+/* router swap detect */
 
-if(sent && received){
+if(firstOut && lastIn){
 
 history.push({
-token: received.token,
-entry: sent.amount,
-exit: received.amount,
-amount: received.amount,
-pnl: received.amount - sent.amount
+token:lastIn.token,
+entry:firstOut.amount,
+exit:lastIn.amount,
+amount:lastIn.amount,
+pnl:lastIn.amount-firstOut.amount
 })
 
 }
