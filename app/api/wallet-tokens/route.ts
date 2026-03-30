@@ -6,11 +6,11 @@ const RPC =
 process.env.ALCHEMY_API_KEY
 
 const BASE = [
-"0x4200000000000000000000000000000000000006", // WETH
-"0xd9aaec86b65d86f6a7b5c4120c3b4c0e5b2f0e73" // USDC
+"0x4200000000000000000000000000000000000006",
+"0xd9aaec86b65d86f6a7b5c4120c3b4c0e5b2f0e73"
 ]
 
-async function fetchTransfers(address:string,type:"from"|"to"){
+async function fetch(address:string){
 
 const res = await axios.post(RPC,{
 jsonrpc:"2.0",
@@ -22,7 +22,7 @@ toBlock:"latest",
 category:["erc20"],
 withMetadata:true,
 maxCount:"0x3e8",
-[type==="from"?"fromAddress":"toAddress"]:address
+address:address
 }]
 })
 
@@ -36,114 +36,94 @@ try{
 const { wallet } = await req.json()
 const address = wallet.toLowerCase()
 
-const out = await fetchTransfers(address,"from")
-const incoming = await fetchTransfers(address,"to")
+const transfers = await fetch(address)
 
-const all = [...out,...incoming]
+/* group by tx */
 
-/* group by tx hash */
+const map:Record<string,any[]>={}
 
-const grouped:Record<string,any[]>={}
-
-for(const tx of all){
-if(!grouped[tx.hash]) grouped[tx.hash]=[]
-grouped[tx.hash].push(tx)
+for(const t of transfers){
+if(!map[t.hash]) map[t.hash]=[]
+map[t.hash].push(t)
 }
 
-/* build trades */
+const trades:any[]=[]
 
-const trades:any[] = []
+for(const hash in map){
 
-for(const hash in grouped){
+const txs = map[hash]
 
-const txs = grouped[hash]
-
-let baseSpent=0
-let baseReceived=0
-
-let tokenBuy:any=null
-let tokenSell:any=null
+let spent=0
+let received=0
+let tokenIn:any=null
+let tokenOut:any=null
 
 for(const tx of txs){
 
 const token =
 tx.rawContract?.address?.toLowerCase()
 
-const value = Number(tx.value || 0)
+const value = Number(tx.value||0)
+
 if(!token || !value) continue
 
 const from = tx.from?.toLowerCase()
 const to = tx.to?.toLowerCase()
 
-/* base spent */
-
+/* spent base */
 if(from===address && BASE.includes(token)){
-baseSpent += value
+spent += value
 }
 
-/* base received */
-
+/* received base */
 if(to===address && BASE.includes(token)){
-baseReceived += value
+received += value
 }
 
-/* token buy */
-
+/* token in */
 if(to===address && !BASE.includes(token)){
-tokenBuy = {
-symbol: tx.asset || token.slice(0,6),
-amount: value
+tokenIn = {
+symbol:tx.asset || token.slice(0,6),
+amount:value
 }
 }
 
-/* token sell */
-
+/* token out */
 if(from===address && !BASE.includes(token)){
-tokenSell = {
-symbol: tx.asset || token.slice(0,6),
-amount: value
+tokenOut = {
+symbol:tx.asset || token.slice(0,6),
+amount:value
 }
 }
 
 }
 
-/* BUY trade */
-
-if(tokenBuy && baseSpent){
-
+/* buy */
+if(tokenIn && spent){
 trades.push({
+symbol:tokenIn.symbol,
 type:"BUY",
-symbol:tokenBuy.symbol,
-entry:baseSpent,
-exit:0,
-amount:tokenBuy.amount,
-pnl:0
+price:spent,
+amount:tokenIn.amount
 })
-
 }
 
-/* SELL trade */
-
-if(tokenSell && baseReceived){
-
+/* sell */
+if(tokenOut && received){
 trades.push({
+symbol:tokenOut.symbol,
 type:"SELL",
-symbol:tokenSell.symbol,
-entry:0,
-exit:baseReceived,
-amount:tokenSell.amount,
-pnl:0
+price:received,
+amount:tokenOut.amount
 })
-
 }
 
 }
 
-/* match buy sell */
+/* match */
 
 const history:any[]=[]
-
-const open:Record<string,any>={}
+const open:any={}
 
 for(const t of trades){
 
@@ -154,16 +134,14 @@ continue
 
 if(t.type==="SELL" && open[t.symbol]){
 
-const buy = open[t.symbol]
-
-const pnl = t.exit - buy.entry
+const buy=open[t.symbol]
 
 history.push({
 symbol:t.symbol,
-entry:buy.entry,
-exit:t.exit,
+entry:buy.price,
+exit:t.price,
 amount:t.amount,
-pnl
+pnl:t.price-buy.price
 })
 
 delete open[t.symbol]
@@ -174,7 +152,7 @@ delete open[t.symbol]
 
 return NextResponse.json(history.reverse())
 
-}catch{
+}catch(e){
 
 return NextResponse.json([])
 
