@@ -75,12 +75,14 @@ volume: res.volume || 0
 
 },[])
 
+/* FIXED */
 const jumpToRank = ()=>{
 if(!rank) return
-const targetPage = Math.ceil(rank / 1000)
+const targetPage = Math.ceil(rank / 20)
 setPage(targetPage)
 }
 
+/* FIXED */
 const searchWallet = ()=>{
 if(!search) return
 
@@ -90,7 +92,7 @@ cache:"no-store"
 .then(res=>res.json())
 .then(res=>{
 if(res.yourRank){
-const p = Math.ceil(res.yourRank / 1000)
+const p = Math.ceil(res.yourRank / 20)
 setPage(p)
 }
 })
@@ -198,7 +200,7 @@ Search
 
 {data.map((w,i)=>{
 
-const position = (page-1)*1000+i+1
+const position = (page-1)*20+i+1
 
 const isYou =
 wallet &&
