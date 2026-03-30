@@ -16,14 +16,12 @@ const limit = 20
 const from = (page-1) * limit
 const to = from + limit - 1
 
-
-/* FIX — removed .gt(score,0) */
+/* leaderboard */
 const { data, count } = await supabase
 .from("leaderboard")
 .select("*",{ count:"exact" })
 .order("score",{ascending:false})
 .range(from,to)
-
 
 const mapped = (data || []).map(w=>({
 
@@ -34,6 +32,25 @@ volume: Number(w.tradingvolumeusd || 0),
 days: Number(w.tradingdays || 0),
 gas: Number(w.tradinggaseth || 0),
 paid: w.paid || false
+
+}))
+
+/* LIVE ACTIVITY — last 5 mins */
+const fiveMinAgo = new Date(Date.now() - 5*60*1000).toISOString()
+
+const { data: liveRaw } = await supabase
+.from("leaderboard")
+.select("*")
+.gte("updated_at", fiveMinAgo)
+.order("updated_at",{ascending:false})
+.limit(10)
+
+const live = (liveRaw || []).map(w=>({
+
+wallet: w.wallet,
+score: Number(w.score || 0),
+swaps: Number(w.swapcount || 0),
+volume: Number(w.tradingvolumeusd || 0)
 
 }))
 
@@ -56,6 +73,7 @@ if(index!==-1) yourRank=index+1
 
 return NextResponse.json({
 data:mapped,
+live,
 yourRank,
 total: count,
 page,
