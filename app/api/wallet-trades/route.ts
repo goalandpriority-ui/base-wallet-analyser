@@ -3,8 +3,15 @@ export const dynamic = "force-dynamic"
 import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
 
-const TRANSFER =
-"0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a0b6f9e6f"
+const RPC = process.env.BASE_RPC!
+
+/* swap topics */
+const SWAP_TOPICS = [
+"0xd78ad95fa46c994b6551d0da85fc275fe613fcd9a1d2c3c0f6b1c6f7a8d7a7d0", // V2
+"0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67"  // V3
+]
+
+const STABLES = ["USDC","USDT","DAI"]
 
 export async function POST(req:NextRequest){
 
@@ -15,71 +22,70 @@ if(!wallet) return NextResponse.json([])
 
 const address = wallet.toLowerCase()
 
-/* get logs directly */
-const res = await axios.post(process.env.BASE_RPC!,{
+/* get logs */
+const logs = await axios.post(RPC,{
 jsonrpc:"2.0",
 id:1,
 method:"eth_getLogs",
 params:[{
 fromBlock:"0x0",
 toBlock:"latest",
-topics:[TRANSFER]
+topics:[SWAP_TOPICS]
 }]
 })
 
-const logs = res.data.result || []
+const list = logs.data.result || []
 
 const trades:any[]=[]
 
-let sent:any=null
-let received:any=null
+for(const log of list){
 
-for(const log of logs){
+const data = log.data
+const topics = log.topics
 
-const from =
-"0x"+log.topics[1].slice(26)
+/* decode amounts (simplified) */
+if(!data) continue
 
-const to =
-"0x"+log.topics[2].slice(26)
+const amount0In =
+parseInt(data.slice(2,66),16)
 
-const value =
-parseInt(log.data,16)/1e18
+const amount1In =
+parseInt(data.slice(66,130),16)
 
-if(from.toLowerCase()===address){
-sent={
-token:log.address,
-amount:value
-}
-}
+const amount0Out =
+parseInt(data.slice(130,194),16)
 
-if(to.toLowerCase()===address){
-received={
-token:log.address,
-amount:value
-}
-}
+const amount1Out =
+parseInt(data.slice(194,258),16)
 
-if(sent && received){
+const buy =
+amount0Out || amount1Out
+
+const sell =
+amount0In || amount1In
+
+if(!buy && !sell) continue
 
 trades.push({
-sellToken:sent.token,
-buyToken:received.token,
-sellAmount:sent.amount,
-buyAmount:received.amount
+symbol:"TOKEN",
+buyUsd: buy / 1e6,
+sellUsd: sell / 1e6,
+pnl:(sell-buy)/1e6,
+time: Date.now()
 })
 
-sent=null
-received=null
-
 }
 
-}
+/* latest first */
+trades.sort((a,b)=>b.time-a.time)
 
-return NextResponse.json(trades)
+return NextResponse.json(trades.slice(0,50))
 
 }catch(e){
+
 console.error(e)
 return NextResponse.json([])
+
 }
 
 }
