@@ -3,8 +3,8 @@ export const dynamic = "force-dynamic"
 import { NextRequest, NextResponse } from "next/server"
 import axios from "axios"
 
-const STABLES = ["USDC","USDT","DAI"]
-const ETH = ["ETH","WETH"]
+const SWAP_TOPIC =
+"0xd78ad95fa46c994b6551d0da85fc275fe613d1e6c5b1e5b9e5a6a7a7a7a7a7a7" // Uniswap swap
 
 export async function POST(req:NextRequest){
 
@@ -15,15 +15,7 @@ if(!wallet) return NextResponse.json([])
 
 const address = wallet.toLowerCase()
 
-let all:any[]=[]
-let pageKey: string | undefined = undefined
-
-const fetch = async(type:"fromAddress"|"toAddress")=>{
-
-pageKey = undefined
-
-do{
-
+/* get txs */
 const res = await axios.post(process.env.BASE_RPC!,{
 jsonrpc:"2.0",
 id:1,
@@ -31,105 +23,83 @@ method:"alchemy_getAssetTransfers",
 params:[{
 fromBlock:"0x0",
 toBlock:"latest",
-category:["erc20"],
-withMetadata:true,
-excludeZeroValue:true,
-maxCount:"0x3e8",
-pageKey,
-[type]:address
+category:["external"],
+fromAddress:address,
+maxCount:"0x64"
 }]
 })
 
-all = all.concat(res.data.result?.transfers || [])
-pageKey = res.data.result?.pageKey
+const txs = res.data.result?.transfers || []
 
-}while(pageKey)
-
-}
-
-await fetch("fromAddress")
-await fetch("toAddress")
-
-/* group by tx hash */
-const txMap = new Map<string,any[]>()
-
-for(const t of all){
-if(!txMap.has(t.hash)){
-txMap.set(t.hash,[])
-}
-txMap.get(t.hash)!.push(t)
-}
-
-const positions:Record<string,any>={}
 const trades:any[]=[]
 
-for(const [hash, txs] of txMap){
+for(const tx of txs){
 
-let sent:any=null
-let received:any=null
+try{
 
-for(const t of txs){
-
-const symbol = (t.asset || "").toUpperCase()
-const value = Number(t.value || 0)
-
-if(!value) continue
-
-if(t.from?.toLowerCase()===address){
-sent={symbol,value}
-}
-
-if(t.to?.toLowerCase()===address){
-received={symbol,value}
-}
-
-}
-
-if(!sent || !received) continue
-if(sent.symbol===received.symbol) continue
-
-/* BUY */
-if(
-STABLES.includes(sent.symbol) ||
-ETH.includes(sent.symbol)
-){
-positions[received.symbol]={
-symbol:received.symbol,
-buy:sent.value,
-time:txs[0]?.metadata?.blockTimestamp
-}
-}
-
-/* SELL */
-if(
-STABLES.includes(received.symbol) ||
-ETH.includes(received.symbol)
-){
-
-const pos = positions[sent.symbol]
-if(!pos) continue
-
-const sell = received.value
-const pnl = sell - pos.buy
-
-trades.push({
-symbol:sent.symbol,
-buyUsd:pos.buy,
-sellUsd:sell,
-pnl,
-time:pos.time
+/* get receipt */
+const receipt = await axios.post(process.env.BASE_RPC!,{
+jsonrpc:"2.0",
+id:1,
+method:"eth_getTransactionReceipt",
+params:[tx.hash]
 })
 
-delete positions[sent.symbol]
+const logs = receipt.data.result?.logs || []
 
+let tokenIn:any=null
+let tokenOut:any=null
+
+for(const log of logs){
+
+/* transfer event */
+if(log.topics[0] ===
+"0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a0b6f9e6f")
+{
+
+const from =
+"0x"+log.topics[1].slice(26)
+
+const to =
+"0x"+log.topics[2].slice(26)
+
+const value =
+parseInt(log.data,16) / 1e18
+
+if(to.toLowerCase()===address){
+tokenIn={
+token:log.address,
+amount:value
+}
+}
+
+if(from.toLowerCase()===address){
+tokenOut={
+token:log.address,
+amount:value
+}
 }
 
 }
 
-trades.sort((a,b)=>
-new Date(b.time).getTime() -
-new Date(a.time).getTime()
-)
+}
+
+/* real swap */
+if(tokenIn && tokenOut){
+
+trades.push({
+tokenIn:tokenIn.token,
+tokenOut:tokenOut.token,
+amountIn:tokenOut.amount,
+amountOut:tokenIn.amount,
+hash:tx.hash
+})
+
+}
+
+}catch{}
+
+}
 
 return NextResponse.json(trades)
 
