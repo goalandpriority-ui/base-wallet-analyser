@@ -48,10 +48,6 @@ return(
 💰 Volume
 </NavLink>
 
-<NavLink href="/copy-trading" active={pathname==="/copy-trading"}>
-📋 Copy Trading
-</NavLink>
-
 {/* NEW */}
 <NavLink href="/follower-leaderboard" active={pathname==="/follower-leaderboard"}>
 👥 Followers
