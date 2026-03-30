@@ -7,36 +7,41 @@ export async function GET(){
 
 const supabase = getSupabase()
 
-// ✅ GLOBAL STATS (ALL wallets)
-const { data } = await supabase
+/* wallets count */
+const { count } = await supabase
 .from("leaderboard")
-.select("swapcount,tradingvolumeusd")
+.select("*",{count:"exact",head:true})
 
-let wallets = data?.length || 0
+/* total swaps */
+const { data: swapsData } = await supabase
+.from("leaderboard")
+.select("swapcount")
+
+/* total volume */
+const { data: volumeData } = await supabase
+.from("leaderboard")
+.select("tradingvolumeusd")
+
 let swaps = 0
 let volume = 0
 
-for(const w of data || []){
-
+for(const w of swapsData || []){
 swaps += Number(w.swapcount || 0)
-volume += Number(w.tradingvolumeusd || 0)
-
 }
 
-// ✅ LAST 5 MINUTES
-const fiveMinAgo = new Date(
-Date.now() - 5 * 60 * 1000
-).toISOString()
+for(const v of volumeData || []){
+volume += Number(v.tradingvolumeusd || 0)
+}
 
+/* trending */
 const { data: trending } = await supabase
 .from("leaderboard")
 .select("*")
-.gt("updated_at", fiveMinAgo)
 .order("updated_at",{ascending:false})
-.limit(10)
+.limit(5)
 
 return NextResponse.json({
-wallets,
+wallets: count || 0,
 swaps,
 volume,
 trending
