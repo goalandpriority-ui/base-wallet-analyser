@@ -30,12 +30,13 @@ setData(mapped)
 },[])
 
 return(
-<div style={{padding:20,maxWidth:900,margin:"auto"}}>
+<div style={{padding:20,maxWidth:900,margin:"auto",color:"#fff"}}>
 
 <h1 style={{
 fontSize:30,
 fontWeight:700,
-marginBottom:20
+marginBottom:20,
+color:"#fff"
 }}>
 👥 Most Followed Wallets
 </h1>
@@ -58,7 +59,8 @@ border:w.paid
 : "1px solid #111",
 boxShadow:w.paid
 ? "0 0 12px rgba(34,197,94,.4)"
-: "none"
+: "none",
+color:"#fff"
 }}>
 
 <div style={{
@@ -85,9 +87,10 @@ PRO
 
 <div style={{
 fontSize:12,
-opacity:.8,
+opacity:.9,
 marginTop:4,
-wordBreak:"break-all"
+wordBreak:"break-all",
+color:"#fff"
 }}>
 {w.wallet}
 </div>
