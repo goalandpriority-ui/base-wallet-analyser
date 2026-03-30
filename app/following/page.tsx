@@ -39,9 +39,9 @@ return ()=>clearInterval(i)
 },[])
 
 return(
-<div style={{padding:20,maxWidth:900,margin:"auto"}}>
+<div style={{padding:20,maxWidth:900,margin:"auto",color:"#fff"}}>
 
-<h1>⭐ Following</h1>
+<h1 style={{color:"#fff"}}>⭐ Following</h1>
 
 {data.length===0 && (
 <div style={{opacity:.6,fontSize:13}}>
@@ -70,5 +70,7 @@ background:"#020617",
 padding:12,
 borderRadius:10,
 marginBottom:8,
-border:"1px solid #111"
+border:"1px solid #111",
+color:"#fff",
+wordBreak:"break-all"
 }
