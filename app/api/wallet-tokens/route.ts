@@ -12,9 +12,9 @@ try{
 const { wallet } = await req.json()
 const address = wallet.toLowerCase()
 
-/* get transfers */
+/* OUTGOING */
 
-const res = await axios.post(RPC,{
+const out = await axios.post(RPC,{
 jsonrpc:"2.0",
 id:1,
 method:"alchemy_getAssetTransfers",
@@ -28,10 +28,9 @@ fromAddress:address
 }]
 })
 
-const outgoing =
-res.data.result.transfers || []
+/* INCOMING */
 
-const res2 = await axios.post(RPC,{
+const incoming = await axios.post(RPC,{
 jsonrpc:"2.0",
 id:1,
 method:"alchemy_getAssetTransfers",
@@ -45,10 +44,10 @@ toAddress:address
 }]
 })
 
-const incoming =
-res2.data.result.transfers || []
-
-const all = [...outgoing,...incoming]
+const all = [
+...(out.data.result.transfers || []),
+...(incoming.data.result.transfers || [])
+]
 
 const tokens:Record<string,any>={}
 
@@ -60,7 +59,7 @@ tx.rawContract?.address?.toLowerCase()
 if(!token) continue
 
 const value = Number(tx.value || 0)
-if(!value) continue
+if(!value || value===0) continue
 
 if(!tokens[token]){
 tokens[token]={
@@ -79,7 +78,6 @@ const from = tx.from?.toLowerCase()
 const to = tx.to?.toLowerCase()
 
 /* BUY */
-
 if(to===address){
 tokens[token].buys++
 tokens[token].buyAmount+=value
@@ -88,7 +86,6 @@ tokens[token].trades++
 }
 
 /* SELL */
-
 if(from===address){
 tokens[token].sells++
 tokens[token].sellAmount+=value
@@ -98,17 +95,24 @@ tokens[token].trades++
 
 }
 
-/* calculate */
+/* IMPORTANT FILTER */
 
 const list =
 Object.values(tokens)
+.filter((t:any)=>
+
+t.buys>0 &&      // must buy
+t.sells>0 &&     // must sell
+t.trades>1       // must trade
+
+)
 .map((t:any)=>{
 
 const entry =
-t.buys ? t.buyAmount/t.buys : 0
+t.buyAmount / t.buys
 
 const exit =
-t.sells ? t.sellAmount/t.sells : 0
+t.sellAmount / t.sells
 
 const realized =
 t.sellAmount - (entry * t.sells)
@@ -120,7 +124,8 @@ const pnl =
 realized + unrealized
 
 const winRate =
-pnl > 0 ? 100 : 0
+pnl > 0 ? 100 :
+pnl < 0 ? 0 : 50
 
 return{
 
@@ -140,22 +145,20 @@ unrealized,
 pnl,
 
 trades:t.trades,
-
 winRate
 
 }
 
 })
-.filter((t:any)=>t.trades>0)
 .sort((a:any,b:any)=>b.pnl-a.pnl)
-.slice(0,100)
+.slice(0,50)
 
 return NextResponse.json(list)
 
-}catch(e){
+}catch{
 
 return NextResponse.json([])
 
 }
 
-  }
+}
