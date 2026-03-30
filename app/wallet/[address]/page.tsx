@@ -4,12 +4,6 @@ import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import { sdk } from "@farcaster/miniapp-sdk"
 
-/* METADATA FOR FARCASTER */
-export const metadata = {
-title: "Base Wallet Analyser",
-description: "Analyse Base wallets",
-}
-
 export default function WalletProfile(){
 
 const params = useParams()
@@ -229,4 +223,4 @@ padding:"6px 12px",
 background:"#facc15",
 border:"none",
 borderRadius:8
-}
+                                   }}
