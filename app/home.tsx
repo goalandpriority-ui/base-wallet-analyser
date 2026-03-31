@@ -202,10 +202,14 @@ text:`Base Wallet Report
 
 Wallet: ${wallet}
 
-PnL: ${finalData.pnl} ETH
-Win Rate: ${finalData.winRate}%
-Trades: ${finalData.trades}
-⭐ Score: ${finalData.score}`,
+📊 Transactions: ${finalData.transactions}
+🔁 Swaps: ${finalData.swaps}
+💎 Trading Volume: $${finalData.tradingVolume}
+📅 Active Days: ${finalData.activeDays}
+
+⭐ Score: ${finalData.score}
+
+Analyze your wallet 👇`,
 
 embeds:[
 "https://base-wallet-analyser.vercel.app/"
