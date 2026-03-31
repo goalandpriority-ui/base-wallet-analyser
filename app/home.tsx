@@ -58,8 +58,6 @@ return
 
 }catch{}
 
-/* CONTEXT FALLBACK */
-
 let context:any = await sdk.context
 
 let fcWallet =
@@ -96,8 +94,6 @@ return
 }
 
 }catch(e){}
-
-/* METAMASK FALLBACK */
 
 try{
 
@@ -305,8 +301,7 @@ setData(finalData)
 try{
 
 await sdk.actions.composeCast({
-text:
-`🔥 Base Wallet analysed!
+text:`🔥 Base Wallet analysed!
 
 📊 Transactions: ${finalData.totalTxns}
 💰 Transfer Volume: ${finalData.totalVolumeETH} ETH
@@ -316,7 +311,7 @@ text:
 🏆 Rank: #${finalData.rank}
 ⭐ Score: ${finalData.score}
 
- Open Base Wallet Analyser
+🚀 Open Base Wallet Analyser
 https://base-wallet-analyser.vercel.app/`
 })
 
@@ -479,4 +474,4 @@ marginTop:20
 const divider:CSSProperties={
 margin:"15px 0",
 borderColor:"#0f172a"
-}
+  }
