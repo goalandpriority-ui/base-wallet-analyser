@@ -202,10 +202,10 @@ text:`Base Wallet Report
 
 Wallet: ${wallet}
 
-📊 Transactions: ${finalData.transactions}
+📊 Transactions: ${finalData.tx}
 🔁 Swaps: ${finalData.swaps}
-💎 Trading Volume: $${finalData.tradingVolume}
-📅 Active Days: ${finalData.activeDays}
+💎 Trading Volume: $${finalData.volume}
+📅 Active Days: ${finalData.days}
 
 ⭐ Score: ${finalData.score}
 
