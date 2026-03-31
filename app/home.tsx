@@ -309,7 +309,10 @@ text:`🔥 Base Wallet analysed!
 💎 Trading Volume: $${finalData.tradingVolumeUSD}
 
 🏆 Rank: #${finalData.rank}
-⭐ Score: ${finalData.score} https://base-wallet-analyser.vercel.app/`
+⭐ Score: ${finalData.score}
+
+Open Base Wallet Analyser 👇
+https://base-wallet-analyser.vercel.app/`
 })
 
 }catch{}
