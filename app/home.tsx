@@ -164,7 +164,20 @@ localStorage.setItem("paid_"+w,"true")
 /* ANALYSE */
 const analyse = async()=>{
 
-if(!paid) return
+/* PAYMENT REDIRECT */
+if(!paid){
+try{
+await sdk.actions.openUrl(
+"https://basescan.org/address/YOUR_PAYMENT_WALLET"
+)
+}catch{
+window.open(
+"https://basescan.org/address/YOUR_PAYMENT_WALLET",
+"_blank"
+)
+}
+return
+}
 
 setLoading(true)
 setData(null)
@@ -259,7 +272,7 @@ onClick={analyse}
 style={{
 ...analyseBtn,
 opacity: paid ? 1 : .6,
-cursor: paid ? "pointer" : "not-allowed"
+cursor: "pointer"
 }}
 >
 {paid
