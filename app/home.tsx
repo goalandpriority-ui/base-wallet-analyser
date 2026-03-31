@@ -194,7 +194,7 @@ const finalData = { ...basicData, ...proData }
 
 setData(finalData)
 
-/* AUTO CAST — FINAL WORKING */
+/* AUTO CAST */
 try{
 
 await sdk.actions.composeCast({
@@ -211,11 +211,9 @@ Wallet: ${wallet}
 ⭐ Score: ${finalData.score}
 
 Analyze your wallet 👇`,
-
 embeds:[
 "https://base-wallet-analyser.vercel.app/"
 ]
-
 })
 
 }catch{}
@@ -256,15 +254,14 @@ return(
 </div>
 </div>
 
-{/* ALWAYS SHOW BUTTON */}
 <button
 onClick={analyse}
 style={{
 ...analyseBtn,
-opacity: paid ? 1 : .5
+opacity: paid ? 1 : .7
 }}
 >
-{!paid ? "PRO Required" : loading ? "Analysing..." : "Analyse Wallet"}
+{loading ? "Analysing..." : "Analyse Wallet"}
 </button>
 
 {data && (
