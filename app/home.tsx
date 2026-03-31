@@ -23,6 +23,13 @@ useEffect(()=>{
 sdk.actions.ready()
 },[])
 
+/* AUTO CHECK AFTER RELOAD */
+useEffect(()=>{
+if(wallet){
+checkPaid(wallet)
+}
+},[wallet])
+
 /* CONNECT */
 useEffect(()=>{
 
@@ -164,17 +171,34 @@ localStorage.setItem("paid_"+w,"true")
 /* ANALYSE */
 const analyse = async()=>{
 
-/* PAYMENT REDIRECT */
+/* PAYMENT USING CONNECTED WALLET */
 if(!paid){
 
-const payUrl =
-`https://app.uniswap.org/#/send?chain=base&recipient=0xffF8b3F8D8b1F06EDE51fc331022B045495cEEA2`
-
 try{
-await sdk.actions.openUrl(payUrl)
-}catch{}
 
-window.location.href = payUrl
+let eth = (window as any).ethereum
+
+if(!eth){
+const provider = await sdk.wallet.getEthereumProvider()
+eth = provider
+}
+
+await eth.request({
+method:"eth_sendTransaction",
+params:[{
+from: wallet,
+to: "0xffF8b3F8D8b1F06EDE51fc331022B045495cEEA2",
+value:"0x16bcc41e9000"
+}]
+})
+
+await new Promise(r=>setTimeout(r,2000))
+await checkPaid(wallet)
+
+}catch(e){
+console.log("payment failed",e)
+}
+
 return
 }
 
@@ -390,4 +414,4 @@ marginTop:20
 const divider:CSSProperties={
 margin:"15px 0",
 borderColor:"#0f172a"
-                    }
+}
