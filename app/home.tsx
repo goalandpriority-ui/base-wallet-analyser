@@ -157,6 +157,8 @@ const checkPaid = async (addr?:string)=>{
 const w = (addr || wallet)?.toLowerCase()
 if(!w) return
 
+try{
+
 const res = await fetch(`/api/check-paid?wallet=${w}`)
 const json = await res.json()
 
@@ -165,6 +167,8 @@ setPaid(json.paid)
 if(json.paid){
 localStorage.setItem("paid_"+w,"true")
 }
+
+}catch{}
 
 }
 
@@ -183,7 +187,7 @@ const provider = await sdk.wallet.getEthereumProvider()
 eth = provider
 }
 
-await eth.request({
+const tx = await eth.request({
 method:"eth_sendTransaction",
 params:[{
 from: wallet,
@@ -192,10 +196,11 @@ value:"0x16bcc41e9000"
 }]
 })
 
-await new Promise(r=>setTimeout(r,3000))
-await checkPaid(wallet)
-
-window.location.reload()
+/* instant unlock */
+if(tx){
+setPaid(true)
+localStorage.setItem("paid_"+wallet,"true")
+}
 
 }catch(e){
 console.log("payment failed",e)
