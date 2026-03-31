@@ -256,11 +256,16 @@ return(
 </div>
 </div>
 
-{paid && (
-<button onClick={analyse} style={analyseBtn}>
-{loading ? "Analysing..." : "Analyse Wallet"}
+{/* ALWAYS SHOW BUTTON */}
+<button
+onClick={analyse}
+style={{
+...analyseBtn,
+opacity: paid ? 1 : .5
+}}
+>
+{!paid ? "PRO Required" : loading ? "Analysing..." : "Analyse Wallet"}
 </button>
-)}
 
 {data && (
 
