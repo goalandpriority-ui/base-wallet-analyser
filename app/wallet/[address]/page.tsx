@@ -68,7 +68,7 @@ const share = async ()=>{
 
 const url = window.location.href
 
-const text = `🔥 Base Wallet Profile
+const text = (`🔥 Base Wallet Profile
 
 👛 ${address}
 
@@ -79,9 +79,7 @@ const text = `🔥 Base Wallet Profile
 
 📊 View full profile
 ${url}
-
- 
-https://base-wallet-analyser.vercel.app/`
+https://base-wallet-analyser.vercel.app/`).trim()
 
 try{
 await sdk.actions.composeCast({ text })
