@@ -144,57 +144,6 @@ init()
 
 },[])
 
-/* CONNECT BUTTON */
-const connectWallet = async()=>{
-
-try{
-
-try{
-
-const provider = await sdk.wallet.getEthereumProvider()
-
-if(provider){
-
-const accounts = await provider.request({
-method:"eth_requestAccounts"
-})
-
-if(accounts?.[0]){
-const addr = accounts[0].toLowerCase()
-setWallet(addr)
-localStorage.setItem("lastWallet",addr)
-
-const localPaid = localStorage.getItem("paid_"+addr)
-if(localPaid==="true") setPaid(true)
-
-checkPaid(addr)
-return
-}
-
-}
-
-}catch{}
-
-const eth = (window as any).ethereum
-
-const accounts = await eth.request({
-method:"eth_requestAccounts"
-})
-
-const addr = accounts[0].toLowerCase()
-
-setWallet(addr)
-localStorage.setItem("lastWallet",addr)
-
-const localPaid = localStorage.getItem("paid_"+addr)
-if(localPaid==="true") setPaid(true)
-
-checkPaid(addr)
-
-}catch{}
-
-}
-
 /* CHECK PAID */
 const checkPaid = async (addr?:string)=>{
 
@@ -209,58 +158,6 @@ setPaid(json.paid)
 if(json.paid){
 localStorage.setItem("paid_"+w,"true")
 }
-
-}
-
-/* PAY */
-const pay = async()=>{
-
-try{
-
-let provider:any
-
-try{
-provider = await sdk.wallet.getEthereumProvider()
-}catch{}
-
-if(!provider){
-provider = (window as any).ethereum
-}
-
-await provider.request({
-method:"wallet_switchEthereumChain",
-params:[{ chainId:"0x2105" }]
-}).catch(()=>{})
-
-const tx = await provider.request({
-method:"eth_sendTransaction",
-params:[{
-from:wallet,
-to:process.env.NEXT_PUBLIC_PAY_TO!,
-value:"0x16bcc41e9000"
-}]
-})
-
-const txHash = typeof tx === "string" ? tx : tx.hash
-
-await new Promise(r=>setTimeout(r,2000))
-
-await fetch("/api/mark-paid",{
-method:"POST",
-headers:{
-"Content-Type":"application/json"
-},
-body:JSON.stringify({
-wallet: wallet.toLowerCase(),
-txHash
-})
-})
-
-localStorage.setItem("paid_"+wallet.toLowerCase(),"true")
-
-setPaid(true)
-
-}catch{}
 
 }
 
@@ -297,7 +194,7 @@ const finalData = { ...basicData, ...proData }
 
 setData(finalData)
 
-/* AUTO CAST — FIXED */
+/* AUTO CAST — FINAL */
 try{
 
 await sdk.actions.composeCast({
@@ -316,6 +213,8 @@ url:"https://base-wallet-analyser.vercel.app/"
 }
 ]
 })
+
+}catch{}
 
 }catch{}
 
@@ -350,12 +249,6 @@ return(
 {paid && <div style={pro}>PRO</div>}
 </div>
 </div>
-
-{!paid && wallet && (
-<button onClick={pay} style={analyseBtn}>
-Pay 0.000025 ETH
-</button>
-)}
 
 {paid && (
 <button onClick={analyse} style={analyseBtn}>
@@ -474,4 +367,4 @@ marginTop:20
 const divider:CSSProperties={
 margin:"15px 0",
 borderColor:"#0f172a"
- }
+}
