@@ -198,23 +198,20 @@ setData(finalData)
 try{
 
 await sdk.actions.composeCast({
-text:`🔥 Base Wallet analysed!
+text:`Base Wallet Report
 
-📊 Transactions: ${finalData.totalTxns}
-💰 Transfer Volume: ${finalData.totalVolumeETH} ETH
-🔁 Swaps: ${finalData.swapCount}
-💎 Trading Volume: $${finalData.tradingVolumeUSD}
+Wallet: ${wallet}
 
-🏆 Rank: #${finalData.rank}
+PnL: ${finalData.pnl} ETH
+Win Rate: ${finalData.winRate}%
+Trades: ${finalData.trades}
 ⭐ Score: ${finalData.score}`,
-embeds:[
-{
-url:"https://base-wallet-analyser.vercel.app/"
-}
-]
-})
 
-}catch{}
+embeds:[
+"https://base-wallet-analyser.vercel.app/"
+]
+
+})
 
 }catch{}
 
