@@ -198,7 +198,9 @@ setData(finalData)
 try{
 
 await sdk.actions.composeCast({
-text:`🔥 Base Wallet analysed!
+text:`Base Wallet Report
+
+Wallet: ${wallet}
 
 📊 Transactions: ${finalData.totalTxns}
 💰 Transfer Volume: ${finalData.totalVolumeETH} ETH
@@ -206,7 +208,9 @@ text:`🔥 Base Wallet analysed!
 💎 Trading Volume: $${finalData.tradingVolumeUSD}
 
 🏆 Rank: #${finalData.rank}
-⭐ Score: ${finalData.score}`,
+⭐ Score: ${finalData.score}
+
+Analyze your wallet 👇`,
 
 embeds:[
 "https://base-wallet-analyser.vercel.app/"
