@@ -68,23 +68,29 @@ const share = async ()=>{
 
 const url = window.location.href
 
-const text = (`🔥 Base Wallet Profile
+const text = (`Base Wallet Report
 
-👛 ${address}
+Wallet: ${address}
+
+📊 Transactions: ${stats?.totalTxns || 0}
+💰 Transfer Volume: ${stats?.totalVolumeETH || 0} ETH
+🔁 Swaps: ${data?.swapCount || 0}
+💎 Trading Volume: $${Math.round(data?.tradingVolumeUSD || 0)}
 
 🏆 Rank: #${data?.rank || "-"}
 ⭐ Score: ${Math.round(data?.score || 0)}
-🔁 Swaps: ${data?.swapCount || 0}
-💰 Volume: $${Math.round(data?.tradingVolumeUSD || 0)}
 
-📊 View full profile
-${url}
-https://base-wallet-analyser.vercel.app/`).trim()
+Analyze your wallet 👇`).trim()
 
 try{
-await sdk.actions.composeCast({ text })
+await sdk.actions.composeCast({
+text,
+embeds:[
+url
+]
+})
 }catch{
-navigator.clipboard.writeText(text)
+navigator.clipboard.writeText(`${text}\n${url}`)
 }
 
 }
@@ -220,4 +226,4 @@ padding:"6px 12px",
 background:"#facc15",
 border:"none",
 borderRadius:8
-}
+             }
