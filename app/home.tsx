@@ -194,23 +194,19 @@ const finalData = { ...basicData, ...proData }
 
 setData(finalData)
 
-/* AUTO CAST — FINAL */
+/* AUTO CAST — FINAL WORKING */
 try{
 
 await sdk.actions.composeCast({
-text:`Base Wallet Report
+text:`🔥 Base Wallet analysed!
 
-Wallet: ${wallet}
+📊 Transactions: ${finalData.totalTxns}
+💰 Transfer Volume: ${finalData.totalVolumeETH} ETH
+🔁 Swaps: ${finalData.swapCount}
+💎 Trading Volume: $${finalData.tradingVolumeUSD}
 
-📊 Transactions: ${data?.transactions}
-🔁 Swaps: ${data?.swaps}
-💎 Trading Volume: $${data?.tradingVolume}
-📅 Active Days: ${data?.activeDays}
-
-🏆 Rank: #${data?.rank}
-⭐ Score: ${data?.score}
-
-Analyze your wallet 👇`,
+🏆 Rank: #${finalData.rank}
+⭐ Score: ${finalData.score}`,
 
 embeds:[
 "https://base-wallet-analyser.vercel.app/"
