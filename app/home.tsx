@@ -202,13 +202,13 @@ text:`Base Wallet Report
 
 Wallet: ${wallet}
 
-📊 Transactions: ${finalData?.transactions ?? finalData?.tx ?? 0}
-🔁 Swaps: ${finalData?.swaps ?? 0}
-💎 Trading Volume: $${finalData?.tradingVolume ?? finalData?.volume ?? 0}
-📅 Active Days: ${finalData?.activeDays ?? finalData?.days ?? 0}
+📊 Transactions: ${data?.transactions}
+🔁 Swaps: ${data?.swaps}
+💎 Trading Volume: $${data?.tradingVolume}
+📅 Active Days: ${data?.activeDays}
 
-🏆 Rank: #${finalData?.rank ?? 1}
-⭐ Score: ${finalData?.score ?? 0}
+🏆 Rank: #${data?.rank}
+⭐ Score: ${data?.score}
 
 Analyze your wallet 👇`,
 
