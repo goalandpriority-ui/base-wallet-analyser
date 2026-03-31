@@ -166,14 +166,15 @@ const analyse = async()=>{
 
 /* PAYMENT REDIRECT */
 if(!paid){
+
 const payUrl =
-"https://wallet.coinbase.com/send?address=0xffF8b3F8D8b1F06EDE51fc331022B045495cEEA2&network=base"
+`https://app.uniswap.org/#/send?chain=base&recipient=0xffF8b3F8D8b1F06EDE51fc331022B045495cEEA2`
 
 try{
 await sdk.actions.openUrl(payUrl)
-}catch{
-window.open(payUrl,"_blank")
-}
+}catch{}
+
+window.location.href = payUrl
 return
 }
 
