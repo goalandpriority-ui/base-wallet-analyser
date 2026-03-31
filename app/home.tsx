@@ -311,7 +311,7 @@ text:`🔥 Base Wallet analysed!
 🏆 Rank: #${finalData.rank}
 ⭐ Score: ${finalData.score}
 
- Open Base Wallet Analyser
+ 
 https://base-wallet-analyser.vercel.app/`
 })
 
