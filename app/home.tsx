@@ -258,10 +258,13 @@ return(
 onClick={analyse}
 style={{
 ...analyseBtn,
-opacity: paid ? 1 : .7
+opacity: paid ? 1 : .6,
+cursor: paid ? "pointer" : "not-allowed"
 }}
 >
-{loading ? "Analysing..." : "Analyse Wallet"}
+{paid
+? (loading ? "Analysing..." : "Analyse Wallet")
+: "🔒 Pay 0.000025 ETH to unlock wallet stats"}
 </button>
 
 {data && (
