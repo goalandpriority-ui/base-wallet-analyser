@@ -63,6 +63,7 @@ load()
 
 },[address])
 
+/* SHARE */
 const share = async ()=>{
 
 const url = window.location.href
@@ -77,11 +78,11 @@ const text =
 🔁 Swaps: ${data?.swapCount || 0}
 💰 Volume: $${Math.round(data?.tradingVolumeUSD || 0)}
 
-📊 View full profile:
+📊 View full profile
 ${url}
 
-Analyse yours 👇
-https://base-wallet-analyser.vercel.app`
+🚀 Open Base Wallet Analyser
+https://base-wallet-analyser.vercel.app/`
 
 try{
 await sdk.actions.composeCast({ text })
