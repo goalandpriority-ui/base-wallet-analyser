@@ -80,7 +80,7 @@ const text = `🔥 Base Wallet Profile
 📊 View full profile
 ${url}
 
-🚀 Open Base Wallet Analyser
+ Open Base Wallet Analyser
 https://base-wallet-analyser.vercel.app/`
 
 try{
