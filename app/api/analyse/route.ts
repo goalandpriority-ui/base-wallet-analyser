@@ -23,8 +23,10 @@ export async function POST(req: NextRequest) {
 
     let allTransfers: any[] = []
     let pageKey: string | undefined = undefined
+    let seen = new Set()
 
     do {
+
       const res = await rpc.post("", {
         jsonrpc: "2.0",
         id: 1,
@@ -45,12 +47,23 @@ export async function POST(req: NextRequest) {
       const result = res.data.result
 
       if (result?.transfers) {
-        allTransfers = allTransfers.concat(result.transfers)
+
+        for (const tx of result.transfers) {
+
+          const hash = tx.hash + tx.uniqueId
+
+          if (!seen.has(hash)) {
+            seen.add(hash)
+            allTransfers.push(tx)
+          }
+
+        }
+
       }
 
-      pageKey = result.pageKey
+      pageKey = result?.pageKey
 
-      if (allTransfers.length > 8000) break
+      if (allTransfers.length > 10000) break
 
     } while (pageKey)
 
@@ -62,10 +75,10 @@ export async function POST(req: NextRequest) {
 
     for (const tx of allTransfers) {
 
-      const value = Number(tx.value || 0)
+      const value = parseFloat(tx.value || "0")
       const asset = (tx.asset || "").toUpperCase()
 
-      if (value && asset) {
+      if (!isNaN(value) && value > 0) {
 
         if (asset === "ETH" || asset === "WETH") {
           totalVolumeETH += value
@@ -74,17 +87,21 @@ export async function POST(req: NextRequest) {
         if (asset === "USDC" || asset === "USDT") {
           totalVolumeETH += value / 3000
         }
+
       }
 
       totalGasETH += 0.0000025
 
       if (tx.metadata?.blockTimestamp) {
+
         const d = new Date(tx.metadata.blockTimestamp)
           .toISOString()
           .split("T")[0]
 
         days.add(d)
+
       }
+
     }
 
     return NextResponse.json({
