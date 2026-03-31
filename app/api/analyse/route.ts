@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
 
     let allTransfers: any[] = []
     let pageKey: string | undefined = undefined
-    let seen = new Set()
+    let seen = new Set<string>()
 
     do {
 
@@ -44,13 +44,16 @@ export async function POST(req: NextRequest) {
         ],
       })
 
-      const result = res.data.result
+      const result = res?.data?.result
 
-      if (result?.transfers) {
+      if (result?.transfers?.length) {
 
         for (const tx of result.transfers) {
 
-          const hash = tx.hash + tx.uniqueId
+          const hash =
+            (tx.hash || "") +
+            (tx.uniqueId || "") +
+            (tx.metadata?.blockTimestamp || "")
 
           if (!seen.has(hash)) {
             seen.add(hash)
@@ -63,9 +66,10 @@ export async function POST(req: NextRequest) {
 
       pageKey = result?.pageKey
 
+      if (!pageKey) break
       if (allTransfers.length > 10000) break
 
-    } while (pageKey)
+    } while (true)
 
     let totalTxns = allTransfers.length
     let totalVolumeETH = 0
@@ -75,8 +79,8 @@ export async function POST(req: NextRequest) {
 
     for (const tx of allTransfers) {
 
-      const value = parseFloat(tx.value || "0")
-      const asset = (tx.asset || "").toUpperCase()
+      const value = parseFloat(tx?.value || "0")
+      const asset = (tx?.asset || "").toUpperCase()
 
       if (!isNaN(value) && value > 0) {
 
@@ -92,7 +96,7 @@ export async function POST(req: NextRequest) {
 
       totalGasETH += 0.0000025
 
-      if (tx.metadata?.blockTimestamp) {
+      if (tx?.metadata?.blockTimestamp) {
 
         const d = new Date(tx.metadata.blockTimestamp)
           .toISOString()
@@ -113,7 +117,8 @@ export async function POST(req: NextRequest) {
     })
 
   } catch (err) {
-    console.error(err)
+
+    console.error("analyse error", err)
 
     return NextResponse.json({
       totalTxns: 0,
@@ -121,5 +126,6 @@ export async function POST(req: NextRequest) {
       totalGasETH: 0,
       activeDays: 0
     })
+
   }
 }
