@@ -215,6 +215,10 @@ embeds:[
 
 }catch{}
 
+}catch(e){
+console.log(e)
+}
+
 setLoading(false)
 
 }
