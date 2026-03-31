@@ -68,8 +68,7 @@ const share = async ()=>{
 
 const url = window.location.href
 
-const text =
-`🔥 Base Wallet Profile
+const text = `🔥 Base Wallet Profile
 
 👛 ${address}
 
