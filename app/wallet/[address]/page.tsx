@@ -63,7 +63,6 @@ load()
 
 },[address])
 
-/* SHARE FARCASTER */
 const share = async ()=>{
 
 const url = window.location.href
@@ -82,7 +81,7 @@ const text =
 ${url}
 
 Analyse yours 👇
-https://base-wallet-analyser.vercel.app/`
+https://base-wallet-analyser.vercel.app`
 
 try{
 await sdk.actions.composeCast({ text })
@@ -186,7 +185,7 @@ opacity:.8
 )
 }
 
-const proBadge={
+const proBadge = {
 background:"#22c55e",
 color:"#020617",
 padding:"2px 8px",
@@ -195,7 +194,7 @@ fontSize:10,
 fontWeight:700
 }
 
-const card={
+const card = {
 background:"#020617",
 padding:20,
 borderRadius:12,
@@ -203,14 +202,14 @@ marginBottom:14,
 border:"1px solid #111"
 }
 
-const btnGreen={
+const btnGreen = {
 padding:"6px 12px",
 background:"#22c55e",
 border:"none",
 borderRadius:8
 }
 
-const btnBlue={
+const btnBlue = {
 padding:"6px 12px",
 background:"#3b82f6",
 border:"none",
@@ -218,9 +217,9 @@ borderRadius:8,
 color:"#fff"
 }
 
-const btnYellow={
+const btnYellow = {
 padding:"6px 12px",
 background:"#facc15",
 border:"none",
 borderRadius:8
-                                   }}
+}
