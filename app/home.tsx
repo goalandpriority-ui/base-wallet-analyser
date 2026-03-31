@@ -301,7 +301,7 @@ setData(finalData)
 try{
 
 await sdk.actions.composeCast({
-text:`🔥 Base Wallet analysed!
+text:(`🔥 Base Wallet analysed!
 
 📊 Transactions: ${finalData.totalTxns}
 💰 Transfer Volume: ${finalData.totalVolumeETH} ETH
@@ -310,9 +310,7 @@ text:`🔥 Base Wallet analysed!
 
 🏆 Rank: #${finalData.rank}
 ⭐ Score: ${finalData.score}
-
- 
-https://base-wallet-analyser.vercel.app/`
+https://base-wallet-analyser.vercel.app/`).trim()
 })
 
 }catch{}
@@ -474,4 +472,4 @@ marginTop:20
 const divider:CSSProperties={
 margin:"15px 0",
 borderColor:"#0f172a"
-  }
+ }
