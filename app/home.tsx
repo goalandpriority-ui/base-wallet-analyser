@@ -192,8 +192,10 @@ value:"0x16bcc41e9000"
 }]
 })
 
-await new Promise(r=>setTimeout(r,2000))
+await new Promise(r=>setTimeout(r,3000))
 await checkPaid(wallet)
+
+window.location.reload()
 
 }catch(e){
 console.log("payment failed",e)
