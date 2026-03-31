@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 const miniappMetadata = {
   version: "1",
   imageUrl: "https://base-wallet-analyser.vercel.app/splash.png",
+  iconUrl: "https://base-wallet-analyser.vercel.app/splash.png",
   button: {
     title: "🚀 Open Base Wallet Analyser",
     action: {
