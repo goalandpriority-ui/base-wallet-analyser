@@ -166,15 +166,13 @@ const analyse = async()=>{
 
 /* PAYMENT REDIRECT */
 if(!paid){
+const payUrl =
+"https://wallet.coinbase.com/send?address=0xffF8b3F8D8b1F06EDE51fc331022B045495cEEA2&network=base"
+
 try{
-await sdk.actions.openUrl(
-"https://basescan.org/address/YOUR_PAYMENT_WALLET"
-)
+await sdk.actions.openUrl(payUrl)
 }catch{
-window.open(
-"https://basescan.org/address/YOUR_PAYMENT_WALLET",
-"_blank"
-)
+window.open(payUrl,"_blank")
 }
 return
 }
