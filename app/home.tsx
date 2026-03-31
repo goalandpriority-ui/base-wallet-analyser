@@ -300,20 +300,7 @@ setData(finalData)
 /* AUTO CAST — FIXED */
 try{
 
-await sdk.actions.composeCast({
-text:`🔥 Base Wallet analysed!
 
-📊 Transactions: ${finalData.totalTxns}
-💰 Transfer Volume: ${finalData.totalVolumeETH} ETH
-🔁 Swaps: ${finalData.swapCount}
-💎 Trading Volume: $${finalData.tradingVolumeUSD}
-
-🏆 Rank: #${finalData.rank}
-⭐ Score: ${finalData.score}
-
-Open Base Wallet Analyser 👇
-https://base-wallet-analyser.vercel.app/`
-})
 
 }catch{}
 
