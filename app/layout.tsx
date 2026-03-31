@@ -20,6 +20,12 @@ export const metadata: Metadata = {
   title: "Base Wallet Analyser",
   description: "Analyse wallets on Base network",
 
+  icons: {
+    icon: "/favicon.png",
+    shortcut: "/favicon.png",
+    apple: "/icon.png"
+  },
+
   openGraph: {
     title: "Base Wallet Analyser",
     description: "Analyse wallets on Base network",
@@ -27,7 +33,7 @@ export const metadata: Metadata = {
     siteName: "Base Wallet Analyser",
     images: [
       {
-        url: "https://base-wallet-analyser.vercel.app/og-image.png",
+        url: "https://base-wallet-analyser.vercel.app/splash.png",
         width: 1200,
         height: 630,
       }
@@ -39,7 +45,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Base Wallet Analyser",
     description: "Analyse wallets on Base network",
-    images: ["https://base-wallet-analyser.vercel.app/og-image.png"],
+    images: ["https://base-wallet-analyser.vercel.app/splash.png"],
   },
 
   other: {
@@ -59,6 +65,9 @@ export default function RootLayout({
         <meta name="fc:frame" content={JSON.stringify(miniappMetadata)} />
 
         <link rel="manifest" href="/.well-known/farcaster.json" />
+
+        <link rel="icon" href="/favicon.png" />
+        <link rel="apple-touch-icon" href="/icon.png" />
 
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
