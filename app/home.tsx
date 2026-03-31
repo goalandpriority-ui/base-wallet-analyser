@@ -301,7 +301,7 @@ const finalData = { ...basicData, ...proData }
 
 setData(finalData)
 
-/* AUTO CAST */
+/* AUTO CAST — FIXED */
 try{
 
 await sdk.actions.composeCast({
@@ -316,8 +316,8 @@ text:
 🏆 Rank: #${finalData.rank}
 ⭐ Score: ${finalData.score}
 
-Analyse yours 👇
-https://base-wallet-analyser.vercel.app`
+ Open Base Wallet Analyser
+https://base-wallet-analyser.vercel.app/`
 })
 
 }catch{}
