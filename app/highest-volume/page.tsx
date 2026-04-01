@@ -161,14 +161,14 @@ Next
 )
 }
 
-const tabs={
+const tabs: React.CSSProperties = {
 display:"flex",
 gap:10,
 marginBottom:20,
 flexWrap:"wrap"
 }
 
-const tab={
+const tab: React.CSSProperties = {
 padding:"8px 14px",
 borderRadius:10,
 background:"#020617",
@@ -176,7 +176,7 @@ border:"1px solid #111",
 cursor:"pointer"
 }
 
-const activeTab={
+const activeTab: React.CSSProperties = {
 padding:"8px 14px",
 borderRadius:10,
 background:"#22c55e",
@@ -184,7 +184,7 @@ color:"#020617",
 fontWeight:700
 }
 
-const badge={
+const badge: React.CSSProperties = {
 marginLeft:8,
 background:"#22c55e",
 color:"#020617",
@@ -194,7 +194,7 @@ fontSize:9,
 fontWeight:700
 }
 
-const viewBtn={
+const viewBtn: React.CSSProperties = {
 marginTop:6,
 padding:"6px 12px",
 background:"#22c55e",
@@ -203,4 +203,4 @@ borderRadius:8,
 color:"#020617",
 fontWeight:600,
 cursor:"pointer"
-  }
+}
