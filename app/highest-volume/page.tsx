@@ -20,7 +20,6 @@ fetch(`/api/highest-volume?page=${page}&wallet=${wallet||""}`)
 .then(res=>res.json())
 .then(res=>{
 
-/* FIX FIELD NAMES */
 const mapped = (res.data || []).map((w:any)=>({
 ...w,
 volume: w.tradingvolumeusd ?? w.volume ?? w.tradingVolumeUSD ?? 0,
@@ -36,6 +35,15 @@ setRank(res.yourRank)
 
 return(
 <div style={{padding:20}}>
+
+{/* TABS */}
+<div style={tabs}>
+<Link href="/leaderboard"><div style={tab}>🏆 Leaderboard</div></Link>
+<Link href="/wallets"><div style={tab}>👑 Wallets</div></Link>
+<Link href="/traders"><div style={tab}>📈 Traders</div></Link>
+<div style={activeTab}>💰 Volume</div>
+<Link href="/followers"><div style={tab}>👥 Followers</div></Link>
+</div>
 
 <h1 style={{fontSize:30,fontWeight:700}}>
 💰 Highest Volume
@@ -153,6 +161,29 @@ Next
 )
 }
 
+const tabs={
+display:"flex",
+gap:10,
+marginBottom:20,
+flexWrap:"wrap"
+}
+
+const tab={
+padding:"8px 14px",
+borderRadius:10,
+background:"#020617",
+border:"1px solid #111",
+cursor:"pointer"
+}
+
+const activeTab={
+padding:"8px 14px",
+borderRadius:10,
+background:"#22c55e",
+color:"#020617",
+fontWeight:700
+}
+
 const badge={
 marginLeft:8,
 background:"#22c55e",
@@ -172,4 +203,4 @@ borderRadius:8,
 color:"#020617",
 fontWeight:600,
 cursor:"pointer"
-}
+  }
