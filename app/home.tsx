@@ -5,9 +5,9 @@ import { sdk } from "@farcaster/miniapp-sdk"
 
 /* FORCE FARCASTER BG FIX */
 if (typeof window !== "undefined") {
-document.documentElement.style.background = "#020617"
-document.body.style.background = "#020617"
-document.body.style.color = "#22c55e"
+  document.documentElement.style.background = "#020617"
+  document.body.style.background = "#020617"
+  document.body.style.color = "#22c55e"
 }
 
 export default function Home() {
@@ -16,37 +16,32 @@ const [wallet,setWallet]=useState("")
 const [data,setData]=useState<any>(null)
 const [loading,setLoading]=useState(false)
 const [paid,setPaid]=useState(false)
+const [localPaid,setLocalPaid]=useState(false)
 const [connecting,setConnecting]=useState(true)
 
 /* SAFE PAID CHECK */
-const isPaid =
-paid ||
-(localStorage.getItem("paid_"+wallet) === "true")
+const isPaid = paid || localPaid
 
 /* MINIAPP READY */
 useEffect(()=>{
-sdk.actions.ready()
+  sdk.actions.ready()
 },[])
 
 /* RESTORE PAID FROM LOCAL */
 useEffect(()=>{
-
-const cached = localStorage.getItem("lastWallet")
-if(!cached) return
-
-const localPaid = localStorage.getItem("paid_"+cached)
-
-if(localPaid==="true"){
-setPaid(true)
-}
-
-},[])
+  if(!wallet) return
+  const p = localStorage.getItem("paid_"+wallet)
+  if(p==="true"){
+    setLocalPaid(true)
+    setPaid(true)
+  }
+},[wallet])
 
 /* AUTO CHECK AFTER WALLET */
 useEffect(()=>{
-if(wallet){
-checkPaid(wallet)
-}
+  if(wallet){
+    checkPaid(wallet)
+  }
 },[wallet])
 
 /* CONNECT */
@@ -72,8 +67,11 @@ const w = accounts[0].toLowerCase()
 setWallet(w)
 localStorage.setItem("lastWallet",w)
 
-const localPaid = localStorage.getItem("paid_"+w)
-if(localPaid==="true") setPaid(true)
+const lp = localStorage.getItem("paid_"+w)
+if(lp==="true"){
+setPaid(true)
+setLocalPaid(true)
+}
 
 checkPaid(w)
 setConnecting(false)
@@ -111,8 +109,11 @@ const w = fcWallet.toLowerCase()
 setWallet(w)
 localStorage.setItem("lastWallet",w)
 
-const localPaid = localStorage.getItem("paid_"+w)
-if(localPaid==="true") setPaid(true)
+const lp = localStorage.getItem("paid_"+w)
+if(lp==="true"){
+setPaid(true)
+setLocalPaid(true)
+}
 
 checkPaid(w)
 setConnecting(false)
@@ -136,8 +137,11 @@ const w = acc[0].toLowerCase()
 setWallet(w)
 localStorage.setItem("lastWallet",w)
 
-const localPaid = localStorage.getItem("paid_"+w)
-if(localPaid==="true") setPaid(true)
+const lp = localStorage.getItem("paid_"+w)
+if(lp==="true"){
+setPaid(true)
+setLocalPaid(true)
+}
 
 checkPaid(w)
 setConnecting(false)
@@ -156,8 +160,11 @@ const w = cached.toLowerCase()
 
 setWallet(w)
 
-const localPaid = localStorage.getItem("paid_"+w)
-if(localPaid==="true") setPaid(true)
+const lp = localStorage.getItem("paid_"+w)
+if(lp==="true"){
+setPaid(true)
+setLocalPaid(true)
+}
 
 checkPaid(w)
 }
@@ -176,10 +183,10 @@ const checkPaid = async (addr?:string)=>{
 const w = (addr || wallet)?.toLowerCase()
 if(!w) return
 
-/* instant unlock */
-const localPaid = localStorage.getItem("paid_"+w)
-if(localPaid==="true"){
+const lp = localStorage.getItem("paid_"+w)
+if(lp==="true"){
 setPaid(true)
+setLocalPaid(true)
 }
 
 try{
@@ -187,9 +194,9 @@ try{
 const res = await fetch(`/api/check-paid?wallet=${w}`)
 const json = await res.json()
 
-setPaid(json.paid)
-
 if(json.paid){
+setPaid(true)
+setLocalPaid(true)
 localStorage.setItem("paid_"+w,"true")
 }
 
@@ -200,7 +207,7 @@ localStorage.setItem("paid_"+w,"true")
 /* ANALYSE */
 const analyse = async()=>{
 
-/* PAYMENT USING CONNECTED WALLET */
+/* PAYMENT */
 if(!isPaid){
 
 try{
@@ -223,6 +230,7 @@ value:"0x16bcc41e9000"
 
 if(tx){
 setPaid(true)
+setLocalPaid(true)
 localStorage.setItem("paid_"+wallet,"true")
 }
 
@@ -362,7 +370,6 @@ cursor:"pointer"
 )}
 
 </main>
-
 )
 
 }
@@ -447,4 +454,4 @@ marginTop:20
 const divider:CSSProperties={
 margin:"15px 0",
 borderColor:"#0f172a"
-  }
+}
