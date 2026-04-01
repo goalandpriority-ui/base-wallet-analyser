@@ -18,6 +18,11 @@ const [loading,setLoading]=useState(false)
 const [paid,setPaid]=useState(false)
 const [connecting,setConnecting]=useState(true)
 
+/* SAFE PAID CHECK */
+const isPaid =
+paid ||
+(localStorage.getItem("paid_"+wallet) === "true")
+
 /* MINIAPP READY */
 useEffect(()=>{
 sdk.actions.ready()
@@ -196,7 +201,7 @@ localStorage.setItem("paid_"+w,"true")
 const analyse = async()=>{
 
 /* PAYMENT USING CONNECTED WALLET */
-if(!paid && !localStorage.getItem("paid_"+wallet)){
+if(!isPaid){
 
 try{
 
@@ -312,7 +317,7 @@ return(
 {connecting ? "Connecting..." : wallet}
 </div>
 
-{paid && <div style={pro}>PRO</div>}
+{isPaid && <div style={pro}>PRO</div>}
 </div>
 </div>
 
@@ -326,7 +331,7 @@ cursor:"pointer"
 >
 {loading
 ? "Analysing..."
-: paid
+: isPaid
 ? "Analyse Wallet"
 : "🔒 Pay 0.000025 ETH to unlock wallet stats"}
 </button>
@@ -442,4 +447,4 @@ marginTop:20
 const divider:CSSProperties={
 margin:"15px 0",
 borderColor:"#0f172a"
-}
+  }
