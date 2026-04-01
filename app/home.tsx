@@ -23,7 +23,21 @@ useEffect(()=>{
 sdk.actions.ready()
 },[])
 
-/* AUTO CHECK AFTER RELOAD */
+/* RESTORE PAID FROM LOCAL */
+useEffect(()=>{
+
+const cached = localStorage.getItem("lastWallet")
+if(!cached) return
+
+const localPaid = localStorage.getItem("paid_"+cached)
+
+if(localPaid==="true"){
+setPaid(true)
+}
+
+},[])
+
+/* AUTO CHECK AFTER WALLET */
 useEffect(()=>{
 if(wallet){
 checkPaid(wallet)
@@ -157,6 +171,12 @@ const checkPaid = async (addr?:string)=>{
 const w = (addr || wallet)?.toLowerCase()
 if(!w) return
 
+/* instant unlock */
+const localPaid = localStorage.getItem("paid_"+w)
+if(localPaid==="true"){
+setPaid(true)
+}
+
 try{
 
 const res = await fetch(`/api/check-paid?wallet=${w}`)
@@ -196,7 +216,6 @@ value:"0x16bcc41e9000"
 }]
 })
 
-/* instant unlock */
 if(tx){
 setPaid(true)
 localStorage.setItem("paid_"+wallet,"true")
@@ -421,4 +440,4 @@ marginTop:20
 const divider:CSSProperties={
 margin:"15px 0",
 borderColor:"#0f172a"
-}
+  }
