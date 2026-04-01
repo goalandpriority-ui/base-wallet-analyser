@@ -20,7 +20,6 @@ const to = from + limit - 1
 const { data, count } = await supabase
 .from("leaderboard")
 .select("*",{ count:"exact" })
-.gt("tradingvolumeusd",0)
 .order("tradingvolumeusd",{ascending:false})
 .range(from,to)
 
@@ -41,13 +40,13 @@ const { data: better } = await supabase
 .from("leaderboard")
 .select("wallet",{ count:"exact" })
 .gt("tradingvolumeusd",
-  (
-    await supabase
-    .from("leaderboard")
-    .select("tradingvolumeusd")
-    .eq("wallet", wallet)
-    .single()
-  ).data?.tradingvolumeusd || 0
+(
+await supabase
+.from("leaderboard")
+.select("tradingvolumeusd")
+.eq("wallet", wallet)
+.single()
+).data?.tradingvolumeusd || 0
 )
 
 yourRank = (better?.length || 0) + 1
