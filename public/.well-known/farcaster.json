@@ -7,11 +7,11 @@
   "miniapp": {
     "version": "1",
     "name": "Base Wallet Analyser",
-    "iconUrl": "https://base-wallet-analyser.vercel.app/icon.png?v=2",
+    "iconUrl": "https://base-wallet-analyser.vercel.app/icon.png?v=3",
     "homeUrl": "https://base-wallet-analyser.vercel.app",
-    "imageUrl": "https://base-wallet-analyser.vercel.app/splash.png?v=2",
-    "buttonTitle": " Open Base Wallet Analyser",
-    "splashImageUrl": "https://base-wallet-analyser.vercel.app/splash.png?v=2",
+    "imageUrl": "https://base-wallet-analyser.vercel.app/splash.png?v=3",
+    "buttonTitle": "🚀 Open Base Wallet Analyser",
+    "splashImageUrl": "https://base-wallet-analyser.vercel.app/splash.png?v=3",
     "splashBackgroundColor": "#020617"
   }
 }
