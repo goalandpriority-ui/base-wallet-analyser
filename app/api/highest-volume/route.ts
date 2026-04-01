@@ -13,48 +13,48 @@ const page = Number(searchParams.get("page") || 1)
 const wallet = searchParams.get("wallet")
 
 const limit = 20
-const from = (page - 1) * limit
+const from = (page-1) * limit
 const to = from + limit - 1
 
-/* main query */
+/* SORT BY VOLUME */
 const { data, count } = await supabase
 .from("leaderboard")
 .select("*",{ count:"exact" })
 .order("tradingvolumeusd",{ascending:false})
 .range(from,to)
 
-const mapped = (data || []).map(w => ({
+const mapped = (data || []).map(w=>({
+
 wallet: w.wallet,
 score: Number(w.score || 0),
 swaps: Number(w.swapcount || 0),
 volume: Number(w.tradingvolumeusd || 0),
+days: Number(w.tradingdays || 0),
+gas: Number(w.tradinggaseth || 0),
 paid: w.paid || false
+
 }))
 
-let yourRank = null
+let yourRank=null
 
-/* fast rank calc */
+/* SAME LOGIC AS LEADERBOARD */
 if(wallet){
 
-const { data: better } = await supabase
+const { data:all } = await supabase
 .from("leaderboard")
-.select("wallet",{ count:"exact" })
-.gt("tradingvolumeusd",
-(
-await supabase
-.from("leaderboard")
-.select("tradingvolumeusd")
-.eq("wallet", wallet)
-.single()
-).data?.tradingvolumeusd || 0
+.select("wallet,tradingvolumeusd")
+.order("tradingvolumeusd",{ascending:false})
+
+const index = all?.findIndex(
+w=>w.wallet.toLowerCase()===wallet.toLowerCase()
 )
 
-yourRank = (better?.length || 0) + 1
+if(index!==-1) yourRank=index+1
 
 }
 
 return NextResponse.json({
-data: mapped,
+data:mapped,
 yourRank,
 total: count,
 page,
