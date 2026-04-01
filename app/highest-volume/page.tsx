@@ -14,9 +14,11 @@ typeof window !== "undefined"
 ? localStorage.getItem("lastWallet")
 : null
 
-useEffect(()=>{
+const load = ()=>{
 
-fetch(`/api/highest-volume?page=${page}&wallet=${wallet||""}`)
+fetch(`/api/highest-volume?page=${page}&wallet=${wallet||""}`,{
+cache:"no-store"
+})
 .then(res=>res.json())
 .then(res=>{
 
@@ -31,6 +33,12 @@ setRank(res.yourRank)
 
 })
 
+}
+
+useEffect(()=>{
+load()
+const i=setInterval(load,5000)
+return ()=>clearInterval(i)
 },[page])
 
 return(
@@ -161,14 +169,14 @@ Next
 )
 }
 
-const tabs: React.CSSProperties = {
+const tabs={
 display:"flex",
 gap:10,
 marginBottom:20,
-flexWrap:"wrap"
+flexWrap:"wrap" as const
 }
 
-const tab: React.CSSProperties = {
+const tab={
 padding:"8px 14px",
 borderRadius:10,
 background:"#020617",
@@ -176,7 +184,7 @@ border:"1px solid #111",
 cursor:"pointer"
 }
 
-const activeTab: React.CSSProperties = {
+const activeTab={
 padding:"8px 14px",
 borderRadius:10,
 background:"#22c55e",
@@ -184,7 +192,7 @@ color:"#020617",
 fontWeight:700
 }
 
-const badge: React.CSSProperties = {
+const badge={
 marginLeft:8,
 background:"#22c55e",
 color:"#020617",
@@ -194,7 +202,7 @@ fontSize:9,
 fontWeight:700
 }
 
-const viewBtn: React.CSSProperties = {
+const viewBtn={
 marginTop:6,
 padding:"6px 12px",
 background:"#22c55e",
