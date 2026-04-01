@@ -196,7 +196,7 @@ localStorage.setItem("paid_"+w,"true")
 const analyse = async()=>{
 
 /* PAYMENT USING CONNECTED WALLET */
-if(!paid){
+if(!paid && !localStorage.getItem("paid_"+wallet)){
 
 try{
 
@@ -320,12 +320,14 @@ return(
 onClick={analyse}
 style={{
 ...analyseBtn,
-opacity: paid ? 1 : .6,
-cursor: "pointer"
+opacity:1,
+cursor:"pointer"
 }}
 >
-{paid
-? (loading ? "Analysing..." : "Analyse Wallet")
+{loading
+? "Analysing..."
+: paid
+? "Analyse Wallet"
 : "🔒 Pay 0.000025 ETH to unlock wallet stats"}
 </button>
 
@@ -440,4 +442,4 @@ marginTop:20
 const divider:CSSProperties={
 margin:"15px 0",
 borderColor:"#0f172a"
-  }
+}
