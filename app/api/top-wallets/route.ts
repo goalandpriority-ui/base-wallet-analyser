@@ -17,9 +17,9 @@ const from = (page - 1) * limit
 const to = from + limit - 1
 
 /* fetch page */
-const { data } = await supabase
+const { data, count } = await supabase
 .from("leaderboard")
-.select("*")
+.select("*",{ count:"exact" })
 .order("score",{ascending:false})
 .range(from,to)
 
@@ -31,32 +31,30 @@ volume: Number(w.tradingvolumeusd || 0),
 paid: w.paid || false
 }))
 
-/* FAST rank calc */
+/* SAME RANK LOGIC AS LEADERBOARD */
 let yourRank = null
 
 if(wallet){
 
-const { count } = await supabase
+const { data: all } = await supabase
 .from("leaderboard")
-.select("*",{count:"exact",head:true})
-.gt("score",
-(
-await supabase
-.from("leaderboard")
-.select("score")
-.eq("wallet",wallet)
-.single()
-).data?.score || 0
+.select("wallet,score")
+.order("score",{ascending:false})
+
+const index = all?.findIndex(
+w => w.wallet.toLowerCase() === wallet.toLowerCase()
 )
 
-yourRank = (count || 0) + 1
+if(index !== -1) yourRank = index + 1
 
 }
 
 return NextResponse.json({
 data: mapped,
 yourRank,
-page
+total: count,
+page,
+hasMore: (count || 0) > to + 1
 })
 
 }
