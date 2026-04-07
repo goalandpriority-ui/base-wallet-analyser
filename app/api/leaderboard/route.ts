@@ -6,11 +6,11 @@ import { getSupabase } from "@/lib/supabase"
 /* USERNAME */
 async function getUsername(wallet:string){
 
-/* FARCASTER (verification — most accurate) */
+/* FARCASTER (verification — FIXED) */
 try{
 
 const r = await fetch(
-`https://api.neynar.com/v2/farcaster/user/by-verification?address=${wallet}`,
+`https://api.neynar.com/v2/farcaster/user/by-verification?addresses=${wallet}`,
 {
 headers:{
 "api_key": process.env.NEYNAR_API_KEY || ""
@@ -21,7 +21,6 @@ headers:{
 const j = await r.json()
 
 const user =
-j?.result?.user ||
 j?.result?.users?.[0]
 
 if(user?.username){
@@ -31,7 +30,7 @@ return user.username
 }catch{}
 
 
-/* FARCASTER (bulk fallback — old logic keep) */
+/* FARCASTER (bulk fallback) */
 try{
 
 const r = await fetch(
@@ -86,14 +85,12 @@ const limit = 20
 const from = (page-1) * limit
 const to = from + limit - 1
 
-/* leaderboard */
 const { data, count } = await supabase
 .from("leaderboard")
 .select("*",{ count:"exact" })
 .order("score",{ascending:false})
 .range(from,to)
 
-/* SAME LOGIC + username add */
 const mapped = await Promise.all(
 (data || []).map(async (w)=>({
 
@@ -110,8 +107,8 @@ paid: w.paid || false
 }))
 )
 
-/* LIVE ACTIVITY — last 5 mins */
-const fiveMinAgo = new Date(Date.now() - 5*60*1000).toISOString()
+const fiveMinAgo =
+new Date(Date.now() - 5*60*1000).toISOString()
 
 const { data: liveRaw } = await supabase
 .from("leaderboard")
