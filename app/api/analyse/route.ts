@@ -10,6 +10,63 @@ const rpc = axios.create({
   timeout: 10000
 })
 
+/* GET USERNAME */
+async function getUsername(wallet:string){
+
+try{
+
+/* farcaster */
+const fc = await fetch(
+`https://api.neynar.com/v2/farcaster/user/bulk-by-address?addresses=${wallet}`,
+{
+headers:{
+"api_key":process.env.NEYNAR_API_KEY || ""
+}
+}
+)
+
+const fcJson = await fc.json()
+
+const user =
+fcJson?.result?.[wallet?.toLowerCase()]?.[0]
+
+if(user){
+return {
+username:user.username,
+display:user.display_name,
+pfp:user.pfp_url
+}
+}
+
+}catch{}
+
+try{
+
+/* ENS fallback */
+const ens = await fetch(
+`https://api.ensideas.com/ens/resolve/${wallet}`
+)
+
+const ensJson = await ens.json()
+
+if(ensJson?.name){
+return {
+username:ensJson.name,
+display:ensJson.name,
+pfp:null
+}
+}
+
+}catch{}
+
+return {
+username:null,
+display:null,
+pfp:null
+}
+
+}
+
 export async function POST(req: NextRequest) {
   try {
 
@@ -20,6 +77,9 @@ export async function POST(req: NextRequest) {
     }
 
     const address = wallet.toLowerCase().trim()
+
+    /* GET USERNAME */
+    const user = await getUsername(address)
 
     let allTransfers: any[] = []
     let pageKey: string | undefined = undefined
@@ -110,6 +170,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       wallet,
+      username:user.username,
+      display:user.display,
+      pfp:user.pfp,
       totalTxns,
       totalVolumeETH: Number(totalVolumeETH.toFixed(4)),
       totalGasETH: Number(totalGasETH.toFixed(6)),
