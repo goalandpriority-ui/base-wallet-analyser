@@ -6,7 +6,30 @@ import { getSupabase } from "@/lib/supabase"
 /* USERNAME */
 async function getUsername(wallet:string){
 
-/* FARCASTER */
+/* FARCASTER (verification — most accurate) */
+try{
+
+const r = await fetch(
+`https://api.neynar.com/v2/farcaster/user/by-verification?address=${wallet}`,
+{
+headers:{
+"api_key": process.env.NEYNAR_API_KEY || ""
+}
+}
+)
+
+const j = await r.json()
+
+const user = j?.result?.user
+
+if(user?.username){
+return user.username
+}
+
+}catch{}
+
+
+/* FARCASTER (bulk fallback — old logic keep) */
 try{
 
 const r = await fetch(
@@ -28,6 +51,7 @@ return user.username
 }
 
 }catch{}
+
 
 /* ENS */
 try{
