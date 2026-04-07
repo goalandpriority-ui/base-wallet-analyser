@@ -8,7 +8,7 @@ async function getUsername(wallet:string){
 
 const address = wallet.toLowerCase()
 
-/* FARCASTER (verification — FIXED) */
+/* FARCASTER (verification — primary) */
 try{
 
 const controller = new AbortController()
@@ -19,7 +19,7 @@ const r = await fetch(
 {
 headers:{
 "accept":"application/json",
-"api_key": process.env.NEYNAR_API_KEY || ""
+"x-api-key": process.env.NEYNAR_API_KEY || ""
 },
 signal: controller.signal
 }
@@ -39,7 +39,7 @@ return user.username
 }catch{}
 
 
-/* FARCASTER (bulk fallback) */
+/* FARCASTER (bulk fallback — keep old logic) */
 try{
 
 const controller = new AbortController()
@@ -50,7 +50,7 @@ const r = await fetch(
 {
 headers:{
 "accept":"application/json",
-"api_key": process.env.NEYNAR_API_KEY || ""
+"x-api-key": process.env.NEYNAR_API_KEY || ""
 },
 signal: controller.signal
 }
@@ -61,7 +61,7 @@ clearTimeout(timeout)
 const j = await r.json()
 
 const user =
-j?.result?.[address]?.[0]
+j?.result?.[address]?.users?.[0]
 
 if(user?.username){
 return user.username
@@ -70,7 +70,7 @@ return user.username
 }catch{}
 
 
-/* ENS */
+/* ENS fallback */
 try{
 
 const ens = await fetch(
@@ -101,12 +101,14 @@ const limit = 20
 const from = (page-1) * limit
 const to = from + limit - 1
 
+/* leaderboard */
 const { data, count } = await supabase
 .from("leaderboard")
 .select("*",{ count:"exact" })
 .order("score",{ascending:false})
 .range(from,to)
 
+/* mapped */
 const mapped = await Promise.all(
 (data || []).map(async (w)=>({
 
@@ -123,6 +125,7 @@ paid: w.paid || false
 }))
 )
 
+/* LIVE ACTIVITY */
 const fiveMinAgo =
 new Date(Date.now() - 5*60*1000).toISOString()
 
