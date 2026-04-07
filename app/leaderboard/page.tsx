@@ -24,7 +24,7 @@ typeof window !== "undefined"
 
 const load = ()=>{
 
-fetch(`/api/leaderboard?page=${page}&wallet=${wallet||""}`,{
+fetch(/api/leaderboard?page=${page}&wallet=${wallet||""},{
 cache:"no-store"
 })
 .then(res=>res.json())
@@ -84,7 +84,7 @@ setPage(targetPage)
 const searchWallet = ()=>{
 if(!search) return
 
-fetch(`/api/leaderboard?wallet=${search}`,{
+fetch(/api/leaderboard?wallet=${search},{
 cache:"no-store"
 })
 .then(res=>res.json())
@@ -114,98 +114,57 @@ return ""
 
 /* DISPLAY NAME */
 const getName = (w:any)=>{
-
-if(!w.username) return w.wallet
-
-if(w.username.endsWith(".eth")){
-return w.username
-}
-
-return "@"+w.username
-
+if(w.username) return "@"+w.username
+if(w.display) return w.display
+return w.wallet
 }
 
 return(
-<div style={{padding:20}}>
 
-<h1 style={{fontSize:30,fontWeight:700}}>
-🏆 Leaderboard
-</h1>
+<div style={{padding:20}}>  <h1 style={{fontSize:30,fontWeight:700}}>    
+🏆 Leaderboard    
+</h1>  {/* GLOBAL STATS */}  <div style={{    
+background:"#000",    
+color:"#00ff9c",    
+padding:15,    
+borderRadius:10,    
+marginBottom:15    
+}}>  <div style={{fontWeight:700,marginBottom:10}}>    
+🌍 Global Stats    
+</div>  <div>Wallets: {stats.wallets}</div>    
+<div>Swaps: {stats.swaps}</div>    
+<div>Volume: ${Math.round(stats.volume)}</div>  <hr style={{margin:"10px 0",borderColor:"#222"}} />  <div style={{fontWeight:700}}>    
+🔥 Live Activity    
+</div>  {stats.live?.map((w:any,i:number)=>(  <Link    
+key={i}    
+href={`/wallet/${w.wallet}`}    
+style={{display:"block",marginTop:4}}    
+>    
+#{i+1} {w.username ? "@"+w.username : w.wallet}    
+</Link>    
+))}  </div>  {rank && (  <div style={{    
+background:"#000",    
+color:"#00ff9c",    
+padding:15,    
+borderRadius:10,    
+marginBottom:15    
+}}>    
+Your Rank: #{rank}  <button  
+onClick={jumpToRank}  
+style={{marginLeft:10}}  > 
 
-{/* GLOBAL STATS */}
-
-<div style={{
-background:"#000",
-color:"#00ff9c",
-padding:15,
-borderRadius:10,
-marginBottom:15
-}}>
-
-<div style={{fontWeight:700,marginBottom:10}}>
-🌍 Global Stats
-</div>
-
-<div>Wallets: {stats.wallets}</div>
-<div>Swaps: {stats.swaps}</div>
-<div>Volume: ${Math.round(stats.volume)}</div>
-
-<hr style={{margin:"10px 0",borderColor:"#222"}} />
-
-<div style={{fontWeight:700}}>
-🔥 Live Activity
-</div>
-
-{stats.live?.map((w:any,i:number)=>(
-<Link
-key={i}
-href={`/wallet/${w.wallet}`}
-style={{display:"block",marginTop:4}}
->
-#{i+1} {getName(w)}
-</Link>
-))}
-
-</div>
-
-{rank && (
-<div style={{
-background:"#000",
-color:"#00ff9c",
-padding:15,
-borderRadius:10,
-marginBottom:15
-}}>
-Your Rank: #{rank}
-
-<button
-onClick={jumpToRank}
-style={{marginLeft:10}}
->
 Jump to my rank
 </button>
 
-</div>
-)}
-
-<div style={{marginBottom:15}}>
-
-<input
-placeholder="Search wallet..."
-value={search}
-onChange={(e)=>setSearch(e.target.value)}
-style={{padding:8,width:300}}
-/>
-
-<button onClick={searchWallet}>
-Search
-</button>
-
-</div>
-
-{data.map((w,i)=>{
-
-const position = (page-1)*20+i+1
+</div>    
+)}  <div style={{marginBottom:15}}>  <input  
+placeholder="Search wallet..."  
+value={search}  
+onChange={(e)=>setSearch(e.target.value)}  
+style={{padding:8,width:300}}  
+/>  <button onClick={searchWallet}>    
+Search    
+</button>  </div>  {data.map((w,i)=>{  const position = (page-1)*20+i+1
 
 const isYou =
 wallet &&
@@ -213,103 +172,67 @@ w.wallet.toLowerCase() === wallet.toLowerCase()
 
 return(
 
-<div
-key={i}
-style={{
-background: isYou ? "#06281c" : "#0b0b0b",
-color:"#00ff9c",
-padding:14,
-borderRadius:10,
-marginBottom:8,
-border:"1px solid #111"
-}}
->
-
-<div style={{
-display:"flex",
-justifyContent:"space-between"
-}}>
-
-<div>
-{getBadge(position)} #{position}
-</div>
-
-<div>
-{getTag(w)}
-</div>
-
-</div>
-
-{/* USERNAME */}
-<div style={{
-fontSize:15,
-fontWeight:600,
-marginTop:4
-}}>
-{getName(w)}
-</div>
-
-{/* WALLET */}
-<div style={{
-fontSize:12,
-opacity:0.6,
-wordBreak:"break-all"
-}}>
-{w.wallet}
-</div>
-
-<div style={{
-marginTop:4,
-fontSize:12
-}}>
-Score: {Math.round(w.score)} |
-Swaps: {w.swaps} |
-Vol: ${Math.round(w.volume)}
-</div>
-
-<div style={{marginTop:8}}>
-<Link href={`/wallet/${w.wallet}`}>
-<button style={viewBtn}>
-View Wallet Profile
-</button>
-</Link>
-</div>
-
-</div>
-
-)
-})}
-
-<div style={{
-marginTop:20,
-display:"flex",
-gap:10
-}}>
-
-<button onClick={()=>setPage(p=>Math.max(1,p-1))}>
-Prev
-</button>
-
-<div>
-Page {page}
-</div>
-
-<button onClick={()=>setPage(p=>p+1)}>
-Next
-</button>
-
-</div>
-
-</div>
-)
-}
-
-const viewBtn={
-padding:"6px 12px",
-background:"#22c55e",
-border:"none",
-borderRadius:8,
-color:"#020617",
-fontWeight:600,
-cursor:"pointer"
-  }
+<div    
+key={i}    
+style={{    
+background: isYou ? "#06281c" : "#0b0b0b",    
+color:"#00ff9c",    
+padding:14,    
+borderRadius:10,    
+marginBottom:8,    
+border:"1px solid #111"    
+}}    
+>  <div style={{    
+display:"flex",    
+justifyContent:"space-between"    
+}}>  <div>    
+{getBadge(position)} #{position}    
+</div>  <div>    
+{getTag(w)}    
+</div>  </div>  {/* USERNAME */}  <div style={{    
+fontSize:15,    
+fontWeight:600,    
+marginTop:4    
+}}>    
+{getName(w)}    
+</div>  {/* WALLET */}  <div style={{    
+fontSize:12,    
+opacity:0.6,    
+wordBreak:"break-all"    
+}}>    
+{w.wallet}    
+</div>  <div style={{    
+marginTop:4,    
+fontSize:12    
+}}>    
+Score: {Math.round(w.score)} |    
+Swaps: {w.swaps} |    
+Vol: ${Math.round(w.volume)}    
+</div>  <div style={{marginTop:8}}>    
+<Link href={`/wallet/${w.wallet}`}>    
+<button style={viewBtn}>    
+View Wallet Profile    
+</button>    
+</Link>    
+</div>  </div>  )  
+})}  <div style={{    
+marginTop:20,    
+display:"flex",    
+gap:10    
+}}>  <button onClick={()=>setPage(p=>Math.max(1,p-1))}>  
+Prev  
+</button>  <div>    
+Page {page}    
+</div>  <button onClick={()=>setPage(p=>p+1)}>  
+Next  
+</button>  </div>  </div>    
+)    
+}  const viewBtn={  
+padding:"6px 12px",  
+background:"#22c55e",  
+border:"none",  
+borderRadius:8,  
+color:"#020617",  
+fontWeight:600,  
+cursor:"pointer"  
+}  
