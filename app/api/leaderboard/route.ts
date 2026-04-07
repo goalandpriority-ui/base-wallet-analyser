@@ -64,7 +64,7 @@ const users = j?.result?.[address] || []
 
 for(const user of users){
 
-/* username */
+/* direct username */
 if(user?.username){
 return user.username
 }
@@ -92,6 +92,20 @@ user?.verified_addresses?.sol_addresses || []
 
 if(
 sol.some((a:string)=>a.toLowerCase()===address)
+){
+return user.username
+}
+
+/* ANY address match fallback */
+const all =
+[
+...(user?.verified_addresses?.eth_addresses || []),
+...(user?.verified_addresses?.sol_addresses || []),
+user?.custody_address
+].filter(Boolean)
+
+if(
+all.some((a:string)=>a.toLowerCase()===address)
 ){
 return user.username
 }
