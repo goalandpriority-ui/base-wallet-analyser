@@ -60,8 +60,9 @@ clearTimeout(timeout)
 
 const j = await r.json()
 
+/* FIXED HERE */
 const user =
-j?.result?.[address]?.users?.[0]
+j?.result?.[address]?.[0]
 
 if(user?.username){
 return user.username
