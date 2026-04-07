@@ -6,17 +6,26 @@ import { getSupabase } from "@/lib/supabase"
 /* USERNAME */
 async function getUsername(wallet:string){
 
+const address = wallet.toLowerCase()
+
 /* FARCASTER (verification — FIXED) */
 try{
 
+const controller = new AbortController()
+const timeout = setTimeout(()=>controller.abort(),1500)
+
 const r = await fetch(
-`https://api.neynar.com/v2/farcaster/user/by-verification?addresses=${wallet}`,
+`https://api.neynar.com/v2/farcaster/user/by-verification?addresses=${address}`,
 {
 headers:{
+"accept":"application/json",
 "api_key": process.env.NEYNAR_API_KEY || ""
-}
+},
+signal: controller.signal
 }
 )
+
+clearTimeout(timeout)
 
 const j = await r.json()
 
@@ -33,19 +42,26 @@ return user.username
 /* FARCASTER (bulk fallback) */
 try{
 
+const controller = new AbortController()
+const timeout = setTimeout(()=>controller.abort(),1500)
+
 const r = await fetch(
-`https://api.neynar.com/v2/farcaster/user/bulk-by-address?addresses=${wallet}`,
+`https://api.neynar.com/v2/farcaster/user/bulk-by-address?addresses=${address}`,
 {
 headers:{
+"accept":"application/json",
 "api_key": process.env.NEYNAR_API_KEY || ""
-}
+},
+signal: controller.signal
 }
 )
+
+clearTimeout(timeout)
 
 const j = await r.json()
 
 const user =
-j?.result?.[wallet?.toLowerCase()]?.[0]
+j?.result?.[address]?.[0]
 
 if(user?.username){
 return user.username
@@ -58,7 +74,7 @@ return user.username
 try{
 
 const ens = await fetch(
-`https://api.ensideas.com/ens/resolve/${wallet}`
+`https://api.ensideas.com/ens/resolve/${address}`
 )
 
 const ej = await ens.json()
