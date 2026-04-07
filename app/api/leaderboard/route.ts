@@ -39,7 +39,7 @@ return user.username
 }catch{}
 
 
-/* FARCASTER (bulk fallback — keep old logic) */
+/* FARCASTER (bulk fallback — keep old logic + UNVERIFIED support) */
 try{
 
 const controller = new AbortController()
@@ -60,12 +60,42 @@ clearTimeout(timeout)
 
 const j = await r.json()
 
-/* FIXED HERE */
-const user =
-j?.result?.[address]?.[0]
+const users = j?.result?.[address] || []
 
+for(const user of users){
+
+/* username */
 if(user?.username){
 return user.username
+}
+
+/* custody address */
+if(
+user?.custody_address?.toLowerCase() === address
+){
+return user.username
+}
+
+/* verified eth */
+const eth =
+user?.verified_addresses?.eth_addresses || []
+
+if(
+eth.some((a:string)=>a.toLowerCase()===address)
+){
+return user.username
+}
+
+/* verified sol */
+const sol =
+user?.verified_addresses?.sol_addresses || []
+
+if(
+sol.some((a:string)=>a.toLowerCase()===address)
+){
+return user.username
+}
+
 }
 
 }catch{}
