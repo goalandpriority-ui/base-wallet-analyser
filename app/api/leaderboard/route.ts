@@ -20,14 +20,15 @@ headers:{
 
 const j = await r.json()
 
-const user = j?.result?.user
+const user =
+j?.result?.user ||
+j?.result?.users?.[0]
 
 if(user?.username){
 return user.username
 }
 
 }catch{}
-
 
 
 /* FARCASTER (bulk fallback — old logic keep) */
@@ -52,7 +53,6 @@ return user.username
 }
 
 }catch{}
-
 
 
 /* ENS */
@@ -86,8 +86,6 @@ const limit = 20
 const from = (page-1) * limit
 const to = from + limit - 1
 
-
-
 /* leaderboard */
 const { data, count } = await supabase
 .from("leaderboard")
@@ -95,14 +93,11 @@ const { data, count } = await supabase
 .order("score",{ascending:false})
 .range(from,to)
 
-
-
 /* SAME LOGIC + username add */
 const mapped = await Promise.all(
 (data || []).map(async (w)=>({
 
 wallet: w.wallet,
-
 username: await getUsername(w.wallet),
 
 score: Number(w.score || 0),
@@ -110,17 +105,13 @@ swaps: Number(w.swapcount || 0),
 volume: Number(w.tradingvolumeusd || 0),
 days: Number(w.tradingdays || 0),
 gas: Number(w.tradinggaseth || 0),
-
 paid: w.paid || false
 
 }))
 )
 
-
-
 /* LIVE ACTIVITY — last 5 mins */
-const fiveMinAgo =
-new Date(Date.now() - 5*60*1000).toISOString()
+const fiveMinAgo = new Date(Date.now() - 5*60*1000).toISOString()
 
 const { data: liveRaw } = await supabase
 .from("leaderboard")
@@ -129,13 +120,10 @@ const { data: liveRaw } = await supabase
 .order("updated_at",{ascending:false})
 .limit(10)
 
-
-
 const live = await Promise.all(
 (liveRaw || []).map(async (w)=>({
 
 wallet: w.wallet,
-
 username: await getUsername(w.wallet),
 
 score: Number(w.score || 0),
@@ -144,8 +132,6 @@ volume: Number(w.tradingvolumeusd || 0)
 
 }))
 )
-
-
 
 let yourRank=null
 
@@ -164,20 +150,12 @@ if(index!==-1) yourRank=index+1
 
 }
 
-
-
 return NextResponse.json({
-
 data:mapped,
 live,
-
 yourRank,
-
 total: count,
 page,
-
 hasMore: (count || 0) > to + 1
-
 })
-
-  }
+}
