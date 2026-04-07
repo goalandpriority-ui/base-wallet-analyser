@@ -21,7 +21,7 @@ headers:{
 const j = await r.json()
 
 const user =
-j?.result?.[wallet?.toLowerCase()]?.[0]
+j?.result?.[wallet?.toLowerCase()]?.users?.[0]
 
 if(user?.username){
 return user.username
@@ -73,6 +73,7 @@ const mapped = await Promise.all(
 
 wallet: w.wallet,
 username: await getUsername(w.wallet),
+
 score: Number(w.score || 0),
 swaps: Number(w.swapcount || 0),
 volume: Number(w.tradingvolumeusd || 0),
@@ -98,6 +99,7 @@ const live = await Promise.all(
 
 wallet: w.wallet,
 username: await getUsername(w.wallet),
+
 score: Number(w.score || 0),
 swaps: Number(w.swapcount || 0),
 volume: Number(w.tradingvolumeusd || 0)
