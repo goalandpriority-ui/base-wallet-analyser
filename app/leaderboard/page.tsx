@@ -114,9 +114,15 @@ return ""
 
 /* DISPLAY NAME */
 const getName = (w:any)=>{
-if(w.username) return "@"+w.username
-if(w.display) return w.display
-return w.wallet
+
+if(!w.username) return w.wallet
+
+if(w.username.endsWith(".eth")){
+return w.username
+}
+
+return "@"+w.username
+
 }
 
 return(
@@ -156,7 +162,7 @@ key={i}
 href={`/wallet/${w.wallet}`}
 style={{display:"block",marginTop:4}}
 >
-#{i+1} {w.username ? "@"+w.username : w.wallet}
+#{i+1} {getName(w)}
 </Link>
 ))}
 
@@ -306,4 +312,4 @@ borderRadius:8,
 color:"#020617",
 fontWeight:600,
 cursor:"pointer"
-}
+  }
