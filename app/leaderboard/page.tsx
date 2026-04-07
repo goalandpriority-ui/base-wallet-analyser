@@ -112,6 +112,13 @@ if(w.days > 30) return "🧠 Pro"
 return ""
 }
 
+/* DISPLAY NAME */
+const getName = (w:any)=>{
+if(w.username) return "@"+w.username
+if(w.display) return w.display
+return w.wallet
+}
+
 return(
 <div style={{padding:20}}>
 
@@ -149,7 +156,7 @@ key={i}
 href={`/wallet/${w.wallet}`}
 style={{display:"block",marginTop:4}}
 >
-#{i+1} {w.wallet}
+#{i+1} {w.username ? "@"+w.username : w.wallet}
 </Link>
 ))}
 
@@ -227,9 +234,19 @@ justifyContent:"space-between"
 
 </div>
 
+{/* USERNAME */}
 <div style={{
-fontSize:13,
-opacity:0.8,
+fontSize:15,
+fontWeight:600,
+marginTop:4
+}}>
+{getName(w)}
+</div>
+
+{/* WALLET */}
+<div style={{
+fontSize:12,
+opacity:0.6,
 wordBreak:"break-all"
 }}>
 {w.wallet}
