@@ -6,9 +6,16 @@ import { getSupabase } from "@/lib/supabase"
 /* USERNAME */
 async function getUsername(wallet:string){
 
+/* FARCASTER */
 try{
+
 const r = await fetch(
-`https://api.neynar.com/v2/farcaster/user/bulk-by-address?addresses=${wallet}`
+`https://api.neynar.com/v2/farcaster/user/bulk-by-address?addresses=${wallet}`,
+{
+headers:{
+"api_key": process.env.NEYNAR_API_KEY || ""
+}
+}
 )
 
 const j = await r.json()
@@ -19,9 +26,12 @@ j?.result?.[wallet?.toLowerCase()]?.[0]
 if(user?.username){
 return user.username
 }
+
 }catch{}
 
+/* ENS */
 try{
+
 const ens = await fetch(
 `https://api.ensideas.com/ens/resolve/${wallet}`
 )
@@ -31,6 +41,7 @@ const ej = await ens.json()
 if(ej?.name){
 return ej.name
 }
+
 }catch{}
 
 return null
@@ -61,7 +72,7 @@ const mapped = await Promise.all(
 (data || []).map(async (w)=>({
 
 wallet: w.wallet,
-username: await getUsername(w.wallet),  // <-- added only this
+username: await getUsername(w.wallet),
 score: Number(w.score || 0),
 swaps: Number(w.swapcount || 0),
 volume: Number(w.tradingvolumeusd || 0),
@@ -86,7 +97,7 @@ const live = await Promise.all(
 (liveRaw || []).map(async (w)=>({
 
 wallet: w.wallet,
-username: await getUsername(w.wallet), // <-- added only this
+username: await getUsername(w.wallet),
 score: Number(w.score || 0),
 swaps: Number(w.swapcount || 0),
 volume: Number(w.tradingvolumeusd || 0)
