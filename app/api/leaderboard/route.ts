@@ -21,10 +21,32 @@ headers:{
 
 const j = await r.json()
 
-const user = j?.result?.user
+/* NEW SAFE PARSE */
+const user =
+j?.result?.user ||
+j?.result?.users?.[0] ||
+j?.result
 
 if(user?.username){
 return "@"+user.username
+}
+
+}catch{}
+
+
+/* NEYNAR FALLBACK (FREE) */
+try{
+
+const r = await fetch(
+`https://api.neynar.com/v2/farcaster/user/bulk-by-address?addresses=${address}`
+)
+
+const j = await r.json()
+
+const u = j?.result?.[address]?.[0]
+
+if(u?.username){
+return "@"+u.username
 }
 
 }catch{}
