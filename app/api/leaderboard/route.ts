@@ -84,12 +84,8 @@ return bj.name
 }catch{}
 
 
-/* FINAL fallback short wallet */
-return (
-address.slice(0,6) +
-"..." +
-address.slice(-4)
-)
+/* FINAL fallback — IMPORTANT CHANGE */
+return null
 
 }
 
