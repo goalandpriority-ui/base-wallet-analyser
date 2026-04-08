@@ -31,6 +31,12 @@ if(user?.username){
 return "@"+user.username
 }
 
+/* 🔥 FARCASTER MINIAPP FIX */
+const v = j?.result?.verifications?.[0]?.user
+if(v?.username){
+return "@"+v.username
+}
+
 }catch{}
 
 
@@ -43,7 +49,9 @@ const r = await fetch(
 
 const j = await r.json()
 
-const u = j?.result?.[address]?.[0]
+const u =
+j?.result?.[address]?.[0] ||
+j?.result?.users?.[0]
 
 if(u?.username){
 return "@"+u.username
@@ -84,7 +92,7 @@ return bj.name
 }catch{}
 
 
-/* FINAL fallback — IMPORTANT CHANGE */
+/* FINAL fallback */
 return null
 
 }
