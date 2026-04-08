@@ -8,11 +8,11 @@ async function getUsername(wallet:string){
 
 const address = wallet.toLowerCase()
 
-/* FARCASTER — search-by-address (NEW FIX) */
+/* FARCASTER — FULL MATCH (custody + verified + signer) */
 try{
 
 const r = await fetch(
-`https://api.neynar.com/v2/farcaster/user/search-by-address?q=${address}`,
+`https://api.neynar.com/v2/farcaster/user/bulk-by-address?addresses=${address}&address_types=custody_address,verified_address,signer_address`,
 {
 headers:{
 "accept":"application/json",
@@ -22,11 +22,54 @@ headers:{
 
 const j = await r.json()
 
-const user =
-j?.result?.users?.[0]
+const users =
+j?.result?.[address]?.users ||
+j?.result?.[address] ||
+[]
+
+for(const user of users){
 
 if(user?.username){
 return "@"+user.username
+}
+
+/* custody */
+if(
+user?.custody_address?.toLowerCase() === address
+){
+return "@"+user.username
+}
+
+/* verified eth */
+const eth =
+user?.verified_addresses?.eth_addresses || []
+
+if(
+eth.some((a:string)=>a.toLowerCase()===address)
+){
+return "@"+user.username
+}
+
+/* verified sol */
+const sol =
+user?.verified_addresses?.sol_addresses || []
+
+if(
+sol.some((a:string)=>a.toLowerCase()===address)
+){
+return "@"+user.username
+}
+
+/* signer match */
+const signer =
+user?.signer_address
+
+if(
+signer?.toLowerCase() === address
+){
+return "@"+user.username
+}
+
 }
 
 }catch{}
@@ -93,43 +136,6 @@ j?.result?.[address.toUpperCase()]?.users ||
 for(const user of users){
 
 if(user?.username){
-return "@"+user.username
-}
-
-if(
-user?.custody_address?.toLowerCase() === address
-){
-return "@"+user.username
-}
-
-const eth =
-user?.verified_addresses?.eth_addresses || []
-
-if(
-eth.some((a:string)=>a.toLowerCase()===address)
-){
-return "@"+user.username
-}
-
-const sol =
-user?.verified_addresses?.sol_addresses || []
-
-if(
-sol.some((a:string)=>a.toLowerCase()===address)
-){
-return "@"+user.username
-}
-
-const all =
-[
-...(user?.verified_addresses?.eth_addresses || []),
-...(user?.verified_addresses?.sol_addresses || []),
-user?.custody_address
-].filter(Boolean)
-
-if(
-all.some((a:string)=>a.toLowerCase()===address)
-){
 return "@"+user.username
 }
 
