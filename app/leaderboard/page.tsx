@@ -114,18 +114,27 @@ return ""
 /* DISPLAY NAME */
 const getName = (w:any)=>{
 
+const u = (w.username || "").trim()
+
+/* valid username */
 if(
-w.username &&
-!w.username.startsWith("0x") &&
-!w.username.includes("...") &&
-w.username.length > 8
+u &&
+!u.startsWith("0x") &&
+!u.includes("...") &&
+u.length > 2
 ){
-if(w.username.endsWith(".eth")) return w.username
-if(w.username.includes(".")) return w.username
-return "@"+w.username
+
+/* ENS */
+if(u.endsWith(".eth")) return u
+
+/* RNS / domain */
+if(u.includes(".")) return u
+
+/* farcaster */
+return "@"+u
 }
 
-/* fallback */
+/* fallback wallet */
 return (
 w.wallet.slice(0,6) +
 "..." +
