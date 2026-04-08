@@ -114,22 +114,16 @@ return ""
 /* DISPLAY NAME */
 const getName = (w:any)=>{
 
-/* FARCASTER */
-if(
-w.username &&
-w.username !== w.wallet &&
-!w.username.startsWith("0x") &&
-w.username.length > 3
-){
-return "@"+w.username
-}
+const u = (w.username || "").trim()
 
-/* ENS / RNS */
+/* valid username */
 if(
-w.username &&
-w.username.includes(".")
+u &&
+!u.startsWith("0x") &&
+!u.includes("...") &&
+u.length > 2
 ){
-return w.username
+return u
 }
 
 /* fallback */
