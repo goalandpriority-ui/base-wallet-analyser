@@ -116,9 +116,11 @@ const getName = (w:any)=>{
 
 const u = (w.username || "").trim()
 
-/* valid username */
+/* farcaster */
 if(
 u &&
+u !== "null" &&
+u !== "undefined" &&
 !u.startsWith("0x") &&
 !u.includes("...") &&
 u.length > 2
@@ -126,7 +128,15 @@ u.length > 2
 return u
 }
 
-/* fallback */
+/* ENS */
+if(
+u &&
+u.includes(".")
+){
+return u
+}
+
+/* fallback wallet */
 return (
 w.wallet.slice(0,6) +
 "..." +
