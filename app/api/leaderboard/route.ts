@@ -8,96 +8,20 @@ async function getUsername(wallet:string){
 
 const address = wallet.toLowerCase()
 
-/* FARCASTER — FULL MATCH (custody + verified + signer) */
+/* WARPCAST — FREE FARCASTER USERNAME */
 try{
 
 const r = await fetch(
-`https://api.neynar.com/v2/farcaster/user/bulk-by-address?addresses=${address}&address_types=custody_address,verified_address,signer_address`,
+`https://client.warpcast.com/v2/user-by-verification?address=${address}`,
 {
 headers:{
-"accept":"application/json",
-"x-api-key": process.env.NEYNAR_API_KEY || ""
+"accept":"application/json"
 }
 })
 
 const j = await r.json()
 
-const users =
-j?.result?.[address]?.users ||
-j?.result?.[address] ||
-[]
-
-for(const user of users){
-
-if(user?.username){
-return "@"+user.username
-}
-
-/* custody */
-if(
-user?.custody_address?.toLowerCase() === address
-){
-return "@"+user.username
-}
-
-/* verified eth */
-const eth =
-user?.verified_addresses?.eth_addresses || []
-
-if(
-eth.some((a:string)=>a.toLowerCase()===address)
-){
-return "@"+user.username
-}
-
-/* verified sol */
-const sol =
-user?.verified_addresses?.sol_addresses || []
-
-if(
-sol.some((a:string)=>a.toLowerCase()===address)
-){
-return "@"+user.username
-}
-
-/* signer match */
-const signer =
-user?.signer_address
-
-if(
-signer?.toLowerCase() === address
-){
-return "@"+user.username
-}
-
-}
-
-}catch{}
-
-
-/* FARCASTER (verification — primary) */
-try{
-
-const controller = new AbortController()
-const timeout = setTimeout(()=>controller.abort(),1500)
-
-const r = await fetch(
-`https://api.neynar.com/v2/farcaster/user/by-verification?addresses=${address}`,
-{
-headers:{
-"accept":"application/json",
-"x-api-key": process.env.NEYNAR_API_KEY || ""
-},
-signal: controller.signal
-}
-)
-
-clearTimeout(timeout)
-
-const j = await r.json()
-
-const user =
-j?.result?.users?.[0]
+const user = j?.result?.user
 
 if(user?.username){
 return "@"+user.username
@@ -106,45 +30,7 @@ return "@"+user.username
 }catch{}
 
 
-/* FARCASTER (bulk fallback — keep old logic + UNVERIFIED support) */
-try{
-
-const controller = new AbortController()
-const timeout = setTimeout(()=>controller.abort(),1500)
-
-const r = await fetch(
-`https://api.neynar.com/v2/farcaster/user/bulk-by-address?addresses=${address}`,
-{
-headers:{
-"accept":"application/json",
-"x-api-key": process.env.NEYNAR_API_KEY || ""
-},
-signal: controller.signal
-}
-)
-
-clearTimeout(timeout)
-
-const j = await r.json()
-
-const users =
-j?.result?.[address]?.users ||
-j?.result?.[address.toLowerCase()]?.users ||
-j?.result?.[address.toUpperCase()]?.users ||
-[]
-
-for(const user of users){
-
-if(user?.username){
-return "@"+user.username
-}
-
-}
-
-}catch{}
-
-
-/* ENS fallback */
+/* FALLBACK — ENS */
 try{
 
 const ens = await fetch(
