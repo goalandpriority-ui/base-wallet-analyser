@@ -111,22 +111,24 @@ if(w.days > 30) return "🧠 Pro"
 return ""
 }
 
-/* DISPLAY NAME — FIXED */
+/* DISPLAY NAME — FINAL FIX */
 const getName = (w:any)=>{
 
 const u = (w.username || "").trim()
 
-/* if username exists use directly */
+/* valid username */
 if(
 u &&
 u !== "null" &&
 u !== "undefined" &&
-u.length > 0
+!u.startsWith("0x") &&
+!u.includes("...") &&
+u.length >= 3
 ){
 return u
 }
 
-/* ENS fallback */
+/* ENS or basename */
 if(
 u &&
 u.includes(".")
