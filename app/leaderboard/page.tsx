@@ -111,29 +111,12 @@ if(w.days > 30) return "🧠 Pro"
 return ""
 }
 
-/* DISPLAY NAME — FINAL FIX */
+/* DISPLAY NAME — API FIRST */
 const getName = (w:any)=>{
 
-const u = (w.username || "").trim()
-
-/* valid username */
-if(
-u &&
-u !== "null" &&
-u !== "undefined" &&
-!u.startsWith("0x") &&
-!u.includes("...") &&
-u.length >= 3
-){
-return u
-}
-
-/* ENS or basename */
-if(
-u &&
-u.includes(".")
-){
-return u
+/* API username priority */
+if(w.username){
+return w.username
 }
 
 /* fallback wallet */
