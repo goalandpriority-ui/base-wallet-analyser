@@ -33,7 +33,7 @@ const user =
 j?.result?.users?.[0]
 
 if(user?.username){
-return user.username
+return "@"+user.username
 }
 
 }catch{}
@@ -60,7 +60,6 @@ clearTimeout(timeout)
 
 const j = await r.json()
 
-/* FIXED HERE */
 const users =
 j?.result?.[address]?.users ||
 j?.result?.[address.toLowerCase()]?.users ||
@@ -69,39 +68,34 @@ j?.result?.[address.toUpperCase()]?.users ||
 
 for(const user of users){
 
-/* direct username */
 if(user?.username){
-return user.username
+return "@"+user.username
 }
 
-/* custody address */
 if(
 user?.custody_address?.toLowerCase() === address
 ){
-return user.username
+return "@"+user.username
 }
 
-/* verified eth */
 const eth =
 user?.verified_addresses?.eth_addresses || []
 
 if(
 eth.some((a:string)=>a.toLowerCase()===address)
 ){
-return user.username
+return "@"+user.username
 }
 
-/* verified sol */
 const sol =
 user?.verified_addresses?.sol_addresses || []
 
 if(
 sol.some((a:string)=>a.toLowerCase()===address)
 ){
-return user.username
+return "@"+user.username
 }
 
-/* ANY address match fallback */
 const all =
 [
 ...(user?.verified_addresses?.eth_addresses || []),
@@ -112,7 +106,7 @@ user?.custody_address
 if(
 all.some((a:string)=>a.toLowerCase()===address)
 ){
-return user.username
+return "@"+user.username
 }
 
 }
@@ -135,7 +129,30 @@ return ej.name
 
 }catch{}
 
-return null
+
+/* BASE NAME fallback */
+try{
+
+const base = await fetch(
+`https://api.basenames.org/v1/resolve/${address}`
+)
+
+const bj = await base.json()
+
+if(bj?.name){
+return bj.name
+}
+
+}catch{}
+
+
+/* FINAL fallback short wallet */
+return (
+address.slice(0,6) +
+"..." +
+address.slice(-4)
+)
+
 }
 
 export async function GET(req:NextRequest){
