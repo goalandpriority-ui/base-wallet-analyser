@@ -111,24 +111,22 @@ if(w.days > 30) return "🧠 Pro"
 return ""
 }
 
-/* DISPLAY NAME */
+/* DISPLAY NAME — FIXED */
 const getName = (w:any)=>{
 
 const u = (w.username || "").trim()
 
-/* farcaster */
+/* if username exists use directly */
 if(
 u &&
 u !== "null" &&
 u !== "undefined" &&
-!u.startsWith("0x") &&
-!u.includes("...") &&
-u.length > 2
+u.length > 0
 ){
 return u
 }
 
-/* ENS */
+/* ENS fallback */
 if(
 u &&
 u.includes(".")
@@ -146,7 +144,7 @@ w.wallet.slice(-4)
 }
 
 return(
-<div style={{padding:20}}>
+<div style={{padding:20,paddingBottom:120}}>
 
 <h1 style={{fontSize:30,fontWeight:700}}>
 🏆 Leaderboard
