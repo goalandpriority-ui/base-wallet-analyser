@@ -60,7 +60,12 @@ clearTimeout(timeout)
 
 const j = await r.json()
 
-const users = j?.result?.[address] || []
+/* FIXED HERE */
+const users =
+j?.result?.[address]?.users ||
+j?.result?.[address.toLowerCase()]?.users ||
+j?.result?.[address.toUpperCase()]?.users ||
+[]
 
 for(const user of users){
 
