@@ -114,17 +114,12 @@ return ""
 /* DISPLAY NAME — API FIRST */
 const getName = (w:any)=>{
 
-/* API username priority */
 if(w.username){
 return w.username
 }
 
-/* fallback wallet */
-return (
-w.wallet.slice(0,6) +
-"..." +
-w.wallet.slice(-4)
-)
+/* FULL WALLET fallback */
+return w.wallet
 
 }
 
@@ -244,16 +239,18 @@ justifyContent:"space-between"
 <div style={{
 fontSize:15,
 fontWeight:600,
-marginTop:4
+marginTop:4,
+wordBreak:"break-all"
 }}>
 {getName(w)}
 </div>
 
 <div style={{
 fontSize:12,
-opacity:0.6
+opacity:0.6,
+wordBreak:"break-all"
 }}>
-{w.wallet.slice(0,6)}...{w.wallet.slice(-4)}
+{w.wallet}
 </div>
 
 <div style={{
@@ -310,4 +307,4 @@ borderRadius:8,
 color:"#020617",
 fontWeight:600,
 cursor:"pointer"
-}
+  }
