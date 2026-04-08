@@ -114,13 +114,18 @@ return ""
 /* DISPLAY NAME */
 const getName = (w:any)=>{
 
-if(w.username){
+if(
+w.username &&
+!w.username.startsWith("0x") &&
+!w.username.includes("...") &&
+w.username.length > 8
+){
 if(w.username.endsWith(".eth")) return w.username
 if(w.username.includes(".")) return w.username
 return "@"+w.username
 }
 
-/* fallback short wallet */
+/* fallback */
 return (
 w.wallet.slice(0,6) +
 "..." +
