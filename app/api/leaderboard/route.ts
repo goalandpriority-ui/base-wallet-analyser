@@ -8,6 +8,30 @@ async function getUsername(wallet:string){
 
 const address = wallet.toLowerCase()
 
+/* FARCASTER — search-by-address (NEW FIX) */
+try{
+
+const r = await fetch(
+`https://api.neynar.com/v2/farcaster/user/search-by-address?q=${address}`,
+{
+headers:{
+"accept":"application/json",
+"x-api-key": process.env.NEYNAR_API_KEY || ""
+}
+})
+
+const j = await r.json()
+
+const user =
+j?.result?.users?.[0]
+
+if(user?.username){
+return "@"+user.username
+}
+
+}catch{}
+
+
 /* FARCASTER (verification — primary) */
 try{
 
