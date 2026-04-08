@@ -113,9 +113,20 @@ return ""
 
 /* DISPLAY NAME */
 const getName = (w:any)=>{
-if(!w.username) return w.wallet
+
+if(w.username){
 if(w.username.endsWith(".eth")) return w.username
+if(w.username.includes(".")) return w.username
 return "@"+w.username
+}
+
+/* fallback short wallet */
+return (
+w.wallet.slice(0,6) +
+"..." +
+w.wallet.slice(-4)
+)
+
 }
 
 return(
@@ -241,10 +252,9 @@ marginTop:4
 
 <div style={{
 fontSize:12,
-opacity:0.6,
-wordBreak:"break-all"
+opacity:0.6
 }}>
-{w.wallet}
+{w.wallet.slice(0,6)}...{w.wallet.slice(-4)}
 </div>
 
 <div style={{
