@@ -7,10 +7,12 @@ export async function GET(){
 
 const supabase = getSupabase()
 
-/* wallets count */
-const { count } = await supabase
+/* wallets count (FULL COUNT FIX) */
+const { data: walletsData } = await supabase
 .from("leaderboard")
-.select("*",{count:"exact",head:true})
+.select("wallet")
+
+const wallets = walletsData?.length || 0
 
 /* total swaps */
 const { data: swapsData } = await supabase
@@ -41,10 +43,9 @@ const { data: trending } = await supabase
 .limit(5)
 
 return NextResponse.json({
-wallets: count || 0,
+wallets,
 swaps,
 volume,
 trending
 })
-
 }
