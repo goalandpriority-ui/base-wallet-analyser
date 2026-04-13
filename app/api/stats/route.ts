@@ -8,14 +8,17 @@ export async function GET(){
 const supabase = getSupabase()
 
 /* =========================
-   WALLETS COUNT (REAL FIX)
+   UNIQUE WALLETS COUNT (REAL FIX)
 ========================= */
 const { data: walletsData } = await supabase
 .from("leaderboard")
 .select("wallet")
 
-const wallets =
-walletsData?.length || 0
+const uniqueWallets = new Set(
+(walletsData || []).map((w:any)=>w.wallet.toLowerCase())
+)
+
+const wallets = uniqueWallets.size
 
 
 /* =========================
@@ -47,7 +50,7 @@ volume += Number(v.tradingvolumeusd || 0)
 
 
 /* =========================
-   TRENDING (LATEST ACTIVE)
+   TRENDING
 ========================= */
 const { data: trending } = await supabase
 .from("leaderboard")
@@ -56,32 +59,11 @@ const { data: trending } = await supabase
 .limit(5)
 
 
-/* =========================
-   EXTRA: LIVE COUNT DEBUG
-========================= */
-const fiveMinAgo =
-new Date(Date.now() - 5*60*1000).toISOString()
-
-const { data: liveNow } = await supabase
-.from("leaderboard")
-.select("wallet")
-.gte("updated_at", fiveMinAgo)
-
-const liveCount =
-liveNow?.length || 0
-
-
-/* =========================
-   RESPONSE
-========================= */
 return NextResponse.json({
 wallets,
 swaps,
 volume,
-trending,
-
-/* debug (optional but useful) */
-liveCount
+trending
 })
 
 }
