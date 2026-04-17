@@ -1,3 +1,5 @@
+app/api/top-traders/route.ts
+
 export const dynamic = "force-dynamic"
 
 import { NextRequest, NextResponse } from "next/server"
@@ -16,21 +18,37 @@ const limit = 20
 const from = (page - 1) * limit
 const to = from + limit - 1
 
-/* FIXED SORT */
-const { data } = await supabase
+/* =========================
+TOP TRADERS (LIKE VOLUME PAGE)
+SORT BY SWAPS
+========================= */
+const { data, count } = await supabase
 .from("leaderboard")
-.select("*")
-.order("swapcount", { ascending: false, nullsFirst: false })
-.range(from, to)
+.select("*",{ count:"exact" })
+.order("swapcount",{
+ascending:false,
+nullsFirst:false
+})
+.range(from,to)
 
-const mapped = (data || []).map(w => ({
+/* =========================
+MAP DATA
+========================= */
+const mapped = (data || []).map((w:any)=>({
+
 wallet: w.wallet,
 score: Number(w.score || 0),
 swaps: Number(w.swapcount || 0),
 volume: Number(w.tradingvolumeusd || 0),
+days: Number(w.tradingdays || 0),
+gas: Number(w.tradinggaseth || 0),
 paid: w.paid || false
+
 }))
 
+/* =========================
+YOUR RANK
+========================= */
 let yourRank = null
 
 if(wallet){
@@ -38,19 +56,31 @@ if(wallet){
 const { data: all } = await supabase
 .from("leaderboard")
 .select("wallet,swapcount")
-.order("swapcount",{ascending:false, nullsFirst:false})
+.order("swapcount",{
+ascending:false,
+nullsFirst:false
+})
 
-const i = all?.findIndex(
-w => w.wallet.toLowerCase() === wallet.toLowerCase()
+const index = all?.findIndex(
+(w:any)=>
+w.wallet?.toLowerCase() === wallet.toLowerCase()
 )
 
-if(i !== -1) yourRank = i + 1
+if(index !== -1){
+yourRank = index + 1
+}
 
 }
 
+/* =========================
+RETURN
+========================= */
 return NextResponse.json({
 data: mapped,
-yourRank
+yourRank,
+total: count,
+page,
+hasMore: (count || 0) > to + 1
 })
 
 }
