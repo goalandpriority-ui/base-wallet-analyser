@@ -1,5 +1,3 @@
-app/api/top-traders/route.ts
-
 export const dynamic = "force-dynamic"
 
 import { NextRequest, NextResponse } from "next/server"
