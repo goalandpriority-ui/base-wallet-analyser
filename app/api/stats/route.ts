@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 import { NextResponse } from "next/server"
 import { getSupabase } from "@/lib/supabase"
@@ -16,10 +17,15 @@ const limit = 1000
 
 while(true){
 
-const { data } = await supabase
+const { data,error } = await supabase
 .from("leaderboard")
 .select("wallet")
 .range(from, from + limit - 1)
+
+if(error){
+console.error("wallet fetch error",error)
+break
+}
 
 if(!data || data.length === 0) break
 
@@ -35,8 +41,8 @@ from += limit
 ========================= */
 const uniqueWallets = new Set(
 (allWallets || [])
-.filter(w => w?.wallet)
-.map((w:any)=>w.wallet.toLowerCase())
+.filter((w:any)=>w?.wallet)
+.map((w:any)=>String(w.wallet).toLowerCase().trim())
 )
 
 const wallets = uniqueWallets.size
@@ -50,10 +56,15 @@ from = 0
 
 while(true){
 
-const { data } = await supabase
+const { data,error } = await supabase
 .from("leaderboard")
 .select("swapcount")
 .range(from, from + limit - 1)
+
+if(error){
+console.error("swap fetch error",error)
+break
+}
 
 if(!data || data.length === 0) break
 
@@ -66,8 +77,8 @@ from += limit
 
 let swaps = 0
 
-for(const w of allSwaps){
-swaps += Number(w.swapcount || 0)
+for(const w of allSwaps || []){
+swaps += Number(w?.swapcount || 0)
 }
 
 
@@ -79,10 +90,15 @@ from = 0
 
 while(true){
 
-const { data } = await supabase
+const { data,error } = await supabase
 .from("leaderboard")
 .select("tradingvolumeusd")
 .range(from, from + limit - 1)
+
+if(error){
+console.error("volume fetch error",error)
+break
+}
 
 if(!data || data.length === 0) break
 
@@ -95,8 +111,8 @@ from += limit
 
 let volume = 0
 
-for(const v of allVolume){
-volume += Number(v.tradingvolumeusd || 0)
+for(const v of allVolume || []){
+volume += Number(v?.tradingvolumeusd || 0)
 }
 
 
@@ -111,13 +127,20 @@ const { data: trending } = await supabase
 
 
 /* =========================
-   RESPONSE
+   RESPONSE + CACHE FIX
 ========================= */
-return NextResponse.json({
+return NextResponse.json(
+{
 wallets,
 swaps,
 volume,
 trending
-})
+},
+{
+headers:{
+"Cache-Control":"no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"
+}
+}
+)
 
 }
