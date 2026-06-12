@@ -3,219 +3,166 @@ import axios from "axios"
 import { getSupabase } from "@/lib/supabase"
 
 const RPC =
-process.env.BASE_RPC ||
-`https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
+  process.env.BASE_RPC ||
+  `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
 
-const rpc = axios.create({
-baseURL: RPC,
-timeout: 10000
-})
+const rpc = axios.create({ baseURL: RPC, timeout: 15000 })
 
-/* GET USERNAME */
-async function getUsername(wallet:string){
+/* GET FARCASTER / ENS USERNAME */
+async function getUsername(wallet: string) {
+  try {
+    const fc = await fetch(
+      `https://api.neynar.com/v2/farcaster/user/bulk-by-address?addresses=${wallet}`,
+      { headers: { api_key: process.env.NEYNAR_API_KEY || "" } }
+    )
+    const fcJson = await fc.json()
+    const user = fcJson?.result?.[wallet.toLowerCase()]?.[0]
+    if (user) {
+      return {
+        username: user.username,
+        display: user.display_name,
+        pfp: user.pfp_url,
+      }
+    }
+  } catch {}
 
-try{
+  try {
+    const ens = await fetch(`https://api.ensideas.com/ens/resolve/${wallet}`)
+    const ensJson = await ens.json()
+    if (ensJson?.name) {
+      return { username: ensJson.name, display: ensJson.name, pfp: null }
+    }
+  } catch {}
 
-const fc = await fetch(
-`https://api.neynar.com/v2/farcaster/user/bulk-by-address?addresses=${wallet}`,
-{
-headers:{
-"api_key":process.env.NEYNAR_API_KEY || ""
-}
-}
-)
-
-const fcJson = await fc.json()
-
-const user =
-fcJson?.result?.[wallet?.toLowerCase()]?.[0]
-
-if(user){
-return {
-username:user.username,
-display:user.display_name,
-pfp:user.pfp_url
-}
-}
-
-}catch{}
-
-try{
-
-const ens = await fetch(
-`https://api.ensideas.com/ens/resolve/${wallet}`
-)
-
-const ensJson = await ens.json()
-
-if(ensJson?.name){
-return {
-username:ensJson.name,
-display:ensJson.name,
-pfp:null
-}
+  return { username: null, display: null, pfp: null }
 }
 
-}catch{}
+export async function POST(req: NextRequest) {
+  try {
+    const supabase = getSupabase()
+    const { wallet } = await req.json()
 
-return {
-username:null,
-display:null,
-pfp:null
-}
+    if (!wallet) {
+      return NextResponse.json({ error: "Wallet required" }, { status: 400 })
+    }
 
-}
+    const address = wallet.toLowerCase().trim()
 
-export async function POST(req: NextRequest){
+    // Fetch username in parallel with transfers
+    const usernamePromise = getUsername(address)
 
-try{
+    let allTransfers: any[] = []
+    let pageKey: string | undefined = undefined
+    const seen = new Set<string>()
 
-const supabase = getSupabase()
+    // Fetch all outgoing transfers (paginated)
+    do {
+      const res = await rpc.post("", {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "alchemy_getAssetTransfers",
+        params: [
+          {
+            fromBlock: "0x0",
+            toBlock: "latest",
+            fromAddress: address,
+            category: ["external", "erc20"],
+            withMetadata: true,
+            excludeZeroValue: true,
+            maxCount: "0x3e8",
+            pageKey,
+          },
+        ],
+      })
 
-const { wallet } = await req.json()
+      const result = res?.data?.result
 
-if(!wallet){
-return NextResponse.json({ error:"Wallet required" })
-}
+      if (result?.transfers?.length) {
+        for (const tx of result.transfers) {
+          const key = tx.uniqueId || tx.hash
+          if (!seen.has(key)) {
+            seen.add(key)
+            allTransfers.push(tx)
+          }
+        }
+      }
 
-const address = wallet.toLowerCase().trim()
+      pageKey = result?.pageKey
+      if (!pageKey) break
+      if (allTransfers.length > 10000) break
+    } while (true)
 
-/* username */
-const user = await getUsername(address)
+    // Calculate stats
+    let totalTxns = allTransfers.length
+    let totalVolumeETH = 0
+    let totalGasETH = 0
+    const days = new Set<string>()
 
-let allTransfers:any[] = []
-let pageKey:string | undefined = undefined
-let seen = new Set<string>()
+    for (const tx of allTransfers) {
+      const value = parseFloat(tx?.value || "0")
+      const asset = (tx?.asset || "").toUpperCase()
 
-do{
+      if (!isNaN(value) && value > 0) {
+        if (asset === "ETH" || asset === "WETH") {
+          totalVolumeETH += value
+        }
+        if (asset === "USDC" || asset === "USDT") {
+          totalVolumeETH += value / 3000
+        }
+      }
 
-const res = await rpc.post("",{
-jsonrpc:"2.0",
-id:1,
-method:"alchemy_getAssetTransfers",
-params:[
-{
-fromBlock:"0x0",
-toBlock:"latest",
-fromAddress:address,
-category:["external","erc20"],
-withMetadata:true,
-maxCount:"0x3e8",
-pageKey
-}
-]
-})
+      // Estimate gas (0.0000025 ETH avg per tx on Base)
+      totalGasETH += 0.0000025
 
-const result = res?.data?.result
+      if (tx?.metadata?.blockTimestamp) {
+        const d = new Date(tx.metadata.blockTimestamp).toISOString().split("T")[0]
+        days.add(d)
+      }
+    }
 
-if(result?.transfers?.length){
+    const activeDays = days.size
+    const score =
+      totalTxns * 5 +
+      activeDays * 10 +
+      totalVolumeETH * 100
 
-for(const tx of result.transfers){
+    const user = await usernamePromise
 
-const hash =
-(tx.hash || "") +
-(tx.uniqueId || "") +
-(tx.metadata?.blockTimestamp || "")
+    // Save to leaderboard
+    await supabase.from("leaderboard").upsert(
+      {
+        wallet: address,
+        score: Math.round(score),
+        swapcount: totalTxns,
+        tradingvolumeusd: Math.round(totalVolumeETH * 3000),
+        tradinggaseth: Number(totalGasETH.toFixed(6)),
+        tradingdays: activeDays,
+        username: user.username,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "wallet" }
+    )
 
-if(!seen.has(hash)){
-seen.add(hash)
-allTransfers.push(tx)
-}
+    return NextResponse.json({
+      wallet: address,
+      username: user.username,
+      display: user.display,
+      pfp: user.pfp,
+      totalTxns,
+      totalVolumeETH: Number(totalVolumeETH.toFixed(4)),
+      totalGasETH: Number(totalGasETH.toFixed(6)),
+      activeDays,
+      score: Math.round(score),
+    })
 
-}
-
-}
-
-pageKey = result?.pageKey
-
-if(!pageKey) break
-if(allTransfers.length > 10000) break
-
-}while(true)
-
-/* totals */
-let totalTxns = allTransfers.length
-let totalVolumeETH = 0
-let totalGasETH = 0
-const days = new Set<string>()
-
-for(const tx of allTransfers){
-
-const value = parseFloat(tx?.value || "0")
-const asset = (tx?.asset || "").toUpperCase()
-
-if(!isNaN(value) && value > 0){
-
-if(asset === "ETH" || asset === "WETH"){
-totalVolumeETH += value
-}
-
-if(asset === "USDC" || asset === "USDT"){
-totalVolumeETH += value / 3000
-}
-
-}
-
-totalGasETH += 0.0000025
-
-if(tx?.metadata?.blockTimestamp){
-
-const d = new Date(tx.metadata.blockTimestamp)
-.toISOString()
-.split("T")[0]
-
-days.add(d)
-
-}
-
-}
-
-/* SCORE */
-const score =
-(totalTxns * 5) +
-(days.size * 10) +
-(totalVolumeETH * 100)
-
-/* SAVE TO LEADERBOARD */
-await supabase
-.from("leaderboard")
-.upsert({
-wallet: address,
-score: Math.round(score),
-swapcount: totalTxns,
-tradingvolumeusd: Math.round(totalVolumeETH * 3000),
-tradinggaseth: Number(totalGasETH.toFixed(6)),
-tradingdays: days.size,
-username: user.username,
-updated_at: new Date().toISOString()
-},{
-onConflict:"wallet"
-})
-
-return NextResponse.json({
-wallet: address,
-username:user.username,
-display:user.display,
-pfp:user.pfp,
-totalTxns,
-totalVolumeETH:Number(totalVolumeETH.toFixed(4)),
-totalGasETH:Number(totalGasETH.toFixed(6)),
-activeDays:days.size,
-score:Math.round(score)
-})
-
-}catch(err){
-
-console.error("analyse error",err)
-
-return NextResponse.json({
-totalTxns:0,
-totalVolumeETH:0,
-totalGasETH:0,
-activeDays:0,
-score:0
-})
-
-}
-
+  } catch (err) {
+    console.error("analyse error", err)
+    return NextResponse.json({
+      totalTxns: 0,
+      totalVolumeETH: 0,
+      totalGasETH: 0,
+      activeDays: 0,
+      score: 0,
+    })
+  }
 }
